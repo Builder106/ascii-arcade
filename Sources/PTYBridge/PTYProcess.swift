@@ -20,6 +20,13 @@ public final class PTYProcess {
 		}
 	}
 
+	public func resize(columns: Int32, rows: Int32) {
+		var win = winsize(ws_row: UInt16(rows), ws_col: UInt16(columns), ws_xpixel: 0, ws_ypixel: 0)
+		_ = withUnsafeMutablePointer(to: &win) { p in
+			ioctl(masterFD, TIOCSWINSZ, p)
+		}
+	}
+
 	public func terminate() {
 		if childPID > 0 {
 			kill(childPID, SIGTERM)

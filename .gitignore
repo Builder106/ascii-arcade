@@ -1,1 +1,17 @@
+# OS
+.DS_Store
+
+# Swift
 .build/
+.swiftpm/
+
+# DOOM data files (vendor-licensed; keep local)
+wad/*.wad
+bin/
+
+# Vendored upstream — checked out via scripts/setup.sh
+doom-ascii/
+
+# Runtime
+logs/
+.savegame/

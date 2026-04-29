@@ -1,6 +1,7 @@
 import Vapor
 import Foundation
 import PTYBridge
+import NIOCore
 
 private func resolveDoomAsciiPath(req: Request) -> String? {
 	let env = ProcessInfo.processInfo.environment
@@ -9,6 +10,32 @@ private func resolveDoomAsciiPath(req: Request) -> String? {
 	if FileManager.default.isExecutableFile(atPath: local) { return local }
 	let usr = "/usr/local/bin/doom_ascii"
 	if FileManager.default.isExecutableFile(atPath: usr) { return usr }
+	return nil
+}
+
+private func resolveIwad(req: Request) -> (iwadPath: String, dirForEnv: String)? {
+	let fm = FileManager.default
+	let env = ProcessInfo.processInfo.environment
+
+	var searchDirs: [String] = []
+	if let wadDir = env["DOOM_WAD_DIR"], !wadDir.isEmpty { searchDirs.append(wadDir) }
+	searchDirs.append(req.application.directory.workingDirectory + "wad")
+	searchDirs.append("/opt/homebrew/share/games/doom")
+	searchDirs.append("/usr/local/share/games/doom")
+	searchDirs.append("/usr/share/games/doom")
+
+	let iwadCandidates = [
+		"doom.wad","doom1.wad","doom2.wad",
+		"plutonia.wad","tnt.wad",
+		"chex.wad","hacx.wad",
+		"freedoom1.wad","freedoom2.wad","freedoom.wad","freedm.wad"
+	]
+	for dir in searchDirs {
+		for name in iwadCandidates {
+			let full = (dir as NSString).appendingPathComponent(name)
+			if fm.fileExists(atPath: full) { return (full, dir) }
+		}
+	}
 	return nil
 }
 
@@ -24,10 +51,17 @@ public func routes(_ app: Application) throws {
 			return
 		}
 		var env = ProcessInfo.processInfo.environment
-		if let wad = env["DOOM_WAD_DIR"] { env["DOOMWADDIR"] = wad }
+		if let wad = env["DOOM_WAD_DIR"], !wad.isEmpty { env["DOOMWADDIR"] = wad }
+
+		var args: [String] = ["-chars","block"]
+		if let (iwadPath, dir) = resolveIwad(req: req) {
+			args += ["-iwad", iwadPath]
+			env["DOOMWADDIR"] = dir
+		}
+
 		let builder = PTYProcessBuilder(
 			launchPath: path,
-			arguments: ["-chars", "block"],
+			arguments: args,
 			environment: env
 		)
 		let proc: PTYProcess
@@ -38,13 +72,23 @@ public func routes(_ app: Application) throws {
 			return
 		}
 
+		let allocator = ByteBufferAllocator()
 		proc.onOutput { data in
-			if let s = String(data: data, encoding: .utf8) {
-				ws.send(s)
-			}
+			var buf = allocator.buffer(capacity: data.count)
+			buf.writeBytes(data)
+			ws.send(raw: buf.readableBytesView, opcode: .binary)
 		}
 
 		ws.onText { ws, text in
+			if text.hasPrefix("__resize__:") {
+				let json = String(text.dropFirst("__resize__:".count))
+				if let data = json.data(using: .utf8), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+					let cols = (obj["cols"] as? Int) ?? 100
+					let rows = (obj["rows"] as? Int) ?? 40
+					proc.resize(columns: Int32(cols), rows: Int32(rows))
+				}
+				return
+			}
 			proc.send(data: Data(text.utf8))
 		}
 

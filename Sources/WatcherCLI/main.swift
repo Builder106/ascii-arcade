@@ -3,8 +3,12 @@ import ApplicationServices
 import Hotword
 
 final class ServerManager {
-	private let url = URL(string: "http://127.0.0.1:8787/")!
 	private var serverProcess: Process?
+
+	private var baseURLString: String {
+		let port = ProcessInfo.processInfo.environment["DOOM_PORT"] ?? ProcessInfo.processInfo.environment["PORT"] ?? "8787"
+		return "http://127.0.0.1:\(port)/"
+	}
 
 	func ensureServerRunning() {
 		if isServerUp() { return }
@@ -14,6 +18,7 @@ final class ServerManager {
 	private func isServerUp() -> Bool {
 		let semaphore = DispatchSemaphore(value: 0)
 		var ok = false
+		guard let url = URL(string: baseURLString) else { return false }
 		var request = URLRequest(url: url)
 		request.timeoutInterval = 0.5
 		let task = URLSession.shared.dataTask(with: request) { _, response, _ in
@@ -29,18 +34,33 @@ final class ServerManager {
 		let fm = FileManager.default
 		let candidates = ["/usr/local/bin/doom-server", fm.currentDirectoryPath + "/.build/release/Server", fm.currentDirectoryPath + "/.build/debug/Server"]
 		guard let path = candidates.first(where: { fm.isExecutableFile(atPath: $0) }) else { return }
+		var env = ProcessInfo.processInfo.environment
+		if env["DOOM_PORT"] == nil && env["PORT"] == nil {
+			env["DOOM_PORT"] = "8787"
+		}
 		let p = Process()
 		p.executableURL = URL(fileURLWithPath: path)
 		p.standardOutput = FileHandle.nullDevice
 		p.standardError = FileHandle.nullDevice
+		p.environment = env
 		try? p.run()
 		serverProcess = p
 	}
 
 	func showWallpaper() {
+		let fm = FileManager.default
+		let plashApp = "/Applications/Plash.app"
+		let urlString = baseURLString
+		if fm.fileExists(atPath: plashApp) {
+			let proc = Process()
+			proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+			proc.arguments = ["-g", "plash:///add?url=\(urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? urlString)"]
+			try? proc.run()
+			return
+		}
 		let proc = Process()
 		proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-		proc.arguments = ["-g", "http://127.0.0.1:8787/"]
+		proc.arguments = ["-g", urlString]
 		try? proc.run()
 	}
 }
