@@ -13,9 +13,9 @@ concurrency:
 jobs:
   build-test:
     name: Build & test (macOS)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Show Swift version
         run: swift --version
@@ -28,9 +28,9 @@ jobs:
 
   doom-binary:
     name: Build vendored doom_ascii
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Ensures scripts/setup.sh still clones + compiles the (GPL) doom_ascii
       # upstream. The wallpaper app needs this binary at runtime; CI just proves
