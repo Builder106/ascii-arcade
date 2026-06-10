@@ -4,6 +4,20 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-06-10 — Pushed public + CI toolchain mismatch #milestone #incident #decision
+
+Pushed to https://github.com/Builder106/ascii-arcade (public; description + 11
+topics) and added a 1200×630 social-preview card. The first CI run failed on a
+real toolchain mismatch: the macos-14 runner ships Swift 5.10, which can't read
+the `Package.resolved` (format v3) my local Swift 6.3 wrote — so it discarded the
+pin and re-resolved to the latest Vapor (4.121.4), which itself requires Swift
+tools 6.0 → `error: using Swift tools version 6.0.0 but the installed version is
+5.10.0`. Fixed by moving CI to `macos-15` (Xcode 16 / Swift 6) to match the
+committed pin, and bumped `actions/checkout` v4→v5 to clear the Node 20
+deprecation. Takeaway: **this project now requires a Swift 6 toolchain** because
+the committed Vapor pin (4.121.4) declares tools 6.0 — worth stating in the
+README's build requirements if older toolchains need support.
+
 ## 2026-06-10 — Scaffolded the repo baseline #milestone #incident
 
 Added the storefront baseline: hand-authored SVG banner (light/dark, 1200×420)

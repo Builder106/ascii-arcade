@@ -56,7 +56,8 @@ Forwarded to `doom_ascii` while DOOM is the active wallpaper (toggle with
 
 ## Build & run
 
-Requires macOS 13+ and a Swift toolchain.
+Requires macOS 13+ and a Swift 6 toolchain (Xcode 16+) — the pinned Vapor
+release declares Swift tools 6.0.
 
 ```bash
 # 1. Build the vendored doom_ascii binary into ./bin (doom-ascii is GPL; fetched, not vendored)
