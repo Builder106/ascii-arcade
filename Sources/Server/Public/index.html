@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>DOOM ASCII</title>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+	<style>
+		html, body { height: 100%; margin: 0; background: #000; }
+		#terminal { height: 100%; width: 100%; }
+	</style>
+</head>
+<body>
+	<div id="terminal"></div>
+	<script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit/lib/xterm-addon-fit.min.js"></script>
+	<script>
+		const term = new window.Terminal({
+			fontFamily: 'Menlo, monospace',
+			fontSize: 14,
+			lineHeight: 1.0,
+			cursorBlink: true,
+			convertEol: true,
+			rendererType: 'canvas',
+			scrollback: 0,
+			disableStdin: false,
+			theme: { background: '#000000', foreground: '#EEEEEE' }
+		});
+		const fitAddon = new window.FitAddon.FitAddon();
+		term.loadAddon(fitAddon);
+		term.open(document.getElementById('terminal'));
+		fitAddon.fit();
+
+		const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+		const ws = new WebSocket(`${proto}://${location.host}/ws/doom`);
+		ws.binaryType = 'arraybuffer';
+
+		const decoder = new TextDecoder('utf-8');
+		let writeQueue = '';
+		let writing = false;
+		function pump() {
+			if (writing || writeQueue.length === 0) return;
+			writing = true;
+			const chunk = writeQueue.slice(0, 8192);
+			writeQueue = writeQueue.slice(8192);
+			term.write(chunk, () => { writing = false; pump(); });
+		}
+
+		ws.onmessage = (ev) => {
+			if (ev.data instanceof ArrayBuffer) {
+				writeQueue += decoder.decode(new Uint8Array(ev.data), { stream: true });
+				pump();
+			} else if (typeof ev.data === 'string') {
+				writeQueue += ev.data;
+				pump();
+			}
+		};
+		term.onData(data => ws.send(data));
+
+		function sendSize() {
+			fitAddon.fit();
+			const dims = term._core?._renderService?._renderer?._dimensions;
+			const cellWidth = dims?.actualCellWidth || 9;
+			const cellHeight = dims?.actualCellHeight || 18;
+			const cols = Math.max(40, Math.floor(term.element.clientWidth / cellWidth));
+			const rows = Math.max(20, Math.floor(term.element.clientHeight / cellHeight));
+			ws.send(`__resize__:${JSON.stringify({ cols, rows })}`);
+		}
+		ws.onopen = () => { sendSize(); setTimeout(sendSize, 200); };
+		window.addEventListener('resize', () => sendSize());
+	</script>
+</body>
+</html>

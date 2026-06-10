@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Reference template only. scripts/install_agent.sh generates the real plist
+     with this checkout's absolute paths and installs it into ~/Library/LaunchAgents.
+     Replace __ROOT__ with the repo's absolute path if installing by hand. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>net.local.ascii-arcade-watcher</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__ROOT__/.build/release/WatcherCLI</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>DOOM_WAD_DIR</key>
+		<string>__ROOT__/wad</string>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>__ROOT__/logs/ascii-arcade-watcher.out</string>
+	<key>StandardErrorPath</key>
+	<string>__ROOT__/logs/ascii-arcade-watcher.err</string>
+</dict>
+</plist>
