@@ -19,13 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Third-party components:
-
-- doom_ascii (https://github.com/wojciech-graj/doom-ascii) is licensed under
-  GPL-2.0. It is fetched and compiled by scripts/setup.sh and is NOT included
-  in this repository. The id Software DOOM source it builds on is also GPL.
-- The bundled Freedoom IWADs in wad/ (https://freedoom.github.io/) are licensed
-  under the BSD 3-Clause license.
