@@ -110,16 +110,16 @@ GIF for embedding here.
 
 ```mermaid
 flowchart LR
-    Menu["Menu bar ◎\n(scene + theme)"] --> View
+    Menu["Menu bar ◎<br/>scene + theme"] --> View
     Keys["Global key monitor"] -->|DOOM active| View
-    subgraph App["AsciiArcade (desktop-level window)"]
-        View["SceneView\nCRT text drawing"]
+    subgraph App["AsciiArcade desktop-level window"]
+        View["SceneView<br/>CRT text drawing"]
     end
-    View -->|frame(atTime:)| Scene{AsciiScene}
-    Scene -->|donut / helix| Gen["ShapeFrameGenerator\n(pure math)"]
+    View -->|each frame| Scene{AsciiScene}
+    Scene -->|donut or helix| Gen["ShapeFrameGenerator<br/>pure math"]
     Scene -->|DOOM| Doom["DoomScene"]
-    Doom -->|spawn + keys| PTY["PTYProcess\n→ doom_ascii"]
-    PTY -->|ANSI stream| Buf["DoomScreenBuffer\n(parse → char grid)"]
+    Doom -->|spawn + keys| PTY["PTYProcess<br/>doom_ascii"]
+    PTY -->|ANSI stream| Buf["DoomScreenBuffer<br/>parse to char grid"]
     Buf -->|snapshot| Doom
 ```
 
