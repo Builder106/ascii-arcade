@@ -1,0 +1,17 @@
+{
+  "name": "ascii-arcade-e2e",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Playwright-BDD demo suite that records the browser-DOOM bonus surface.",
+  "type": "module",
+  "scripts": {
+    "bddgen": "bddgen --config playwright.demo.config.ts",
+    "demo": "bddgen --config playwright.demo.config.ts && DEMO=1 playwright test --config playwright.demo.config.ts",
+    "postinstall": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "playwright": "^1.55.0",
+    "playwright-bdd": "^9.0.0"
+  }
+}

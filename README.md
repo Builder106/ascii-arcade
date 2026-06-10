@@ -1,4 +1,17 @@
-# ASCII Arcade
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)"  srcset="assets/banner-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/banner-light.svg">
+    <img alt="ASCII Arcade — live ASCII wallpapers for macOS" src="assets/banner-dark.svg" width="100%">
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://swift.org"><img alt="Swift" src="https://img.shields.io/badge/Swift-5.10%2B-orange.svg"></a>
+  <img alt="Platform" src="https://img.shields.io/badge/macOS-13%2B-black.svg">
+  <a href="#license"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+</p>
 
 A macOS live-wallpaper customizer that renders ASCII scenes as your desktop
 background. Pick a spinning [Andy Sloane donut](https://www.a1k0n.net/2011/07/20/donut-math.html),
@@ -70,6 +83,27 @@ DOOM_PORT=8787 swift run Server   # http://127.0.0.1:8787
 
 Optionally, `scripts/install_agent.sh` installs a LaunchAgent that watches for the
 hotword `doom` typed anywhere and pops the browser DOOM up automatically.
+
+## Demo
+
+<details>
+<summary>Browser DOOM walkthrough</summary>
+
+The browser surface has an automated [playwright-bdd demo suite](e2e/) that boots
+the server, plays DOOM, and records a video:
+
+```bash
+cd e2e && npm install && npm run demo   # writes e2e/recordings/*.mp4
+```
+
+See [e2e/README.md](e2e/README.md) for tuning and how to convert a recording to a
+GIF for embedding here.
+
+</details>
+
+> The wallpaper scenes (donut / helix / DOOM on the desktop) are a borderless
+> desktop-level overlay, so they're captured with a manual screen recording rather
+> than a headless browser — drop those clips under `assets/` and embed them here.
 
 ## How it works
 

@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build & test (macOS)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test
+
+  doom-binary:
+    name: Build vendored doom_ascii
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      # Ensures scripts/setup.sh still clones + compiles the (GPL) doom_ascii
+      # upstream. The wallpaper app needs this binary at runtime; CI just proves
+      # the fetch/build path hasn't rotted.
+      - name: Run setup.sh
+        run: ./scripts/setup.sh
+
+      - name: Verify binary
+        run: test -x bin/doom_ascii && file bin/doom_ascii

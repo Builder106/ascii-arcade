@@ -4,6 +4,19 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-06-10 — Scaffolded the repo baseline #milestone #incident
+
+Added the storefront baseline: hand-authored SVG banner (light/dark, 1200×420)
+with PNG fallbacks, a phosphor-donut logo + apple-touch-icon, shields.io badges,
+a macOS CI workflow (build+test, plus a job proving setup.sh still builds
+doom_ascii), and a playwright-bdd demo suite for the browser-DOOM surface. Two
+environment gotchas surfaced while validating the demo: SwiftPM's package cache
+breaks under a global git `safe.bareRepository=explicit` (worked around with a
+`GIT_CONFIG_*` env override), and SwiftPM's `build.db` throws `disk I/O error`
+on this Google-Drive-synced checkout — recording the live demo needs a
+local-disk clone. The scaffold is validated (`bddgen` generates the specs); the
+live capture is left to the user on local disk.
+
 ## 2026-06-10 — Merged donut + DOOM into ascii-arcade #milestone #decision
 
 Combined the two sibling projects into one repo with `git subtree` so both
