@@ -1,6 +1,7 @@
 import AppKit
 import CoreVideo
 import CoreText
+import ServiceManagement
 import AsciiArcadeCore
 
 struct Theme {
@@ -214,6 +215,19 @@ final class SceneView: NSView {
         needsDisplay = true
     }
 
+    /// Replay persisted per-scene setting choices onto the right scene instances
+    /// at launch. `selections` maps scene index → (settingId → chosen option index).
+    func applyPersistedSettings(_ selections: [Int: [String: Int]]) {
+        for (sceneIndex, chosen) in selections where sceneIndex >= 0 && sceneIndex < scenes.count {
+            let scene = scenes[sceneIndex]
+            for setting in scene.settings {
+                if let optIndex = chosen[setting.id], optIndex >= 0, optIndex < setting.options.count {
+                    scene.applySetting(id: setting.id, value: setting.options[optIndex].value)
+                }
+            }
+        }
+    }
+
     override func layout() {
         super.layout()
         updateScanlines()
@@ -403,6 +417,16 @@ func doomBytes(for event: NSEvent) -> [UInt8]? {
 
 // MARK: - App Delegate
 
+/// Everything we remember across launches, stored as JSON in `UserDefaults`.
+struct PersistedState: Codable {
+    var sceneIndex: Int
+    var themeIndex: Int
+    var captureKeysForDoom: Bool
+    var idleAutoCycle: Bool
+    /// scene index (as String for JSON) → (settingId → chosen option index).
+    var sceneSettings: [String: [String: Int]]
+}
+
 /// Carried on each scene-setting menu item so the action knows what to apply.
 final class SettingChoice {
     let settingId: String
@@ -448,6 +472,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // Restore remembered scene / theme / settings from a previous run.
+        let restored = loadState()
+        if let s = restored {
+            currentSceneIndex = min(max(0, s.sceneIndex), sceneNames.count - 1)
+            currentThemeIndex = min(max(0, s.themeIndex), availableThemes.count - 1)
+            captureKeysForDoom = s.captureKeysForDoom
+            idleAutoCycle = s.idleAutoCycle
+            sceneSettingSelections = Dictionary(uniqueKeysWithValues:
+                s.sceneSettings.compactMap { key, val in Int(key).map { ($0, val) } })
+        }
+
         for screen in NSScreen.screens {
             let window = DesktopSceneWindow(screen: screen)
             let view = SceneView(frame: window.contentView!.bounds, scenes: makeScenes())
@@ -457,9 +492,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.orderBack(nil)
             windows.append(window)
             views.append(view)
+            // Apply remembered per-scene settings before the scene starts.
+            view.applyPersistedSettings(sceneSettingSelections)
+            view.applyTheme(availableThemes[currentThemeIndex])
+            view.selectScene(currentSceneIndex)
         }
 
         setupStatusItem()
+
+        // Returning users get their theme's wallpaper back; first run leaves the
+        // existing desktop untouched until a theme is picked.
+        if restored != nil, let url = solidColorWallpaperURL(availableThemes[currentThemeIndex].backgroundColor) {
+            for screen in NSScreen.screens { setWallpaper(url, for: screen) }
+        }
 
         let axOptions = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         AXIsProcessTrustedWithOptions(axOptions)
@@ -587,6 +632,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         idleItem.state = idleAutoCycle ? .on : .off
         menu.addItem(idleItem)
 
+        let loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin(_:)), keyEquivalent: "")
+        loginItem.target = self
+        loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        menu.addItem(loginItem)
+
         menu.addItem(.separator())
         let themeHeader = NSMenuItem(title: "Theme", action: nil, keyEquivalent: "")
         themeHeader.isEnabled = false
@@ -645,6 +695,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sceneSettingSelections[currentSceneIndex] = selections
         for view in views { view.applySettingToCurrentScene(id: choice.settingId, value: choice.value) }
         rebuildSettingsMenu()
+        saveState()
     }
 
     @objc func toggleIdleAutoCycle(_ sender: NSMenuItem) {
@@ -653,6 +704,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !idleAutoCycle, wasIdle {
             wasIdle = false
             selectScene(preIdleSceneIndex)
+        }
+        saveState()
+    }
+
+    @objc func toggleLaunchAtLogin(_ sender: NSMenuItem) {
+        do {
+            if SMAppService.mainApp.status == .enabled {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            NSLog("ASCII Arcade: launch-at-login toggle failed: \(error.localizedDescription)")
+        }
+        sender.state = SMAppService.mainApp.status == .enabled ? .on : .off
+    }
+
+    // MARK: - Persistence
+
+    private let stateKey = "AsciiArcadeState"
+
+    private func loadState() -> PersistedState? {
+        guard let data = UserDefaults.standard.data(forKey: stateKey) else { return nil }
+        return try? JSONDecoder().decode(PersistedState.self, from: data)
+    }
+
+    private func saveState() {
+        let sceneSettings = Dictionary(uniqueKeysWithValues:
+            sceneSettingSelections.map { (String($0.key), $0.value) })
+        let state = PersistedState(
+            sceneIndex: currentSceneIndex,
+            themeIndex: currentThemeIndex,
+            captureKeysForDoom: captureKeysForDoom,
+            idleAutoCycle: idleAutoCycle,
+            sceneSettings: sceneSettings)
+        if let data = try? JSONEncoder().encode(state) {
+            UserDefaults.standard.set(data, forKey: stateKey)
         }
     }
 
@@ -666,6 +754,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for view in views { view.selectScene(index) }
         updateMenuSceneCheckmarks()
         rebuildSettingsMenu()
+        saveState()
     }
 
     @objc func cycleScenes() {
@@ -675,6 +764,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleCapture(_ sender: NSMenuItem) {
         captureKeysForDoom.toggle()
         sender.state = captureKeysForDoom ? .on : .off
+        saveState()
     }
 
     @objc func selectTheme(_ sender: NSMenuItem) {
@@ -685,6 +775,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             for screen in NSScreen.screens { setWallpaper(url, for: screen) }
         }
         updateMenuThemeCheckmarks()
+        saveState()
     }
 
     private func updateMenuSceneCheckmarks() {
