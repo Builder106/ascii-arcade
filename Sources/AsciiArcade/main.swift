@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import CoreVideo
 import CoreText
 import ServiceManagement
@@ -427,6 +428,138 @@ struct PersistedState: Codable {
     var sceneSettings: [String: [String: Int]]
 }
 
+// MARK: - Screen recording
+
+/// Captures the app's window backing store frame by frame and writes an MP4.
+/// All mutable state lives on `queue`; completions are dispatched to main.
+final class ScreenRecorder {
+    private let queue = DispatchQueue(label: "com.builder106.ascii-arcade.recorder", qos: .userInitiated)
+    private var writer: AVAssetWriter?
+    private var writerInput: AVAssetWriterInput?
+    private var adaptor: AVAssetWriterInputPixelBufferAdaptor?
+    private var captureTimer: DispatchSourceTimer?
+    private var frameCount = 0
+    private var captureWindowID: CGWindowID = 0
+    private var pendingCompletion: ((Result<URL, Error>) -> Void)?
+    private var pendingURL: URL?
+    private(set) var isRecording = false
+
+    private static let fps = 15
+    private static let durationSec = 3
+
+    func start(windowID: CGWindowID, completion: @escaping (Result<URL, Error>) -> Void) {
+        queue.async { [self] in
+            guard !isRecording else { return }
+            isRecording = true
+            captureWindowID = windowID
+            pendingCompletion = completion
+            frameCount = 0
+
+            let ts = Int(Date().timeIntervalSince1970)
+            let url = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Desktop/ASCII-Arcade-\(ts).mp4")
+            pendingURL = url
+
+            guard let seed = snapshot() else {
+                isRecording = false
+                DispatchQueue.main.async { completion(.failure(RecErr.capture)) }
+                return
+            }
+
+            do {
+                try? FileManager.default.removeItem(at: url)
+                let aw = try AVAssetWriter(outputURL: url, fileType: .mp4)
+                let vs: [String: Any] = [
+                    AVVideoCodecKey: AVVideoCodecType.h264,
+                    AVVideoWidthKey: seed.width,
+                    AVVideoHeightKey: seed.height
+                ]
+                let inp = AVAssetWriterInput(mediaType: .video, outputSettings: vs)
+                inp.expectsMediaDataInRealTime = true
+                let adp = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: inp,
+                                                               sourcePixelBufferAttributes: nil)
+                aw.add(inp)
+                writer = aw; writerInput = inp; adaptor = adp
+                aw.startWriting()
+                aw.startSession(atSourceTime: .zero)
+                append(image: seed)
+
+                let t = DispatchSource.makeTimerSource(queue: queue)
+                let iv = 1.0 / Double(ScreenRecorder.fps)
+                t.schedule(deadline: .now() + iv, repeating: iv, leeway: .milliseconds(10))
+                t.setEventHandler { [weak self] in self?.tick() }
+                captureTimer = t
+                t.resume()
+            } catch {
+                isRecording = false
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func stop() {
+        queue.async { [self] in
+            guard isRecording else { return }
+            finalize()
+        }
+    }
+
+    private func tick() {
+        guard isRecording else { return }
+        if let img = snapshot() { append(image: img) }
+        if frameCount >= ScreenRecorder.fps * ScreenRecorder.durationSec { finalize() }
+    }
+
+    private func finalize() {
+        captureTimer?.cancel(); captureTimer = nil
+        isRecording = false
+        guard let inp = writerInput, let aw = writer, let url = pendingURL else { return }
+        let handler = pendingCompletion; pendingCompletion = nil
+        inp.markAsFinished()
+        aw.finishWriting {
+            DispatchQueue.main.async {
+                handler?(aw.status == .completed ? .success(url) : .failure(aw.error ?? RecErr.unknown))
+            }
+        }
+        writer = nil; writerInput = nil; adaptor = nil
+    }
+
+    private func snapshot() -> CGImage? {
+        CGWindowListCreateImage(.null, .optionIncludingWindow, captureWindowID, .bestResolution)
+    }
+
+    private func append(image: CGImage) {
+        guard let adp = adaptor, let inp = writerInput, inp.isReadyForMoreMediaData else { return }
+        let t = CMTime(value: CMTimeValue(frameCount), timescale: CMTimeScale(ScreenRecorder.fps))
+        if let pb = makePixelBuffer(from: image) { adp.append(pb, withPresentationTime: t) }
+        frameCount += 1
+    }
+
+    private func makePixelBuffer(from image: CGImage) -> CVPixelBuffer? {
+        var pb: CVPixelBuffer?
+        CVPixelBufferCreate(kCFAllocatorDefault, image.width, image.height,
+                            kCVPixelFormatType_32BGRA,
+                            [kCVPixelBufferCGImageCompatibilityKey: true,
+                             kCVPixelBufferCGBitmapContextCompatibilityKey: true] as CFDictionary,
+                            &pb)
+        guard let pixBuf = pb else { return nil }
+        CVPixelBufferLockBaseAddress(pixBuf, [])
+        defer { CVPixelBufferUnlockBaseAddress(pixBuf, []) }
+        guard let ctx = CGContext(
+            data: CVPixelBufferGetBaseAddress(pixBuf),
+            width: image.width, height: image.height,
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(pixBuf),
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
+        else { return nil }
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return pixBuf
+    }
+
+    enum RecErr: Error { case capture, unknown }
+}
+
 /// Carried on each scene-setting menu item so the action knows what to apply.
 final class SettingChoice {
     let settingId: String
@@ -452,6 +585,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Per-scene chosen setting options: sceneIndex → (settingId → optionIndex).
     var sceneSettingSelections: [Int: [String: Int]] = [:]
     var settingsMenuItem: NSMenuItem?
+
+    // Screenshot / recording
+    private let recorder = ScreenRecorder()
+    private var recordingActive = false
+    private var recordingMenuItem: NSMenuItem?
+    private var blinkTimer: Timer?
 
     // Idle auto-cycle: when the Mac sits untouched, rotate through the scenes
     // like a slideshow, then snap back to the chosen scene on the next input.
@@ -518,6 +657,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async { self.cycleScenes() }
                 return
             }
+            if flags == [.command, .option],
+               event.charactersIgnoringModifiers?.lowercased() == "s" {
+                DispatchQueue.main.async { self.saveScreenshot() }
+                return
+            }
+            if flags == [.command, .option],
+               event.charactersIgnoringModifiers?.lowercased() == "r" {
+                DispatchQueue.main.async { self.toggleRecording() }
+                return
+            }
             // Otherwise, when DOOM is the active wallpaper, play it.
             if self.captureKeysForDoom,
                self.views.first?.currentScene.isInteractive == true,
@@ -545,7 +694,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         if let monitor = globalMonitor { NSEvent.removeMonitor(monitor) }
         idleTimer?.invalidate()
+        blinkTimer?.invalidate()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        if recordingActive { recorder.stop() }
         // Tear down any running DOOM PTY.
         for view in views { view.stopCurrentScene() }
         // Restore original wallpapers
@@ -595,6 +746,79 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // MARK: - Capture
+
+    private func captureWindowImage() -> CGImage? {
+        guard let win = windows.first else { return nil }
+        return CGWindowListCreateImage(.null, .optionIncludingWindow,
+                                       CGWindowID(win.windowNumber), .bestResolution)
+    }
+
+    /// Flash a brief message in the status-bar button, then restore "◎".
+    private func flashStatus(_ text: String, duration: Double = 2.0) {
+        guard !recordingActive else { return }
+        statusItem?.button?.title = text
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
+            guard self?.recordingActive != true else { return }
+            self?.statusItem?.button?.title = "◎"
+        }
+    }
+
+    private func startBlinking() {
+        statusItem?.button?.title = "◉"
+        var on = true
+        blinkTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.statusItem?.button?.title = on ? "◎" : "◉"
+            on = !on
+        }
+    }
+
+    private func stopBlinking() {
+        blinkTimer?.invalidate(); blinkTimer = nil
+        statusItem?.button?.title = "◎"
+    }
+
+    /// Save a PNG of the current scene to ~/Desktop and copy it to the clipboard.
+    @objc func saveScreenshot() {
+        guard let img = captureWindowImage() else { flashStatus("✗"); return }
+        let ts = Int(Date().timeIntervalSince1970)
+        let url = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Desktop/ASCII-Arcade-\(ts).png")
+        let rep = NSBitmapImageRep(cgImage: img)
+        if let data = rep.representation(using: .png, properties: [:]),
+           (try? data.write(to: url)) != nil {
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.writeObjects([NSImage(cgImage: img, size: .zero)])
+            flashStatus("✓")
+        } else {
+            flashStatus("✗")
+        }
+    }
+
+    /// Start (or stop early) a 3-second MP4 clip of the current scene, saved to ~/Desktop.
+    @objc func toggleRecording() {
+        if recordingActive { recorder.stop(); return }
+        guard let win = windows.first else { return }
+        let windowID = CGWindowID(win.windowNumber)
+        recordingActive = true
+        recordingMenuItem?.title = "Stop Recording  (⌘⌥R)"
+        startBlinking()
+        recorder.start(windowID: windowID) { [weak self] result in
+            guard let self else { return }
+            self.recordingActive = false
+            self.stopBlinking()
+            self.recordingMenuItem?.title = "Record 3-Sec Clip  (⌘⌥R)"
+            switch result {
+            case .success(let url):
+                self.flashStatus("✓ Clip saved", duration: 3.0)
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            case .failure:
+                self.flashStatus("✗ Clip failed")
+            }
+        }
+    }
+
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem?.button?.title = "◎"
@@ -636,6 +860,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         loginItem.target = self
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(loginItem)
+
+        menu.addItem(.separator())
+        let captureHeader = NSMenuItem(title: "Capture", action: nil, keyEquivalent: "")
+        captureHeader.isEnabled = false
+        menu.addItem(captureHeader)
+        let screenshotItem = NSMenuItem(title: "Save Screenshot  (⌘⌥S)", action: #selector(saveScreenshot), keyEquivalent: "")
+        screenshotItem.target = self
+        menu.addItem(screenshotItem)
+        let recordItem = NSMenuItem(title: "Record 3-Sec Clip  (⌘⌥R)", action: #selector(toggleRecording), keyEquivalent: "")
+        recordItem.target = self
+        recordingMenuItem = recordItem
+        menu.addItem(recordItem)
 
         menu.addItem(.separator())
         let themeHeader = NSMenuItem(title: "Theme", action: nil, keyEquivalent: "")

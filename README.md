@@ -40,6 +40,8 @@ can play it as your wallpaper.
 
 Switch scenes and themes from the menu-bar `◎` item, or cycle scenes with **⌘⌥C**.
 
+**Capture.** macOS's native ⌘⇧3/⌘⇧4 skips the wallpaper layer — use the in-app shortcuts instead: **⌘⌥S** saves a PNG to ~/Desktop and copies it to the clipboard; **⌘⌥R** records a 3-second MP4 clip and opens it in Finder when done. Both commands are also in the `◎` menu under *Capture*.
+
 **Colour.** Scenes can paint each glyph individually: Fire and DOOM use their own
 palettes, while Matrix, Life, and the math scenes key off the theme's text colour
 (green rain under Hacker, amber rain under Amber, …). Themes: Hacker (green),

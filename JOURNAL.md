@@ -4,6 +4,10 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-06-23 — Added in-app screenshot and 3-second clip recorder #milestone #decision
+
+Made capturing the wallpaper a first-class feature after observing that macOS's native ⌘⇧3/4 skips the desktop-level window entirely (it samples the wallpaper compositor, not the live window backing store). The fix lives in the app: "Save Screenshot (⌘⌥S)" and "Record 3-Sec Clip (⌘⌥R)" under a new Capture section in the menu bar. Both use `CGWindowListCreateImage(.null, .optionIncludingWindow, windowID, .bestResolution)` to pull directly from the window's backing store — this bypasses the compositor and works regardless of window level. Screenshot saves a PNG to ~/Desktop and also copies it to the clipboard (so ⌘V works immediately). The clip recorder fires a `DispatchSourceTimer` at 15 fps on a background serial queue, converts each `CGImage` to a `CVPixelBuffer`, feeds it to an `AVAssetWriterInputPixelBufferAdaptor`, then finalises a .mp4 via `AVAssetWriter` at the 3-second mark (or earlier on manual stop). The status-bar `◎` button blinks `◉` during recording and flashes `✓` / `✗` on outcome — the user never sees "window level", "compositor", or "backing store". Design call: both shortcuts (⌘⌥S, ⌘⌥R) are handled in the global NSEvent monitor alongside the existing ⌘⌥C scene-cycle shortcut, so they work even when no app is frontmost.
+
 ## 2026-06-23 — Made it a real desktop app (unsigned, self-distributed) #decision #milestone
 
 Promoted ascii-arcade from a `swift run` tool to an installable `.app` + DMG.
