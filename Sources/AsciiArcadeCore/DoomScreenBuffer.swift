@@ -14,6 +14,8 @@ public final class DoomScreenBuffer {
     private var width: Int
     private var height: Int
     private var grid: [[Character]]
+    private var colorGrid: [[RGBColor?]]
+    private var currentColor: RGBColor?
     private var cursorRow = 0
     private var cursorCol = 0
     private var pending: [UInt8] = []
@@ -23,6 +25,7 @@ public final class DoomScreenBuffer {
         self.width = max(1, width)
         self.height = max(1, height)
         self.grid = Self.blankGrid(width: self.width, height: self.height)
+        self.colorGrid = Self.blankColors(width: self.width, height: self.height)
     }
 
     // MARK: - Public API
@@ -32,6 +35,7 @@ public final class DoomScreenBuffer {
         self.width = max(1, width)
         self.height = max(1, height)
         grid = Self.blankGrid(width: self.width, height: self.height)
+        colorGrid = Self.blankColors(width: self.width, height: self.height)
         cursorRow = 0; cursorCol = 0
         pending.removeAll(keepingCapacity: true)
     }
@@ -39,6 +43,7 @@ public final class DoomScreenBuffer {
     public func clear() {
         lock.lock(); defer { lock.unlock() }
         grid = Self.blankGrid(width: width, height: height)
+        colorGrid = Self.blankColors(width: width, height: height)
         cursorRow = 0; cursorCol = 0
     }
 
@@ -46,6 +51,7 @@ public final class DoomScreenBuffer {
     public func showMessage(_ message: String) {
         lock.lock(); defer { lock.unlock() }
         grid = Self.blankGrid(width: width, height: height)
+        colorGrid = Self.blankColors(width: width, height: height)
         let row = height / 2
         let chars = Array(message)
         let start = max(0, (width - chars.count) / 2)
@@ -66,6 +72,24 @@ public final class DoomScreenBuffer {
             if row < height - 1 { out.append("\n") }
         }
         return out
+    }
+
+    /// The current frame as a `ColoredFrame`, carrying the per-cell truecolor
+    /// that DOOM emitted via SGR `38;2;R;G;B` codes (cells with no colour set
+    /// stay `nil` → the host paints them in the theme colour).
+    public func coloredSnapshot() -> ColoredFrame {
+        lock.lock(); defer { lock.unlock() }
+        let size = width * height
+        var chars = Array(repeating: Character(" "), count: size)
+        var colors = Array(repeating: RGBColor?.none, count: size)
+        for row in 0..<height {
+            let base = row * width
+            for col in 0..<width {
+                chars[base + col] = grid[row][col]
+                colors[base + col] = colorGrid[row][col]
+            }
+        }
+        return ColoredFrame(width: width, height: height, chars: chars, colors: colors)
     }
 
     /// Feed raw PTY bytes. Incomplete escape sequences / multibyte glyphs that
@@ -134,6 +158,7 @@ public final class DoomScreenBuffer {
         guard cursorRow >= 0, cursorRow < height else { cursorCol += 1; return }
         if cursorCol >= 0, cursorCol < width {
             grid[cursorRow][cursorCol] = ch
+            colorGrid[cursorRow][cursorCol] = currentColor
         }
         cursorCol += 1
     }
@@ -171,24 +196,65 @@ public final class DoomScreenBuffer {
             cursorCol = clamp(col1 - 1, 0, max(0, width - 1))
         case 0x4a: // 'J' → erase display (treat any mode as full clear)
             grid = Self.blankGrid(width: width, height: height)
+            colorGrid = Self.blankColors(width: width, height: height)
         case 0x4b: // 'K' → erase in line
             let mode = Int(String(decoding: params, as: UTF8.self)) ?? 0
             eraseLine(mode: mode)
+        case 0x6d: // 'm' → SGR: track truecolor foreground, drop styling
+            applySGR(params: params)
         default:
-            break // SGR ('m') and everything else: ignored
+            break
         }
     }
+
+    /// Interpret an SGR parameter list. We only care about the foreground
+    /// colour: `0`/`39` reset it, `38;2;R;G;B` sets a truecolor value (what
+    /// `doom_ascii -chars block` emits). Everything else (bold, background) is
+    /// discarded.
+    private func applySGR(params: [UInt8]) {
+        let parts = String(decoding: params, as: UTF8.self)
+            .split(separator: ";", omittingEmptySubsequences: false)
+            .map { Int($0) }
+        if parts.isEmpty || (parts.count == 1 && (parts[0] == 0 || parts[0] == nil)) {
+            currentColor = nil
+            return
+        }
+        var i = 0
+        while i < parts.count {
+            switch parts[i] {
+            case 0, 39:
+                currentColor = nil
+                i += 1
+            case 38:
+                if i + 4 < parts.count, parts[i + 1] == 2,
+                   let r = parts[i + 2], let g = parts[i + 3], let b = parts[i + 4] {
+                    currentColor = RGBColor(r: clampByte(r), g: clampByte(g), b: clampByte(b))
+                    i += 5
+                } else {
+                    i += 1
+                }
+            default:
+                i += 1
+            }
+        }
+    }
+
+    private func clampByte(_ v: Int) -> UInt8 { UInt8(min(255, max(0, v))) }
 
     private func eraseLine(mode: Int) {
         guard cursorRow >= 0, cursorRow < height else { return }
         switch mode {
         case 1: // start of line to cursor
-            for c in 0...min(cursorCol, width - 1) where c >= 0 { grid[cursorRow][c] = " " }
+            for c in 0...min(cursorCol, width - 1) where c >= 0 {
+                grid[cursorRow][c] = " "; colorGrid[cursorRow][c] = nil
+            }
         case 2: // whole line
-            for c in 0..<width { grid[cursorRow][c] = " " }
+            for c in 0..<width { grid[cursorRow][c] = " "; colorGrid[cursorRow][c] = nil }
         default: // cursor to end of line
             if cursorCol < width {
-                for c in max(0, cursorCol)..<width { grid[cursorRow][c] = " " }
+                for c in max(0, cursorCol)..<width {
+                    grid[cursorRow][c] = " "; colorGrid[cursorRow][c] = nil
+                }
             }
         }
     }
@@ -204,5 +270,9 @@ public final class DoomScreenBuffer {
 
     private static func blankGrid(width: Int, height: Int) -> [[Character]] {
         Array(repeating: Array(repeating: Character(" "), count: width), count: height)
+    }
+
+    private static func blankColors(width: Int, height: Int) -> [[RGBColor?]] {
+        Array(repeating: Array(repeating: RGBColor?.none, count: width), count: height)
     }
 }

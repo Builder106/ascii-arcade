@@ -54,4 +54,26 @@ final class DoomScreenBufferTests: XCTestCase {
         buf.feed(Array(full[split...]))   // trailing continuation byte
         XCTAssertEqual(buf.snapshot(), "█  ")
     }
+
+    /// `38;2;R;G;B` truecolor is retained on the cell it precedes; `0` resets it.
+    func testColoredSnapshotRetainsTruecolor() {
+        let buf = DoomScreenBuffer(width: 3, height: 1)
+        buf.feed(Array("\u{1b}[;H\u{1b}[38;2;255;0;0mX\u{1b}[0mY".utf8))
+        let f = buf.coloredSnapshot()
+        XCTAssertEqual(f.chars[0], "X")
+        XCTAssertEqual(f.colors[0], RGBColor(r: 255, g: 0, b: 0))
+        XCTAssertEqual(f.chars[1], "Y")
+        XCTAssertNil(f.colors[1], "after reset the colour clears")
+        // The monochrome path is unchanged.
+        XCTAssertEqual(buf.snapshot(), "XY ")
+    }
+
+    /// Clearing the screen also clears the colour grid.
+    func testClearResetsColors() {
+        let buf = DoomScreenBuffer(width: 2, height: 1)
+        buf.feed(Array("\u{1b}[;H\u{1b}[38;2;10;20;30mAB".utf8))
+        XCTAssertEqual(buf.coloredSnapshot().colors[0], RGBColor(r: 10, g: 20, b: 30))
+        buf.clear()
+        XCTAssertTrue(buf.coloredSnapshot().colors.allSatisfy { $0 == nil })
+    }
 }

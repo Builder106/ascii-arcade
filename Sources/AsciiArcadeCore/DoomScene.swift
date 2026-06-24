@@ -81,6 +81,10 @@ public final class DoomScene: AsciiScene {
         buffer.snapshot()
     }
 
+    public func coloredFrame(atTime t: Double) -> ColoredFrame? {
+        buffer.coloredSnapshot()
+    }
+
     public func sendKey(_ bytes: [UInt8]) {
         stateLock.lock(); let p = proc; stateLock.unlock()
         guard !bytes.isEmpty else { return }
