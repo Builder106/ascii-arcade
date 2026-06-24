@@ -1,5 +1,6 @@
 import AppKit
 import CoreVideo
+import CoreText
 import AsciiArcadeCore
 
 struct Theme {
@@ -33,6 +34,11 @@ func makeScenes() -> [any AsciiScene] {
     return [
         GeneratorScene(displayName: "Donut") { w, h in DonutFrameGenerator(width: w, height: h) },
         GeneratorScene(displayName: "Helix") { w, h in HelixFrameGenerator(width: w, height: h) },
+        MatrixRainScene(),
+        FireScene(),
+        GameOfLifeScene(),
+        PipesScene(),
+        ClockScene(),
         DoomScene(workingDirectory: cwd)
     ]
 }
@@ -89,21 +95,48 @@ final class SceneView: NSView {
 
     private var startTime: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()
     private var displayLink: CVDisplayLink?
-    private var textAttributesBase: [NSAttributedString.Key: Any]
+    private var themeTextColor: NSColor = availableThemes[0].textColor
     private let font: NSFont
+    private let ctFont: CTFont
+    private let cellCharWidth: CGFloat
+    private let cellLineHeight: CGFloat
+    private let cellAscent: CGFloat
     private let scale: CGFloat = 0.92
     private let scanlinesLayer = CAReplicatorLayer()
     private let scanlineStripeLayer = CALayer()
+    /// Character → glyph and RGB → CGColor caches so the hot draw path never
+    /// re-measures the font or re-creates colours. (RGBColor qualified: AppKit
+    /// transitively imports a legacy Quickdraw `RGBColor`.)
+    private var glyphCache: [Character: CGGlyph] = [:]
+    private var cgColorCache: [AsciiArcadeCore.RGBColor: CGColor] = [:]
+    /// Throttle redraws to ~30fps regardless of the display's refresh rate —
+    /// ASCII animation doesn't need 60/120Hz and the text fill is the hot path.
+    /// The threshold sits just under one 30fps period (not exactly on it) so a
+    /// 60Hz panel fires reliably on every 2nd refresh instead of slipping to the
+    /// 3rd; a 120Hz panel fires on every 4th. Result: a steady 30fps.
+    private let minFrameInterval: CFTimeInterval = 1.0 / 34.0
+    private var lastRedrawTime: CFTimeInterval = 0
+    /// Set ASCII_FPS=1 to log average draw time + effective FPS once a second.
+    private let instrument = ProcessInfo.processInfo.environment["ASCII_FPS"] != nil
+    private var instrFrames = 0
+    private var instrDrawMs = 0.0
+    private var instrLast = CACurrentMediaTime()
+    /// Reusable per-colour glyph buckets, collected each frame then drawn in one
+    /// `CTFontDrawGlyphs` call apiece.
+    private final class GlyphBatch { var glyphs: [CGGlyph] = []; var positions: [CGPoint] = [] }
 
     init(frame: CGRect, scenes: [any AsciiScene]) {
         self.scenes = scenes
-        self.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-        self.textAttributesBase = [
-            .font: font,
-            .foregroundColor: availableThemes[0].textColor,
-            .backgroundColor: NSColor.clear
-        ]
+        let f = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        self.font = f
+        self.ctFont = f as CTFont
+        self.cellCharWidth = max(1.0, ("@" as NSString).size(withAttributes: [.font: f]).width)
+        self.cellLineHeight = f.ascender - f.descender + f.leading
+        self.cellAscent = f.ascender
         super.init(frame: frame)
+        // Seed every scene with the starting theme's base colour.
+        let rgb = SceneView.rgbColor(from: availableThemes[0].textColor)
+        for scene in scenes { scene.applyBaseColor(rgb) }
         wantsLayer = true
         layer?.isOpaque = false
         layer?.backgroundColor = NSColor.clear.cgColor
@@ -151,9 +184,33 @@ final class SceneView: NSView {
         currentScene.stop()
     }
 
+    /// Pause rendering when the displays sleep — stops the display link so we
+    /// stop issuing draws (and stop spinning DOOM/Matrix/fire) while asleep.
+    func pause() {
+        if let displayLink = displayLink { CVDisplayLinkStop(displayLink) }
+    }
+
+    /// Resume after wake: reset the clock so the time delta doesn't jump, then
+    /// restart the display link.
+    func resume() {
+        startTime = CFAbsoluteTimeGetCurrent()
+        if let displayLink = displayLink, !CVDisplayLinkIsRunning(displayLink) {
+            CVDisplayLinkStart(displayLink)
+        }
+        needsDisplay = true
+    }
+
     func applyTheme(_ theme: Theme) {
-        textAttributesBase[.foregroundColor] = theme.textColor
+        themeTextColor = theme.textColor
         layer?.shadowColor = theme.textColor.cgColor
+        let rgb = SceneView.rgbColor(from: theme.textColor)
+        for scene in scenes { scene.applyBaseColor(rgb) }
+        needsDisplay = true
+    }
+
+    /// Apply a setting value to the current scene (called from the menu).
+    func applySettingToCurrentScene(id: String, value: Double) {
+        currentScene.applySetting(id: id, value: value)
         needsDisplay = true
     }
 
@@ -165,45 +222,123 @@ final class SceneView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
+        let drawStart = instrument ? CACurrentMediaTime() : 0
         let t = CFAbsoluteTimeGetCurrent() - startTime
 
         let insetX = bounds.width * (1.0 - scale) / 2.0
         let insetY = bounds.height * (1.0 - scale) / 2.0
-        let drawRect = bounds.insetBy(dx: insetX, dy: insetY)
+        let paddedRect = bounds.insetBy(dx: insetX, dy: insetY).insetBy(dx: 6, dy: 6)
 
-        let padding: CGFloat = 6
-        let paddedRect = drawRect.insetBy(dx: padding, dy: padding)
-
-        let charWidth = max(1.0, ("@" as NSString).size(withAttributes: [.font: font]).width)
-        let lineHeight = CGFloat(font.ascender - font.descender + font.leading)
-
+        let charW = cellCharWidth
+        let lineH = cellLineHeight
         let (w, h) = DonutFrameGenerator.gridDimensions(
             paddedWidth: Double(paddedRect.width),
             paddedHeight: Double(paddedRect.height),
-            charWidth: Double(charWidth),
-            lineHeight: Double(lineHeight)
+            charWidth: Double(charW),
+            lineHeight: Double(lineH)
         )
         currentScene.setGrid(width: w, height: h)
-        let frameText = currentScene.frame(atTime: t)
 
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .left
-        paragraphStyle.minimumLineHeight = lineHeight
-        paragraphStyle.maximumLineHeight = lineHeight
-        paragraphStyle.lineBreakMode = .byClipping
+        let contentWidth = CGFloat(w) * charW
+        let contentHeight = CGFloat(h) * lineH
+        let originX = paddedRect.midX - contentWidth / 2.0
+        let originY = paddedRect.midY - contentHeight / 2.0
+        let viewH = bounds.height
+        let ascent = cellAscent
 
-        let attrs: [NSAttributedString.Key: Any] = textAttributesBase.merging([.paragraphStyle: paragraphStyle]) { $1 }
-        let attributed = NSAttributedString(string: frameText, attributes: attrs)
+        // Bucket every non-blank cell's glyph by colour. Adjacent cells that share
+        // a colour (or a palette entry) collapse into the same bucket, so a
+        // full-screen frame becomes a few dozen draw calls instead of thousands.
+        var batches: [AsciiArcadeCore.RGBColor?: GlyphBatch] = [:]
+        func emit(_ ch: Character, row: Int, col: Int, color: AsciiArcadeCore.RGBColor?) {
+            guard ch != " ", let g = glyph(for: ch) else { return }
+            let batch: GlyphBatch
+            if let existing = batches[color] {
+                batch = existing
+            } else {
+                batch = GlyphBatch()
+                batches[color] = batch
+            }
+            batch.glyphs.append(g)
+            batch.positions.append(CGPoint(
+                x: originX + CGFloat(col) * charW,
+                y: viewH - (originY + CGFloat(row) * lineH + ascent)
+            ))
+        }
 
-        let contentWidth = CGFloat(w) * charWidth
-        let contentHeight = CGFloat(h) * lineHeight
-        let textRect = CGRect(
-            x: paddedRect.midX - contentWidth / 2.0,
-            y: paddedRect.midY - contentHeight / 2.0,
-            width: contentWidth,
-            height: contentHeight
-        )
-        attributed.draw(in: textRect)
+        if let colored = currentScene.coloredFrame(atTime: t) {
+            let chars = colored.chars, colors = colored.colors
+            for row in 0..<h {
+                let base = row * w
+                for col in 0..<w {
+                    emit(chars[base + col], row: row, col: col, color: colors[base + col])
+                }
+            }
+        } else {
+            var row = 0, col = 0
+            for ch in currentScene.frame(atTime: t) {
+                if ch == "\n" { row += 1; col = 0; continue }
+                emit(ch, row: row, col: col, color: nil)
+                col += 1
+            }
+        }
+
+        // Draw. Flip into a y-up space so Core Text glyphs render upright in this
+        // flipped view, then one fill + one CTFontDrawGlyphs per colour bucket.
+        ctx.saveGState()
+        ctx.translateBy(x: 0, y: viewH)
+        ctx.scaleBy(x: 1, y: -1)
+        ctx.textMatrix = .identity
+        for (color, batch) in batches where !batch.glyphs.isEmpty {
+            ctx.setFillColor(color.map { cgColor(for: $0) } ?? themeTextColor.cgColor)
+            CTFontDrawGlyphs(ctFont, batch.glyphs, batch.positions, batch.glyphs.count, ctx)
+        }
+        ctx.restoreGState()
+
+        if instrument {
+            instrFrames += 1
+            instrDrawMs += (CACurrentMediaTime() - drawStart) * 1000.0
+            let now = CACurrentMediaTime()
+            if now - instrLast >= 1.0 {
+                let avg = instrDrawMs / Double(max(1, instrFrames))
+                NSLog("ASCII_FPS scene=%@ grid=%dx%d fps=%d avgDraw=%.2fms batches=%d",
+                      currentScene.displayName, w, h, instrFrames, avg, batches.count)
+                instrFrames = 0; instrDrawMs = 0; instrLast = now
+            }
+        }
+    }
+
+    /// Look up (and cache) the glyph for a single-cell character. Returns nil for
+    /// blanks, missing glyphs, or anything that isn't a single UTF-16 unit.
+    private func glyph(for ch: Character) -> CGGlyph? {
+        if let cached = glyphCache[ch] { return cached == 0 ? nil : cached }
+        let units = Array(ch.utf16)
+        guard units.count == 1 else { glyphCache[ch] = 0; return nil }
+        var input = units
+        var out = [CGGlyph](repeating: 0, count: 1)
+        let ok = CTFontGetGlyphsForCharacters(ctFont, &input, &out, 1)
+        let g = ok ? out[0] : 0
+        glyphCache[ch] = g
+        return g == 0 ? nil : g
+    }
+
+    private func cgColor(for rgb: AsciiArcadeCore.RGBColor) -> CGColor {
+        if let cached = cgColorCache[rgb] { return cached }
+        let c = CGColor(srgbRed: CGFloat(rgb.r) / 255.0,
+                        green: CGFloat(rgb.g) / 255.0,
+                        blue: CGFloat(rgb.b) / 255.0,
+                        alpha: 1.0)
+        cgColorCache[rgb] = c
+        return c
+    }
+
+    /// Convert an `NSColor` (theme text colour) to the core's `RGBColor`.
+    static func rgbColor(from color: NSColor) -> AsciiArcadeCore.RGBColor {
+        let c = color.usingColorSpace(.sRGB) ?? color
+        return AsciiArcadeCore.RGBColor(r: UInt8((c.redComponent * 255).rounded()),
+                                        g: UInt8((c.greenComponent * 255).rounded()),
+                                        b: UInt8((c.blueComponent * 255).rounded()))
     }
 
     private func updateScanlines() {
@@ -225,7 +360,13 @@ final class SceneView: NSView {
         self.displayLink = displayLink
         CVDisplayLinkSetOutputCallback(displayLink, { (_, _, _, _, _, userData) -> CVReturn in
             let view = Unmanaged<SceneView>.fromOpaque(userData!).takeUnretainedValue()
-            DispatchQueue.main.async { view.needsDisplay = true }
+            // Throttle to ~30fps. `lastRedrawTime` is only touched on this
+            // (serial) display-link thread, so no synchronization is needed.
+            let now = CACurrentMediaTime()
+            if now - view.lastRedrawTime >= view.minFrameInterval {
+                view.lastRedrawTime = now
+                DispatchQueue.main.async { view.needsDisplay = true }
+            }
             return kCVReturnSuccess
         }, Unmanaged.passUnretained(self).toOpaque())
         CVDisplayLinkStart(displayLink)
@@ -262,6 +403,18 @@ func doomBytes(for event: NSEvent) -> [UInt8]? {
 
 // MARK: - App Delegate
 
+/// Carried on each scene-setting menu item so the action knows what to apply.
+final class SettingChoice {
+    let settingId: String
+    let value: Double
+    let optionIndex: Int
+    init(settingId: String, value: Double, optionIndex: Int) {
+        self.settingId = settingId
+        self.value = value
+        self.optionIndex = optionIndex
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var windows: [NSWindow] = []
     var views: [SceneView] = []
@@ -271,6 +424,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var currentSceneIndex = 0
     var captureKeysForDoom = true
     var originalWallpapers: [NSScreen: URL] = [:]
+
+    // Per-scene chosen setting options: sceneIndex → (settingId → optionIndex).
+    var sceneSettingSelections: [Int: [String: Int]] = [:]
+    var settingsMenuItem: NSMenuItem?
+
+    // Idle auto-cycle: when the Mac sits untouched, rotate through the scenes
+    // like a slideshow, then snap back to the chosen scene on the next input.
+    var idleAutoCycle = false
+    let idleThreshold: TimeInterval = 90
+    let idleCycleInterval: TimeInterval = 20
+    var idleTimer: Timer?
+    var wasIdle = false
+    var preIdleSceneIndex = 0
+    var lastAutoCycle: CFTimeInterval = 0
+    var isAsleep = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Save original wallpapers before we touch anything
@@ -315,15 +483,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+
+        // Pause/resume rendering when the displays sleep, to save power.
+        let nc = NSWorkspace.shared.notificationCenter
+        nc.addObserver(self, selector: #selector(screensDidSleep),
+                       name: NSWorkspace.screensDidSleepNotification, object: nil)
+        nc.addObserver(self, selector: #selector(screensDidWake),
+                       name: NSWorkspace.screensDidWakeNotification, object: nil)
+
+        // Poll system idle time for the auto-cycle slideshow.
+        idleTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.checkIdle()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         if let monitor = globalMonitor { NSEvent.removeMonitor(monitor) }
+        idleTimer?.invalidate()
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         // Tear down any running DOOM PTY.
         for view in views { view.stopCurrentScene() }
         // Restore original wallpapers
         for (screen, url) in originalWallpapers {
             setWallpaper(url, for: screen)
+        }
+    }
+
+    // MARK: - Sleep / wake
+
+    @objc func screensDidSleep() {
+        isAsleep = true
+        for view in views { view.pause() }
+    }
+
+    @objc func screensDidWake() {
+        isAsleep = false
+        for view in views { view.resume() }
+    }
+
+    // MARK: - Idle auto-cycle
+
+    /// System idle seconds (time since the last user input event).
+    private func systemIdleSeconds() -> TimeInterval {
+        let anyInput = CGEventType(rawValue: ~UInt32(0)) ?? .null
+        return CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: anyInput)
+    }
+
+    private func checkIdle() {
+        guard idleAutoCycle, !isAsleep else { return }
+        let idle = systemIdleSeconds()
+        let now = CACurrentMediaTime()
+        if idle >= idleThreshold {
+            if !wasIdle {
+                wasIdle = true
+                preIdleSceneIndex = currentSceneIndex
+                lastAutoCycle = now
+            }
+            if now - lastAutoCycle >= idleCycleInterval {
+                lastAutoCycle = now
+                selectScene((currentSceneIndex + 1) % sceneNames.count)
+            }
+        } else if wasIdle {
+            // User came back — restore the scene they had chosen.
+            wasIdle = false
+            selectScene(preIdleSceneIndex)
         }
     }
 
@@ -354,6 +577,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         captureItem.state = captureKeysForDoom ? .on : .off
         menu.addItem(captureItem)
 
+        let settingsItem = NSMenuItem(title: "Scene Settings", action: nil, keyEquivalent: "")
+        settingsItem.submenu = NSMenu(title: "Scene Settings")
+        menu.addItem(settingsItem)
+        settingsMenuItem = settingsItem
+
+        let idleItem = NSMenuItem(title: "Auto-cycle when idle", action: #selector(toggleIdleAutoCycle(_:)), keyEquivalent: "")
+        idleItem.target = self
+        idleItem.state = idleAutoCycle ? .on : .off
+        menu.addItem(idleItem)
+
         menu.addItem(.separator())
         let themeHeader = NSMenuItem(title: "Theme", action: nil, keyEquivalent: "")
         themeHeader.isEnabled = false
@@ -370,6 +603,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         statusItem?.menu = menu
+        rebuildSettingsMenu()
+    }
+
+    /// Repopulate the "Scene Settings" submenu to reflect the current scene's
+    /// `settings`. Called at startup and whenever the active scene changes.
+    private func rebuildSettingsMenu() {
+        guard let submenu = settingsMenuItem?.submenu else { return }
+        submenu.removeAllItems()
+        let settings = views.first?.currentScene.settings ?? []
+        settingsMenuItem?.isEnabled = !settings.isEmpty
+        if settings.isEmpty {
+            let none = NSMenuItem(title: "No settings for this scene", action: nil, keyEquivalent: "")
+            none.isEnabled = false
+            submenu.addItem(none)
+            return
+        }
+        var selections = sceneSettingSelections[currentSceneIndex] ?? [:]
+        for (settingIndex, setting) in settings.enumerated() {
+            let header = NSMenuItem(title: setting.label, action: nil, keyEquivalent: "")
+            header.isEnabled = false
+            submenu.addItem(header)
+            let chosen = selections[setting.id] ?? setting.defaultIndex
+            selections[setting.id] = chosen
+            for (i, option) in setting.options.enumerated() {
+                let item = NSMenuItem(title: "  " + option.label, action: #selector(selectSetting(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = SettingChoice(settingId: setting.id, value: option.value, optionIndex: i)
+                item.state = (i == chosen) ? .on : .off
+                submenu.addItem(item)
+            }
+            if settingIndex < settings.count - 1 { submenu.addItem(.separator()) }
+        }
+        sceneSettingSelections[currentSceneIndex] = selections
+    }
+
+    @objc func selectSetting(_ sender: NSMenuItem) {
+        guard let choice = sender.representedObject as? SettingChoice else { return }
+        var selections = sceneSettingSelections[currentSceneIndex] ?? [:]
+        selections[choice.settingId] = choice.optionIndex
+        sceneSettingSelections[currentSceneIndex] = selections
+        for view in views { view.applySettingToCurrentScene(id: choice.settingId, value: choice.value) }
+        rebuildSettingsMenu()
+    }
+
+    @objc func toggleIdleAutoCycle(_ sender: NSMenuItem) {
+        idleAutoCycle.toggle()
+        sender.state = idleAutoCycle ? .on : .off
+        if !idleAutoCycle, wasIdle {
+            wasIdle = false
+            selectScene(preIdleSceneIndex)
+        }
     }
 
     @objc func selectSceneMenu(_ sender: NSMenuItem) {
@@ -381,6 +665,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         currentSceneIndex = index
         for view in views { view.selectScene(index) }
         updateMenuSceneCheckmarks()
+        rebuildSettingsMenu()
     }
 
     @objc func cycleScenes() {
