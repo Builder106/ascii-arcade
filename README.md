@@ -73,24 +73,49 @@ Forwarded to `doom_ascii` while DOOM is the active wallpaper (toggle with
 > Privacy & Security → Accessibility) so the app can read keystrokes globally. While
 > capture is on, keystrokes drive DOOM regardless of which app is focused.
 
-## Build & run
+## Install
+
+ASCII Arcade ships as a normal macOS app — it lives in your menu bar (the `◎`
+icon), remembers your scene/theme/settings between launches, and can start at
+login. Grab `ASCII-Arcade.dmg` from the [releases page](https://github.com/Builder106/ascii-arcade/releases),
+then:
+
+1. Open the DMG and drag **ASCII Arcade** onto **Applications**.
+2. Because it isn't notarized (no paid Apple Developer account), Gatekeeper
+   blocks the first launch — **right-click (Control-click) the app → Open**,
+   then click **Open** in the dialog. macOS remembers it from then on.
+   - Terminal equivalent: `xattr -dr com.apple.quarantine "/Applications/ASCII Arcade.app"`
+3. Look for the `◎` icon in your menu bar to pick a scene/theme.
+
+The donut and the other math/colour scenes work immediately. **DOOM** is the one
+piece that isn't bundled — `doom_ascii` is GPL-2.0, so it's fetched and built
+separately (see below); until then the DOOM scene shows a hint.
+
+## Build & run from source
 
 Requires macOS 13+ and a Swift 6 toolchain (Xcode 16+) — the pinned Vapor
 release declares Swift tools 6.0.
 
 ```bash
-# 1. Build the vendored doom_ascii binary into ./bin (doom-ascii is GPL; fetched, not vendored)
-./scripts/setup.sh
-
-# 2. Build everything
-swift build
-
-# 3. Run the wallpaper app
-swift run AsciiArcade
+./scripts/setup.sh        # fetch + build the GPL doom_ascii binary into ./bin
+swift build               # build everything
+swift run AsciiArcade     # run the wallpaper app
 ```
 
 The Freedoom IWADs ship in `wad/`, so DOOM works out of the box. Quitting the app
 restores your original wallpaper.
+
+### Package the app yourself
+
+```bash
+./scripts/make-app.sh     # assemble dist/ASCII Arcade.app (release build + icon + WADs)
+./scripts/make-dmg.sh     # wrap it in dist/ASCII-Arcade.dmg
+```
+
+`make-app.sh` ad-hoc signs the bundle and bundles the BSD Freedoom WADs. It does
+**not** bundle the GPL `doom_ascii` by default; set `INCLUDE_DOOM=1` to include
+it (you then must also redistribute its source). On a cloud-synced checkout, set
+`SCRATCH_PATH=/tmp/aa-build` so SwiftPM's `build.db` doesn't choke.
 
 ## Browser bonus
 

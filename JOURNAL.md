@@ -4,6 +4,24 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-06-23 — Made it a real desktop app (unsigned, self-distributed) #decision #milestone
+
+Promoted ascii-arcade from a `swift run` tool to an installable `.app` + DMG.
+Owner's call on scope: do Tier 1 (proper local app) *and* Tier 2 (distribution)
+but **skip the Apple Developer account** — recipients bypass Gatekeeper manually
+(right-click → Open / `xattr -dr com.apple.quarantine`). Added: `UserDefaults`
+persistence of scene/theme/capture/idle/per-scene settings (restored on launch;
+returning users also get their theme wallpaper back, first-run leaves the desktop
+alone); launch-at-login via `SMAppService.mainApp`; bundle-aware resource lookup
+in `DoomLauncher` (checks `Bundle.main` so WADs/doom resolve from the .app, not
+just cwd); and `scripts/make-app.sh` + `make-dmg.sh` (release build → Info.plist
+with `LSUIElement` → `.icns` from the 512 PNG → bundled Freedoom WADs → ad-hoc
+sign → DMG with an Applications drop + first-launch note). Verified the full
+save/quit/relaunch/restore cycle against the bundled app. Honoured the existing
+"don't redistribute GPL doom_ascii" policy: WADs (BSD) are bundled, doom_ascii is
+behind an opt-in `INCLUDE_DOOM=1` flag. Mac App Store stays off the table —
+global key capture + arbitrary wallpaper-setting don't survive sandboxing.
+
 ## 2026-06-23 — Life read as noise; reseeded it with classic patterns #feedback #decision
 
 Owner watched the Life scene and said the designs weren't clear — it looked like

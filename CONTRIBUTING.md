@@ -18,6 +18,18 @@ swift run AsciiArcade   # run the wallpaper app
 committed. The Freedoom IWADs in `wad/` are committed (BSD-licensed) so DOOM
 works without a download.
 
+## Packaging the app
+
+`scripts/make-app.sh` assembles `dist/ASCII Arcade.app` (release build + Info.plist
++ `.icns` from `assets/icon-512.png` + bundled Freedoom WADs, ad-hoc signed), and
+`scripts/make-dmg.sh` wraps it in a DMG with first-launch instructions. The build
+is intentionally **unsigned/un-notarized** (no Apple Developer account) — users
+right-click → Open once. Don't bundle `doom_ascii` by default; it's behind the
+opt-in `INCLUDE_DOOM=1` flag because shipping a GPL binary carries source-offer
+obligations. App settings persist via `UserDefaults` under the bundle id
+`com.builder106.ascii-arcade`; resource lookup (`DoomLauncher`) checks
+`Bundle.main` first so it works both from the `.app` and from `swift run`.
+
 ## Project layout
 
 - `Sources/AsciiArcadeCore` — frame generators, the `AsciiScene` protocol, and
