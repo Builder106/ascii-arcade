@@ -42,6 +42,11 @@ public enum DoomLauncher {
     ) -> String? {
         let env = ProcessInfo.processInfo.environment
         if let e = env["DOOM_ASCII_PATH"], fm.isExecutableFile(atPath: e) { return e }
+        // Inside a packaged .app, `doom_ascii` (if shipped) lives in Resources.
+        if let res = Bundle.main.resourceURL {
+            let bundled = res.appendingPathComponent("doom_ascii").path
+            if fm.isExecutableFile(atPath: bundled) { return bundled }
+        }
         let local = (workingDirectory as NSString).appendingPathComponent("bin/doom_ascii")
         if fm.isExecutableFile(atPath: local) { return local }
         for usr in ["/usr/local/bin/doom_ascii", "/opt/homebrew/bin/doom_ascii"] {
@@ -57,6 +62,11 @@ public enum DoomLauncher {
         let env = ProcessInfo.processInfo.environment
         var searchDirs: [String] = []
         if let wadDir = env["DOOM_WAD_DIR"], !wadDir.isEmpty { searchDirs.append(wadDir) }
+        // Bundled WADs ship in the .app's Resources (and a wad/ subfolder).
+        if let res = Bundle.main.resourceURL {
+            searchDirs.append(res.path)
+            searchDirs.append(res.appendingPathComponent("wad").path)
+        }
         searchDirs.append((workingDirectory as NSString).appendingPathComponent("wad"))
         searchDirs.append("/opt/homebrew/share/games/doom")
         searchDirs.append("/usr/local/share/games/doom")

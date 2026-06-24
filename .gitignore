@@ -11,6 +11,9 @@ doom-ascii/
 # Built game binary — produced by scripts/setup.sh
 bin/
 
+# Packaged app + DMG — produced by scripts/make-app.sh / make-dmg.sh
+dist/
+
 # Runtime
 logs/
 .savegame/
