@@ -18,6 +18,23 @@ public protocol AsciiScene: AnyObject {
     /// The current frame: `height` newline-joined rows, each `width` columns wide.
     func frame(atTime t: Double) -> String
 
+    /// The current frame with per-cell colour. Return `nil` (the default) for a
+    /// monochrome scene — the host then paints every glyph in the theme colour.
+    /// Colour scenes (Matrix, fire, pipes, DOOM) override this.
+    func coloredFrame(atTime t: Double) -> ColoredFrame?
+
+    /// Tell the scene the theme's text colour, so colour scenes can key their
+    /// palette off it (e.g. Matrix rain turns amber under the Amber theme).
+    /// Default: ignored.
+    func applyBaseColor(_ color: RGBColor)
+
+    /// User-tunable knobs for this scene (speed, density, …), surfaced by the
+    /// host as a menu. Default: none.
+    var settings: [SceneSetting] { get }
+
+    /// Apply a value chosen for one of `settings`. Default: ignored.
+    func applySetting(id: String, value: Double)
+
     /// Forward raw key bytes to the scene. Default: ignored.
     func sendKey(_ bytes: [UInt8])
 
@@ -28,6 +45,10 @@ public protocol AsciiScene: AnyObject {
 
 public extension AsciiScene {
     var isInteractive: Bool { false }
+    func coloredFrame(atTime t: Double) -> ColoredFrame? { nil }
+    func applyBaseColor(_ color: RGBColor) {}
+    var settings: [SceneSetting] { [] }
+    func applySetting(id: String, value: Double) {}
     func sendKey(_ bytes: [UInt8]) {}
     func start() {}
     func stop() {}
