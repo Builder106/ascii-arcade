@@ -10,7 +10,7 @@
   <a href="https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://swift.org"><img alt="Swift" src="https://img.shields.io/badge/Swift-5.10%2B-orange.svg"></a>
   <img alt="Platform" src="https://img.shields.io/badge/macOS-13%2B-black.svg">
-  <a href="#license"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <a href="#license"><img alt="License" src="https://img.shields.io/badge/license-GPL--2.0-blue.svg"></a>
 </p>
 
 A macOS live-wallpaper customizer that renders ASCII scenes as your desktop
@@ -194,7 +194,7 @@ bin/                      doom_ascii binary (built by setup.sh)
 
 ## License
 
-This project's code is MIT — see [LICENSE](LICENSE). Note that `doom_ascii`
+This project is GPL-2.0 — see [LICENSE](LICENSE). `doom_ascii`
 ([wojciech-graj/doom-ascii](https://github.com/wojciech-graj/doom-ascii)) is
-GPL-2.0 and is *fetched and built* by `setup.sh` rather than redistributed here;
-the bundled [Freedoom](https://freedoom.github.io/) IWADs are BSD-licensed.
+also GPL-2.0 and is fetched and built by `setup.sh`; the bundled
+[Freedoom](https://freedoom.github.io/) IWADs are BSD-licensed.
