@@ -1,0 +1,72 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [main]
+    paths: ["Cargo.toml", "crates/**", "shells/**", ".github/workflows/rust.yml"]
+  pull_request:
+    branches: [main]
+    paths: ["Cargo.toml", "crates/**", "shells/**", ".github/workflows/rust.yml"]
+
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Portable engine crates: test + lint on every OS so the shared core is
+  # provably platform-neutral.
+  core:
+    name: core (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Format check
+        run: cargo fmt --all --check
+      - name: Clippy (engine crates)
+        run: cargo clippy -p aa-core -p aa-render -p aa-doom --all-targets -- -D warnings
+      - name: Test (engine crates)
+        run: cargo test -p aa-core -p aa-render -p aa-doom
+      - name: Build headless example
+        run: cargo build -p aa-core --example play
+
+  # Native wallpaper shells: each builds only on its own OS (Win32 / X11 +
+  # Wayland). This is the real gate for the shell code, which can't link on the
+  # author's macOS dev machine.
+  shells:
+    name: shell ${{ matrix.crate }} (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            crate: aa-windows
+          - os: ubuntu-24.04
+            crate: aa-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Linux wallpaper deps
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libwayland-dev libxkbcommon-dev libxcb1-dev
+      - name: Build shell
+        run: cargo build -p ${{ matrix.crate }}
+      - name: Clippy shell
+        run: cargo clippy -p ${{ matrix.crate }} -- -D warnings
