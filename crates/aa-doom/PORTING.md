@@ -19,8 +19,9 @@ cd doom-ascii && make
 ```
 
 No extra libraries: `doom_ascii` only does terminal I/O (ANSI escapes to
-stdout). `scripts/setup.sh` works unchanged on Linux. CI builds it on the
-ubuntu runner the same way.
+stdout). `scripts/setup.sh` runs on Linux under bash (shebang
+`#!/usr/bin/env bash`) — verified building an aarch64 binary on Ubuntu 24.04,
+where the `aa-doom` end-to-end spawn test then drives it over a forkpty PTY.
 
 ## Windows
 Needs a C toolchain and produces `doom_ascii.exe`. The upstream `Makefile` is
