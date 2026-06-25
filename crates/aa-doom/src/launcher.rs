@@ -206,16 +206,19 @@ mod tests {
     }
 
     fn tmp() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        // A per-process atomic sequence guarantees uniqueness even when parallel
+        // test threads call this within the same clock tick. A time-only suffix
+        // collided on CI (macOS clocks can be coarse), letting one test delete
+        // another's fixture mid-run.
+        static SEQ: AtomicU64 = AtomicU64::new(0);
         let base = std::env::var("CARGO_TARGET_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|_| std::env::temp_dir());
         let dir = base.join(format!(
-            "aa-doom-test-{}-{:?}",
+            "aa-doom-test-{}-{}",
             std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
+            SEQ.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&dir).unwrap();
         dir
