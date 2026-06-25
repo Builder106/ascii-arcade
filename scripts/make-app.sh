@@ -85,8 +85,22 @@ if [ "${INCLUDE_DOOM:-0}" = "1" ] && [ -x "$ROOT/bin/doom_ascii" ]; then
 	echo "NOTE: bundled GPL-2.0 doom_ascii — you must also ship its source."
 fi
 
-# Ad-hoc sign so it runs locally; this is NOT notarization, so recipients on
-# other Macs still right-click → Open (or clear the quarantine xattr) once.
-codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
+# Sign with a stable self-signed identity if one exists, so rebuilds keep their
+# TCC grants (Accessibility, Screen Recording). Ad-hoc signing pins the
+# designated requirement to the cdhash, which changes every build and makes
+# macOS re-prompt for permissions. Run scripts/setup-signing.sh once to create
+# the identity. This is NOT notarization — recipients on other Macs still
+# right-click → Open (or clear the quarantine xattr) once.
+# Note: list without -v. A self-signed cert is usable for signing but reports
+# as "not trusted", so -v (valid-only) would hide it and force the ad-hoc path.
+SIGN_IDENTITY="${SIGN_IDENTITY:-ASCII Arcade Local}"
+if security find-identity -p codesigning 2>/dev/null | grep -qF "$SIGN_IDENTITY"; then
+	codesign --force --deep --sign "$SIGN_IDENTITY" "$APP" >/dev/null 2>&1 \
+		|| { echo "error: signing with '$SIGN_IDENTITY' failed" >&2; exit 1; }
+else
+	echo "warning: no '$SIGN_IDENTITY' identity — ad-hoc signing; macOS will re-prompt" >&2
+	echo "         for Accessibility on every rebuild. Run scripts/setup-signing.sh once." >&2
+	codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
+fi
 
 echo "Built $APP"
