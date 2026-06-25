@@ -1,4 +1,5 @@
-#!/bin/zsh
+#!/usr/bin/env bash
+# Builds the vendored doom_ascii binary. Works on macOS and Linux (bash/zsh).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")"/..; pwd)"
@@ -7,7 +8,7 @@ mkdir -p "$BIN_DIR"
 
 # Build in a temporary directory to avoid spaces/parentheses issues in paths
 BUILD_DIR="$(mktemp -d /tmp/doom-ascii-build-XXXXXX)"
-CLEANUP() { rm -rf "$BUILD_DIR" || true }
+CLEANUP() { rm -rf "$BUILD_DIR" || true; }
 trap CLEANUP EXIT
 
 cd "$BUILD_DIR"

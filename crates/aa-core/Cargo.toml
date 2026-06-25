@@ -1,0 +1,17 @@
+[package]
+name = "aa-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Platform-neutral ASCII Arcade engine: scenes, frames, themes, DOOM ANSI buffer."
+
+[lib]
+# A staticlib/cdylib is added later so the Swift macOS shell can link the C ABI;
+# for now the rlib is all the Rust shells need.
+crate-type = ["rlib"]
+
+[dependencies]
+
+[features]
+default = []

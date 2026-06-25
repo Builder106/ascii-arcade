@@ -5,6 +5,12 @@
 .build/
 .swiftpm/
 
+# Rust (cross-platform port). Build artifacts go to an off-Drive CARGO_TARGET_DIR
+# locally; CI uses the default ./target. Cargo.lock IS committed (the workspace
+# ships binaries) for reproducible CI builds.
+/target/
+**/target/
+
 # Vendored upstream — cloned + built by scripts/setup.sh (doom-ascii is GPL)
 doom-ascii/
 
@@ -21,3 +27,6 @@ logs/
 # Editor
 .vscode/
 .idea/
+
+# Claude Code local state (agent worktrees, settings)
+.claude/

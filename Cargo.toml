@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/aa-core",
+    "crates/aa-render",
+    "crates/aa-doom",
+    "shells/windows",
+    "shells/linux",
+]
+
+# Shared metadata for every crate in the cross-platform Rust port. The macOS
+# wallpaper shell remains Swift/AppKit and consumes aa-core via a C ABI; the
+# Windows (WorkerW) and Linux (X11 + wlr-layer-shell) shells are native Rust.
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-2.0"
+repository = "https://github.com/Builder106/ascii-arcade"
+
+[workspace.dependencies]
+aa-core = { path = "crates/aa-core" }
+aa-render = { path = "crates/aa-render" }
+aa-doom = { path = "crates/aa-doom" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
