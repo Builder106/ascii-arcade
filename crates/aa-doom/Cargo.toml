@@ -8,6 +8,7 @@ description = "DOOM driver: spawns doom_ascii over a portable PTY, parses ANSI i
 
 [dependencies]
 aa-core = { workspace = true }
-# Added by the aa-doom work-stream — portable-pty wraps ConPTY (Windows) and
-# forkpty (macOS/Linux) behind one API, replacing the Darwin-only PTYBridge:
-# portable-pty = "0.8"
+# portable-pty wraps ConPTY (Windows) and forkpty (macOS/Linux) behind one API,
+# replacing the Darwin-only PTYBridge — the single change that makes
+# DOOM-on-Windows possible.
+portable-pty = "0.8"
