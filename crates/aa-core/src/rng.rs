@@ -34,6 +34,30 @@ impl SeededRng {
     pub fn next_below(&mut self, n: usize) -> usize {
         (self.next_u64() % n as u64) as usize
     }
+
+    /// Uniform integer in `lo..=hi` (inclusive), mirroring Swift's
+    /// `Int.random(in: lo...hi)`. `hi` must be `>= lo`.
+    pub fn next_range_inclusive(&mut self, lo: i64, hi: i64) -> i64 {
+        debug_assert!(hi >= lo);
+        let span = (hi - lo) as u64 + 1;
+        lo + (self.next_u64() % span) as i64
+    }
+
+    /// Uniform float in `lo..=hi`, mirroring Swift's `Double.random(in: lo...hi)`.
+    pub fn next_range_f64(&mut self, lo: f64, hi: f64) -> f64 {
+        lo + self.next_f64() * (hi - lo)
+    }
+
+    /// A coin flip, mirroring Swift's `Bool.random()`.
+    pub fn next_bool(&mut self) -> bool {
+        self.next_u64() & 1 == 1
+    }
+
+    /// Pick a uniformly-random element from a non-empty slice, mirroring
+    /// `Array.randomElement(using:)`.
+    pub fn choose<'a, T>(&mut self, items: &'a [T]) -> &'a T {
+        &items[self.next_below(items.len())]
+    }
 }
 
 #[cfg(test)]
