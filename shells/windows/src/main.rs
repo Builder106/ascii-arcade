@@ -2,6 +2,8 @@
 //!
 //! Usage: `aa-windows [scene] [theme]`  (e.g. `aa-windows matrix amber`)
 
+#![windows_subsystem = "windows"]
+
 use aa_core::Theme;
 use aa_render::RenderOptions;
 
