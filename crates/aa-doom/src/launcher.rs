@@ -82,10 +82,7 @@ fn is_executable_file(path: &Path) -> bool {
 
 /// Resolve the `doom_ascii` binary. `env` is the process environment (passed in
 /// so the policy is testable); `working_directory` is searched for `bin/`.
-pub fn resolve_binary(
-    working_directory: &Path,
-    env: &HashMap<String, String>,
-) -> Option<PathBuf> {
+pub fn resolve_binary(working_directory: &Path, env: &HashMap<String, String>) -> Option<PathBuf> {
     if let Some(explicit) = env.get("DOOM_ASCII_PATH") {
         let p = PathBuf::from(explicit);
         if is_executable_file(&p) {

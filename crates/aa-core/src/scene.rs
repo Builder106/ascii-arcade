@@ -18,7 +18,10 @@ pub struct SceneOption {
 
 impl SceneOption {
     pub fn new(label: impl Into<String>, value: f64) -> Self {
-        SceneOption { label: label.into(), value }
+        SceneOption {
+            label: label.into(),
+            value,
+        }
     }
 }
 

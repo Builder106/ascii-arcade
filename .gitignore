@@ -27,3 +27,6 @@ logs/
 # Editor
 .vscode/
 .idea/
+
+# Claude Code local state (agent worktrees, settings)
+.claude/

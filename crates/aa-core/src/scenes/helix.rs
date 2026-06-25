@@ -22,7 +22,10 @@ impl HelixScene {
     const PITCH: f64 = 0.4;
 
     pub fn new() -> Self {
-        HelixScene { width: 10, height: 10 }
+        HelixScene {
+            width: 10,
+            height: 10,
+        }
     }
 }
 

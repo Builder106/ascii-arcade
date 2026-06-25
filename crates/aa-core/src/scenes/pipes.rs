@@ -85,7 +85,12 @@ impl PipesScene {
         let x = self.rng.next_below(self.width.max(1)) as i64;
         let y = self.rng.next_below(self.height.max(1)) as i64;
         let dir = self.rng.next_below(4);
-        Pipe { x, y, dir, color: c }
+        Pipe {
+            x,
+            y,
+            dir,
+            color: c,
+        }
     }
 
     fn next_hue(&mut self) -> RgbColor {
@@ -257,7 +262,7 @@ impl Scene for PipesScene {
 /// (0 = up, 1 = right, 2 = down, 3 = left).
 fn connector(a: usize, b: usize) -> char {
     if a == b {
-        return if a % 2 == 0 { '│' } else { '─' };
+        return if a.is_multiple_of(2) { '│' } else { '─' };
     }
     let (lo, hi) = (a.min(b), a.max(b));
     match (lo, hi) {

@@ -185,8 +185,14 @@ impl ScreenBuffer {
                 // Cursor position (1-based, default 1;1).
                 let s = String::from_utf8_lossy(params);
                 let mut parts = s.split(';');
-                let row1 = parts.next().and_then(|p| p.parse::<usize>().ok()).unwrap_or(1);
-                let col1 = parts.next().and_then(|p| p.parse::<usize>().ok()).unwrap_or(1);
+                let row1 = parts
+                    .next()
+                    .and_then(|p| p.parse::<usize>().ok())
+                    .unwrap_or(1);
+                let col1 = parts
+                    .next()
+                    .and_then(|p| p.parse::<usize>().ok())
+                    .unwrap_or(1);
                 self.cursor_row = row1.saturating_sub(1).min(self.height - 1);
                 self.cursor_col = col1.saturating_sub(1).min(self.width - 1);
             }
@@ -197,7 +203,9 @@ impl ScreenBuffer {
                 }
             }
             b'K' => {
-                let mode = String::from_utf8_lossy(params).parse::<usize>().unwrap_or(0);
+                let mode = String::from_utf8_lossy(params)
+                    .parse::<usize>()
+                    .unwrap_or(0);
                 self.erase_line(mode);
             }
             b'm' => self.apply_sgr(params),
@@ -428,10 +436,12 @@ mod tests {
     #[test]
     fn out_of_bounds_cursor_does_not_panic() {
         let mut buf = ScreenBuffer::new(2, 2);
-        // Write past the grid; rows beyond height are dropped, no panic.
+        // Write past the end of a row without a newline. We deliberately do NOT
+        // auto-wrap: doom_ascii emits an explicit newline per scanline, so
+        // wrapping would double-advance and drop a row. Overflow chars past the
+        // row are discarded; the key assertion is simply that this never panics.
         buf.feed(b"\x1b[;HABCDEFGHIJ");
-        // First row filled, overflow ignored.
-        assert_eq!(frame_text(&buf), "AB\nCD");
+        assert_eq!(frame_text(&buf), "AB\n  ");
     }
 
     #[test]

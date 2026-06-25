@@ -16,7 +16,10 @@ pub struct Cell {
 }
 
 impl Cell {
-    pub const BLANK: Cell = Cell { ch: ' ', color: None };
+    pub const BLANK: Cell = Cell {
+        ch: ' ',
+        color: None,
+    };
 
     pub const fn new(ch: char, color: Option<RgbColor>) -> Self {
         Cell { ch, color }

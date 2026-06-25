@@ -172,10 +172,7 @@ impl Scene for ClockScene {
             SceneSetting::new(
                 "seconds",
                 "Seconds",
-                vec![
-                    SceneOption::new("On", 1.0),
-                    SceneOption::new("Off", 0.0),
-                ],
+                vec![SceneOption::new("On", 1.0), SceneOption::new("Off", 0.0)],
                 0,
             ),
         ]

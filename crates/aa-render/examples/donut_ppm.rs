@@ -14,7 +14,9 @@ use aa_core::scenes::donut::DonutScene;
 use aa_render::{render, RenderOptions};
 
 fn main() -> std::io::Result<()> {
-    let path = std::env::args().nth(1).unwrap_or_else(|| "donut.ppm".to_string());
+    let path = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "donut.ppm".to_string());
 
     let mut donut = DonutScene::new();
     donut.set_grid(80, 30);

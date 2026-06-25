@@ -14,7 +14,11 @@ pub struct RgbColor {
 }
 
 impl RgbColor {
-    pub const WHITE: RgbColor = RgbColor { r: 255, g: 255, b: 255 };
+    pub const WHITE: RgbColor = RgbColor {
+        r: 255,
+        g: 255,
+        b: 255,
+    };
     pub const BLACK: RgbColor = RgbColor { r: 0, g: 0, b: 0 };
 
     pub const fn new(r: u8, g: u8, b: u8) -> Self {
@@ -54,7 +58,10 @@ mod tests {
 
     #[test]
     fn scaled_clamps_and_rounds() {
-        assert_eq!(RgbColor::new(200, 100, 50).scaled(0.5), RgbColor::new(100, 50, 25));
+        assert_eq!(
+            RgbColor::new(200, 100, 50).scaled(0.5),
+            RgbColor::new(100, 50, 25)
+        );
         assert_eq!(RgbColor::WHITE.scaled(2.0), RgbColor::WHITE);
         assert_eq!(RgbColor::WHITE.scaled(-1.0), RgbColor::BLACK);
     }

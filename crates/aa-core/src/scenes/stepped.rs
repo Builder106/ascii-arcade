@@ -29,7 +29,11 @@ pub struct Stepper {
 
 impl Stepper {
     pub fn new() -> Self {
-        Stepper { last_time: 0.0, accumulator: 0.0, started: false }
+        Stepper {
+            last_time: 0.0,
+            accumulator: 0.0,
+            started: false,
+        }
     }
 
     /// Reset the clock so the next [`Stepper::advance`] re-anchors. Called from a
@@ -52,19 +56,18 @@ impl Stepper {
             self.accumulator = 0.0;
             return 0;
         }
-        let mut dt = t - self.last_time;
+        // Clamp dt: < 0 is the clock going backwards (a scene switch); > 0.25 is
+        // a stall we don't want to fast-forward through.
+        let dt = (t - self.last_time).clamp(0.0, 0.25);
         self.last_time = t;
-        if dt < 0.0 {
-            dt = 0.0; // clock reset on scene switch
-        }
-        if dt > 0.25 {
-            dt = 0.25; // clamp after a stall so we don't fast-forward
-        }
         self.accumulator += dt;
         let interval = interval.max(0.0001);
+        // Tolerate float drift: accumulating dt (e.g. 0.05 + 0.05) can land a
+        // hair under a whole interval and silently swallow a due step.
+        const EPS: f64 = 1e-9;
         let mut budget = 12usize; // cap catch-up work per frame
         let mut steps = 0usize;
-        while self.accumulator >= interval && budget > 0 {
+        while self.accumulator >= interval - EPS && budget > 0 {
             steps += 1;
             self.accumulator -= interval;
             budget -= 1;
@@ -101,7 +104,7 @@ mod tests {
     fn clamps_long_stall() {
         let mut s = Stepper::new();
         s.advance(0.0, 0.1); // anchor
-        // A 10s jump is clamped to 0.25s → at most 2 steps despite the gap.
+                             // A 10s jump is clamped to 0.25s → at most 2 steps despite the gap.
         assert_eq!(s.advance(10.0, 0.1), 2);
     }
 

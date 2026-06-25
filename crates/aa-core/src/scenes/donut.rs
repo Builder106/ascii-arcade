@@ -17,7 +17,10 @@ pub struct DonutScene {
 
 impl DonutScene {
     pub fn new() -> Self {
-        DonutScene { width: 10, height: 10 }
+        DonutScene {
+            width: 10,
+            height: 10,
+        }
     }
 }
 
@@ -65,8 +68,10 @@ impl Scene for DonutScene {
                 let circle_x = r2 + r1 * cos_th;
                 let circle_y = r1 * sin_th;
 
-                let x = circle_x * (cos_b * cos_ph + sin_a * sin_b * sin_ph) - circle_y * cos_a * sin_b;
-                let y = circle_x * (sin_b * cos_ph - sin_a * cos_b * sin_ph) + circle_y * cos_a * cos_b;
+                let x =
+                    circle_x * (cos_b * cos_ph + sin_a * sin_b * sin_ph) - circle_y * cos_a * sin_b;
+                let y =
+                    circle_x * (sin_b * cos_ph - sin_a * cos_b * sin_ph) + circle_y * cos_a * cos_b;
                 let z = k2 + cos_a * circle_x * sin_ph + circle_y * sin_a;
                 let ooz = 1.0 / z;
 

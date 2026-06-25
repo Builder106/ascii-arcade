@@ -68,7 +68,13 @@ impl MatrixScene {
             0.0
         };
         let glyphs = (0..h.max(1)).map(|_| *self.rng.choose(GLYPHS)).collect();
-        Column { head: start, speed, trail, active: false, glyphs }
+        Column {
+            head: start,
+            speed,
+            trail,
+            active: false,
+            glyphs,
+        }
     }
 
     fn reset(&mut self) {

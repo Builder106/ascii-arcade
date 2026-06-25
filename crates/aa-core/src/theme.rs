@@ -40,7 +40,9 @@ impl Theme {
     pub const ALL: [Theme; 4] = [Theme::HACKER, Theme::AMBER, Theme::ICE, Theme::GHOST];
 
     pub fn by_name(name: &str) -> Option<Theme> {
-        Theme::ALL.into_iter().find(|t| t.name.eq_ignore_ascii_case(name))
+        Theme::ALL
+            .into_iter()
+            .find(|t| t.name.eq_ignore_ascii_case(name))
     }
 }
 

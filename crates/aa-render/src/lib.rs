@@ -412,7 +412,10 @@ mod tests {
             .pixels
             .chunks_exact(4)
             .any(|px| (px[0], px[1], px[2]) == (text.r, text.g, text.b));
-        assert!(lit, "an uncoloured cell should be painted in the theme text colour");
+        assert!(
+            lit,
+            "an uncoloured cell should be painted in the theme text colour"
+        );
     }
 
     #[test]
@@ -461,7 +464,10 @@ mod tests {
                 break;
             }
         }
-        assert!(spread, "glow did not spread any brightness onto background pixels");
+        assert!(
+            spread,
+            "glow did not spread any brightness onto background pixels"
+        );
     }
 
     #[test]

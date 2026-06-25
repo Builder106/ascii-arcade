@@ -59,7 +59,9 @@ mod imp {
     //   x11:     create a pixmap, blit aa_render output, set _XROOTPMAP_ID and
     //            ESETROOT_PMAP_ID on the root; RandR for per-monitor geometry.
     pub fn run(backend: Backend) -> Result<(), ShellError> {
-        Err(ShellError::Backend(format!("{backend:?} backend not yet implemented")))
+        Err(ShellError::Backend(format!(
+            "{backend:?} backend not yet implemented"
+        )))
     }
 }
 
