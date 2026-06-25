@@ -182,7 +182,13 @@ mod imp {
         true.into()
     }
 
-    fn create_render_window(parent: HWND, x: i32, y: i32, w: i32, h: i32) -> Result<HWND, ShellError> {
+    fn create_render_window(
+        parent: HWND,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+    ) -> Result<HWND, ShellError> {
         unsafe {
             let hinstance: HINSTANCE = win32(GetModuleHandleW(PCWSTR::null()))?.into();
             let class_name = w!("AsciiArcadeWallpaper");
