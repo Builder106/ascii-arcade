@@ -65,7 +65,7 @@ mod imp {
     use windows::Win32::UI::WindowsAndMessaging::{
         CreateWindowExW, DefWindowProcW, DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW,
         GetSystemMetrics, PeekMessageW, PostQuitMessage, RegisterClassW, SendMessageTimeoutW,
-        SetParent, ShowWindow, TranslateMessage, CW_USEDEFAULT, HMENU, MSG, PM_REMOVE, SMTO_NORMAL,
+        ShowWindow, TranslateMessage, CW_USEDEFAULT, HMENU, MSG, PM_REMOVE, SMTO_NORMAL,
         SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SW_SHOW,
         WM_DESTROY, WM_QUIT, WNDCLASSW, WS_CHILD, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_VISIBLE,
     };
@@ -95,10 +95,8 @@ mod imp {
         let (vw, vh) = (vw.max(1), vh.max(1));
 
         let host = find_wallpaper_host()?;
-        let hwnd = create_render_window(vx, vy, vw, vh)?;
+        let hwnd = create_render_window(host, vx, vy, vw, vh)?;
         unsafe {
-            // Reparent into the WorkerW so we render behind the icons.
-            let _ = SetParent(hwnd, host);
             let _ = ShowWindow(hwnd, SW_SHOW);
         }
 
@@ -184,7 +182,7 @@ mod imp {
         true.into()
     }
 
-    fn create_render_window(x: i32, y: i32, w: i32, h: i32) -> Result<HWND, ShellError> {
+    fn create_render_window(parent: HWND, x: i32, y: i32, w: i32, h: i32) -> Result<HWND, ShellError> {
         unsafe {
             let hinstance: HINSTANCE = win32(GetModuleHandleW(PCWSTR::null()))?.into();
             let class_name = w!("AsciiArcadeWallpaper");
@@ -206,7 +204,7 @@ mod imp {
                 y,
                 w,
                 h,
-                HWND::default(),
+                parent,
                 HMENU::default(),
                 hinstance,
                 None,
