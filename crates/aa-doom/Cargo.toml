@@ -1,0 +1,13 @@
+[package]
+name = "aa-doom"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "DOOM driver: spawns doom_ascii over a portable PTY, parses ANSI into Frames."
+
+[dependencies]
+aa-core = { workspace = true }
+# Added by the aa-doom work-stream — portable-pty wraps ConPTY (Windows) and
+# forkpty (macOS/Linux) behind one API, replacing the Darwin-only PTYBridge:
+# portable-pty = "0.8"

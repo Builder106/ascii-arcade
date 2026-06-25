@@ -5,6 +5,12 @@
 .build/
 .swiftpm/
 
+# Rust (cross-platform port). Build artifacts go to an off-Drive CARGO_TARGET_DIR
+# locally; CI uses the default ./target.
+/target/
+**/target/
+Cargo.lock
+
 # Vendored upstream — cloned + built by scripts/setup.sh (doom-ascii is GPL)
 doom-ascii/
 

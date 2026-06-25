@@ -1,0 +1,10 @@
+[package]
+name = "aa-render"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Software rasteriser: aa-core Frame -> RGBA pixel buffer (glyph atlas, theme, CRT FX)."
+
+[dependencies]
+aa-core = { workspace = true }
