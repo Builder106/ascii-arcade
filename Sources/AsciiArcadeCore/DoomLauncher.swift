@@ -19,14 +19,34 @@ public enum DoomLauncher {
         "freedoom1.wad", "freedoom2.wad", "freedoom.wad", "freedm.wad"
     ]
 
+    /// DOOM's internal framebuffer is `SCREENWIDTH × SCREENHEIGHT` (320×200).
+    /// `-scaling N` renders it at `320/N × 200/N` pixels; `doom_ascii` emits each
+    /// pixel as *two* block characters wide (for terminal aspect), then one row
+    /// per scanline. So the character grid it produces is `(640/N) × (200/N)`.
+    public static let screenWidth = 320
+    public static let screenHeight = 200
+
+    /// The character-grid dimensions `doom_ascii -scaling N` will emit.
+    public static func gridSize(forScaling scaling: Int) -> (cols: Int, rows: Int) {
+        let n = max(1, scaling)
+        return ((screenWidth / n) * 2, screenHeight / n)
+    }
+
     public static func resolve(
-        workingDirectory: String = FileManager.default.currentDirectoryPath
+        workingDirectory: String = FileManager.default.currentDirectoryPath,
+        scaling: Int? = nil
     ) -> DoomLaunchConfig? {
         let fm = FileManager.default
         guard let bin = resolveBinary(fm: fm, workingDirectory: workingDirectory) else { return nil }
 
         var env = ProcessInfo.processInfo.environment
         var args = ["-chars", "block"]
+        if let scaling { args += ["-scaling", String(max(1, scaling))] }
+        // DOOM defaults to gamma OFF — authentic but very dark, which reads poorly
+        // as a wallpaper (unlit sectors fade to pure black). Apply a brighter gamma
+        // level by default (0 = off … 4 = brightest); override with DOOM_GAMMA.
+        let gamma = env["DOOM_GAMMA"].flatMap { Int($0) } ?? 2
+        if gamma > 0 { args += ["-fixgamma", String(min(4, gamma))] }
         if let (iwad, dir) = resolveIwad(fm: fm, workingDirectory: workingDirectory) {
             args += ["-iwad", iwad]
             env["DOOMWADDIR"] = dir

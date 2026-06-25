@@ -245,6 +245,20 @@ final class SceneView: NSView {
         let insetY = bounds.height * (1.0 - scale) / 2.0
         let paddedRect = bounds.insetBy(dx: insetX, dy: insetY).insetBy(dx: 6, dy: 6)
 
+        let viewH = bounds.height
+
+        // DOOM (and any fixed-resolution scene) renders as a scaled colour bitmap
+        // that fills the padded rect — its framebuffer is far denser than the text
+        // grid, so each cell is painted as a rectangle rather than a font glyph.
+        if let fixed = currentScene.fixedGrid {
+            drawBitmap(currentScene, fixed: fixed, in: paddedRect, ctx: ctx, t: t)
+            if instrument {
+                recordInstrumentation(scene: currentScene, w: fixed.width, h: fixed.height,
+                                      batches: 0, start: drawStart)
+            }
+            return
+        }
+
         let charW = cellCharWidth
         let lineH = cellLineHeight
         let (w, h) = DonutFrameGenerator.gridDimensions(
@@ -259,7 +273,6 @@ final class SceneView: NSView {
         let contentHeight = CGFloat(h) * lineH
         let originX = paddedRect.midX - contentWidth / 2.0
         let originY = paddedRect.midY - contentHeight / 2.0
-        let viewH = bounds.height
         let ascent = cellAscent
 
         // Bucket every non-blank cell's glyph by colour. Adjacent cells that share
@@ -312,15 +325,70 @@ final class SceneView: NSView {
         ctx.restoreGState()
 
         if instrument {
-            instrFrames += 1
-            instrDrawMs += (CACurrentMediaTime() - drawStart) * 1000.0
-            let now = CACurrentMediaTime()
-            if now - instrLast >= 1.0 {
-                let avg = instrDrawMs / Double(max(1, instrFrames))
-                NSLog("ASCII_FPS scene=%@ grid=%dx%d fps=%d avgDraw=%.2fms batches=%d",
-                      currentScene.displayName, w, h, instrFrames, avg, batches.count)
-                instrFrames = 0; instrDrawMs = 0; instrLast = now
+            recordInstrumentation(scene: currentScene, w: w, h: h,
+                                  batches: batches.count, start: drawStart)
+        }
+    }
+
+    /// Paint a fixed-resolution scene (DOOM) as a scaled colour bitmap filling
+    /// `rect`. Each cell becomes a rectangle; horizontally-adjacent cells of the
+    /// same colour merge into one fill, and fills are batched per colour — so a
+    /// dense frame is a few hundred `fill` calls, not tens of thousands.
+    private func drawBitmap(_ scene: any AsciiScene, fixed: (width: Int, height: Int),
+                            in rect: CGRect, ctx: CGContext, t: Double) {
+        guard let colored = scene.coloredFrame(atTime: t) else { return }
+        let w = fixed.width, h = fixed.height
+        guard w > 0, h > 0 else { return }
+        let cellW = rect.width / CGFloat(w)
+        let cellH = rect.height / CGFloat(h)
+        let chars = colored.chars, colors = colored.colors
+        guard chars.count >= w * h, colors.count >= w * h else { return }
+
+        var rectsByColor: [AsciiArcadeCore.RGBColor: [CGRect]] = [:]
+        // Uncolored non-blank cells (e.g. the "doom_ascii not found" message, or
+        // any frame before ANSI colour arrives) fall back to the theme colour —
+        // otherwise they'd paint nothing and the screen would read as black.
+        var fallbackRects: [CGRect] = []
+        for row in 0..<h {
+            let base = row * w
+            // The view is flipped (isFlipped == true): y grows downward, origin
+            // top-left. Row 0 is the top of the framebuffer, so it maps to
+            // rect.minY. (Using rect.maxY here rendered the frame upside down.)
+            let yTop = rect.minY + CGFloat(row) * cellH
+            var col = 0
+            while col < w {
+                let idx = base + col
+                guard chars[idx] != " " else { col += 1; continue }
+                let color = colors[idx]
+                var end = col + 1
+                while end < w, chars[base + end] != " ", colors[base + end] == color { end += 1 }
+                let r = CGRect(x: rect.minX + CGFloat(col) * cellW, y: yTop,
+                               width: CGFloat(end - col) * cellW, height: cellH)
+                if let color { rectsByColor[color, default: []].append(r) }
+                else { fallbackRects.append(r) }
+                col = end
             }
+        }
+        for (color, rects) in rectsByColor {
+            ctx.setFillColor(cgColor(for: color))
+            ctx.fill(rects)
+        }
+        if !fallbackRects.isEmpty {
+            ctx.setFillColor(themeTextColor.cgColor)
+            ctx.fill(fallbackRects)
+        }
+    }
+
+    private func recordInstrumentation(scene: any AsciiScene, w: Int, h: Int,
+                                       batches: Int, start: CFTimeInterval) {
+        instrFrames += 1
+        instrDrawMs += (CACurrentMediaTime() - start) * 1000.0
+        let now = CACurrentMediaTime()
+        if now - instrLast >= 1.0 {
+            let avg = instrDrawMs / Double(max(1, instrFrames))
+            NSLog("ASCII_FPS scene=%@ grid=%dx%d fps=%d avgDraw=%.2fms batches=%d",
+                  scene.displayName, w, h, instrFrames, avg, batches)
+            instrFrames = 0; instrDrawMs = 0; instrLast = now
         }
     }
 

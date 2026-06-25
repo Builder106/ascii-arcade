@@ -12,36 +12,39 @@ public final class DoomScene: AsciiScene {
 
     private let buffer: DoomScreenBuffer
     private let workingDirectory: String
+    private let scaling: Int
     private var proc: PTYProcess?
-    private var cols: Int
-    private var rows: Int
+    private let cols: Int
+    private let rows: Int
     private var running = false
     private let stateLock = NSLock()
 
     public init(
         displayName: String = "DOOM",
         workingDirectory: String = FileManager.default.currentDirectoryPath,
-        initialColumns: Int = 100,
-        initialRows: Int = 40
+        scaling: Int? = nil
     ) {
         self.displayName = displayName
         self.workingDirectory = workingDirectory
-        self.cols = max(1, initialColumns)
-        self.rows = max(1, initialRows)
+        // Resolution lever: lower = sharper DOOM. 320/N × 200/N pixels. Default 1
+        // renders DOOM's native 320×200 framebuffer — the sharpest the engine can
+        // produce (~24fps as a wallpaper). Raise DOOM_SCALING for a lighter,
+        // blockier frame (2 = 160×100 at ~30fps).
+        let env = ProcessInfo.processInfo.environment
+        let requested = scaling ?? env["DOOM_SCALING"].flatMap { Int($0) } ?? 1
+        self.scaling = min(8, max(1, requested))
+        let grid = DoomLauncher.gridSize(forScaling: self.scaling)
+        self.cols = grid.cols
+        self.rows = grid.rows
         self.buffer = DoomScreenBuffer(width: self.cols, height: self.rows)
     }
 
-    public func setGrid(width: Int, height: Int) {
-        guard width > 0, height > 0 else { return }
-        stateLock.lock()
-        let changed = (width != cols || height != rows)
-        cols = width; rows = height
-        let p = proc
-        stateLock.unlock()
-        guard changed else { return }
-        buffer.resize(width: width, height: height)
-        p?.resize(columns: Int32(width), rows: Int32(height))
-    }
+    /// DOOM drives its own fixed-resolution framebuffer, so the host paints it as
+    /// a scaled colour bitmap rather than sizing it from the text font.
+    public var fixedGrid: (width: Int, height: Int)? { (cols, rows) }
+
+    /// No-op: DOOM's grid is pinned to its `-scaling` resolution, not the font.
+    public func setGrid(width: Int, height: Int) {}
 
     public func start() {
         stateLock.lock()
@@ -49,7 +52,7 @@ public final class DoomScene: AsciiScene {
         let (c, r) = (cols, rows)
         stateLock.unlock()
 
-        guard let cfg = DoomLauncher.resolve(workingDirectory: workingDirectory) else {
+        guard let cfg = DoomLauncher.resolve(workingDirectory: workingDirectory, scaling: scaling) else {
             buffer.showMessage("doom_ascii not found — run scripts/setup.sh")
             return
         }

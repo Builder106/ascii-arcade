@@ -15,6 +15,12 @@ public protocol AsciiScene: AnyObject {
     /// Resize the character grid the scene renders into.
     func setGrid(width: Int, height: Int)
 
+    /// A scene with a *fixed* pixel resolution (DOOM's framebuffer) returns its
+    /// grid here; the host then paints it as a scaled colour bitmap that fills
+    /// the screen, instead of as font glyphs bound to the text grid. Return
+    /// `nil` (the default) for a normal text scene driven by `setGrid`.
+    var fixedGrid: (width: Int, height: Int)? { get }
+
     /// The current frame: `height` newline-joined rows, each `width` columns wide.
     func frame(atTime t: Double) -> String
 
@@ -45,6 +51,7 @@ public protocol AsciiScene: AnyObject {
 
 public extension AsciiScene {
     var isInteractive: Bool { false }
+    var fixedGrid: (width: Int, height: Int)? { nil }
     func coloredFrame(atTime t: Double) -> ColoredFrame? { nil }
     func applyBaseColor(_ color: RGBColor) {}
     var settings: [SceneSetting] { [] }
