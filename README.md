@@ -119,38 +119,42 @@ restores your original wallpaper.
 it (you then must also redistribute its source). On a cloud-synced checkout, set
 `SCRATCH_PATH=/tmp/aa-build` so SwiftPM's `build.db` doesn't choke.
 
-## Browser bonus
+## Browser
 
-DOOM can also be played in a browser tab via a Vapor WebSocket server (xterm.js
-frontend) — handy for sharing or for machines without Accessibility access:
+Any built-in scene streams to a browser tab via the Rust `aa-web` shell —
+handy for sharing or for machines without a wallpaper target:
 
 ```bash
-DOOM_PORT=8787 swift run Server   # http://127.0.0.1:8787
+cargo run -p aa-web   # http://127.0.0.1:8788
 ```
 
+Pick a scene from the dropdown; the server streams ANSI truecolor frames at
+30 fps over a WebSocket to an xterm.js terminal.
+
 Optionally, `scripts/install_agent.sh` installs a LaunchAgent that watches for the
-hotword `doom` typed anywhere and pops the browser DOOM up automatically.
+hotword `doom` typed anywhere and pops the browser up automatically.
 
 ## Demo
 
 <details>
-<summary>Browser DOOM walkthrough</summary>
+<summary>Donut — rotating ASCII torus (browser)</summary>
 
-The browser surface has an automated [playwright-bdd demo suite](e2e/) that boots
-the server, plays DOOM, and records a video:
+![Donut rotating in the browser terminal](assets/demo/donut.gif)
+
+</details>
+
+<details>
+<summary>Matrix rain — digital rain + scene switcher (browser)</summary>
+
+![Matrix rain with scene picker in the browser terminal](assets/demo/matrix.gif)
+
+</details>
+
+Recorded by the [playwright-bdd demo suite](e2e/) against the `aa-web` server:
 
 ```bash
 cd e2e && npm install && npm run demo   # writes e2e/recordings/*.mp4
 ```
-
-See [e2e/README.md](e2e/README.md) for tuning and how to convert a recording to a
-GIF for embedding here.
-
-</details>
-
-> The wallpaper scenes (donut / helix / DOOM on the desktop) are a borderless
-> desktop-level overlay, so they're captured with a manual screen recording rather
-> than a headless browser — drop those clips under `assets/` and embed them here.
 
 ## How it works
 
