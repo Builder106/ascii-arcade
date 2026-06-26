@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ASCII Arcade</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4/css/xterm.css" />
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      font-family: Menlo, monospace;
+    }
+    #controls {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      background: #0a0a0a;
+      border-bottom: 1px solid #1a1a1a;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #controls label {
+      color: #30d158;
+      font-size: 13px;
+      letter-spacing: 0.05em;
+    }
+    #scene-picker {
+      background: #111;
+      color: #30d158;
+      border: 1px solid #30d158;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-family: Menlo, monospace;
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+    }
+    #scene-picker:focus { box-shadow: 0 0 0 2px rgba(48,209,88,.35); }
+    #terminal-wrap {
+      flex: 1;
+      overflow: hidden;
+      padding: 4px;
+    }
+    #terminal { height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <label for="scene-picker">Scene</label>
+    <select id="scene-picker"></select>
+  </div>
+  <div id="terminal-wrap">
+    <div id="terminal"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xterm@4/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.5/lib/xterm-addon-fit.min.js"></script>
+  <script>
+    const SCENES = ['donut', 'helix', 'matrix', 'fire', 'pipes', 'life', 'clock'];
+    const picker = document.getElementById('scene-picker');
+    SCENES.forEach(id => {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = id.charAt(0).toUpperCase() + id.slice(1);
+      picker.appendChild(opt);
+    });
+
+    const term = new window.Terminal({
+      fontFamily: 'Menlo, monospace',
+      fontSize: 14,
+      lineHeight: 1.0,
+      cursorBlink: false,
+      convertEol: true,
+      scrollback: 0,
+      disableStdin: false,
+      theme: { background: '#000000', foreground: '#30d158' },
+    });
+    const fit = new window.FitAddon.FitAddon();
+    term.loadAddon(fit);
+    term.open(document.getElementById('terminal'));
+    fit.fit();
+
+    let ws = null;
+
+    function connect(scene) {
+      if (ws) { try { ws.close(); } catch (_) {} ws = null; }
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws/${scene}`);
+      ws.binaryType = 'arraybuffer';
+      ws.onopen = sendSize;
+      ws.onmessage = ev => {
+        const text = typeof ev.data === 'string'
+          ? ev.data
+          : new TextDecoder().decode(new Uint8Array(ev.data));
+        term.write(text);
+      };
+    }
+
+    function sendSize() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      fit.fit();
+      ws.send(`__resize__:${term.cols}x${term.rows}`);
+    }
+
+    picker.addEventListener('change', () => connect(picker.value));
+    window.addEventListener('resize', () => { fit.fit(); sendSize(); });
+    term.onData(data => {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(data);
+    });
+
+    connect(SCENES[0]);
+  </script>
+</body>
+</html>

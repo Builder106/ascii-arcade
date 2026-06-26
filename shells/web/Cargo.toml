@@ -1,0 +1,16 @@
+[package]
+name = "aa-web"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "ASCII Arcade web shell — streams scenes to a browser xterm via WebSocket"
+
+[[bin]]
+name = "aa-web"
+path = "src/main.rs"
+
+[dependencies]
+aa-core = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.8", features = ["ws"] }

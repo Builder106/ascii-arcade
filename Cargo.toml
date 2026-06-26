@@ -6,6 +6,7 @@ members = [
     "crates/aa-doom",
     "shells/windows",
     "shells/linux",
+    "shells/web",
 ]
 
 # Shared metadata for every crate in the cross-platform Rust port. The macOS
