@@ -157,7 +157,11 @@ fn resolve_theme(name: &str) -> aa_core::Theme {
 
 // ── play ──────────────────────────────────────────────────────────────────────
 
-fn cmd_play(scene_id: &str, theme: aa_core::Theme, fps: u32) -> Result<(), Box<dyn std::error::Error>> {
+fn cmd_play(
+    scene_id: &str,
+    theme: aa_core::Theme,
+    fps: u32,
+) -> Result<(), Box<dyn std::error::Error>> {
     use crossterm::{
         cursor,
         event::{self, Event, KeyCode, KeyModifiers},
@@ -173,7 +177,11 @@ fn cmd_play(scene_id: &str, theme: aa_core::Theme, fps: u32) -> Result<(), Box<d
     impl Drop for TermGuard {
         fn drop(&mut self) {
             let mut out = std::io::stdout();
-            let _ = crossterm::execute!(out, crossterm::cursor::Show, crossterm::terminal::LeaveAlternateScreen);
+            let _ = crossterm::execute!(
+                out,
+                crossterm::cursor::Show,
+                crossterm::terminal::LeaveAlternateScreen
+            );
             let _ = crossterm::terminal::disable_raw_mode();
         }
     }
@@ -185,7 +193,11 @@ fn cmd_play(scene_id: &str, theme: aa_core::Theme, fps: u32) -> Result<(), Box<d
         stdout,
         terminal::EnterAlternateScreen,
         cursor::Hide,
-        SetBackgroundColor(Color::Rgb { r: bg.r, g: bg.g, b: bg.b }),
+        SetBackgroundColor(Color::Rgb {
+            r: bg.r,
+            g: bg.g,
+            b: bg.b
+        }),
         terminal::Clear(ClearType::All),
     )?;
     let _guard = TermGuard;
@@ -203,7 +215,8 @@ fn cmd_play(scene_id: &str, theme: aa_core::Theme, fps: u32) -> Result<(), Box<d
     let start = Instant::now();
 
     loop {
-        let ansi = aa_core::ansi::frame_to_ansi(&scene.frame(start.elapsed().as_secs_f64()), &theme);
+        let ansi =
+            aa_core::ansi::frame_to_ansi(&scene.frame(start.elapsed().as_secs_f64()), &theme);
         // frame_to_ansi already emits \x1b[2J\x1b[H, so write directly.
         print!("{ansi}");
         stdout.flush()?;
@@ -230,12 +243,12 @@ fn cmd_play(scene_id: &str, theme: aa_core::Theme, fps: u32) -> Result<(), Box<d
                         }
                         if scene.is_interactive() {
                             let bytes: &[u8] = match k.code {
-                                KeyCode::Up    => b"\x1b[A",
-                                KeyCode::Down  => b"\x1b[B",
+                                KeyCode::Up => b"\x1b[A",
+                                KeyCode::Down => b"\x1b[B",
                                 KeyCode::Right => b"\x1b[C",
-                                KeyCode::Left  => b"\x1b[D",
+                                KeyCode::Left => b"\x1b[D",
                                 KeyCode::Enter => b"\n",
-                                KeyCode::Esc   => b"\x1b",
+                                KeyCode::Esc => b"\x1b",
                                 KeyCode::Char(' ') => b" ",
                                 KeyCode::Char(ch) => {
                                     // Encode single-byte ASCII; skip outside that range.
@@ -265,15 +278,27 @@ fn cmd_run(scene_id: &str, theme: aa_core::Theme) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
         use aa_render::RenderOptions;
-        return aa_linux::run(scene_id, RenderOptions { theme, ..Default::default() })
-            .map_err(|e| e.to_string());
+        return aa_linux::run(
+            scene_id,
+            RenderOptions {
+                theme,
+                ..Default::default()
+            },
+        )
+        .map_err(|e| e.to_string());
     }
 
     #[cfg(windows)]
     {
         use aa_render::RenderOptions;
-        return aa_windows::run(scene_id, RenderOptions { theme, ..Default::default() })
-            .map_err(|e| e.to_string());
+        return aa_windows::run(
+            scene_id,
+            RenderOptions {
+                theme,
+                ..Default::default()
+            },
+        )
+        .map_err(|e| e.to_string());
     }
 
     #[cfg(target_os = "macos")]
@@ -287,9 +312,11 @@ fn cmd_run(scene_id: &str, theme: aa_core::Theme) -> Result<(), String> {
         return if ok {
             Ok(())
         } else {
-            Err("ASCII Arcade.app not found — install it from the disk image first.\n\
+            Err(
+                "ASCII Arcade.app not found — install it from the disk image first.\n\
                  For a terminal experience on any platform, try 'aa play'."
-                .into())
+                    .into(),
+            )
         };
     }
 
@@ -339,7 +366,9 @@ async fn cmd_web(
 
     async fn run_ws(mut socket: WebSocket, sid: String, theme: aa_core::Theme) {
         let Some(mut scene) = aa_core::scenes::make(&sid) else {
-            let _ = socket.send(Message::Text(format!("unknown scene: {sid}\r\n").into())).await;
+            let _ = socket
+                .send(Message::Text(format!("unknown scene: {sid}\r\n").into()))
+                .await;
             return;
         };
         let mut cols = 120usize;
@@ -410,9 +439,7 @@ fn cmd_autostart(action: AutostartAction) -> Result<(), String> {
             #[cfg(target_os = "macos")]
             {
                 let _ = (scene, theme);
-                println!(
-                    "On macOS, toggle 'Launch at Login' in the ASCII Arcade status-bar menu."
-                );
+                println!("On macOS, toggle 'Launch at Login' in the ASCII Arcade status-bar menu.");
                 return Ok(());
             }
 
@@ -429,9 +456,7 @@ fn cmd_autostart(action: AutostartAction) -> Result<(), String> {
 
             #[cfg(target_os = "macos")]
             {
-                println!(
-                    "On macOS, toggle 'Launch at Login' in the ASCII Arcade status-bar menu."
-                );
+                println!("On macOS, toggle 'Launch at Login' in the ASCII Arcade status-bar menu.");
                 return Ok(());
             }
 
@@ -456,9 +481,7 @@ fn cmd_autostart(action: AutostartAction) -> Result<(), String> {
 
             #[cfg(target_os = "macos")]
             {
-                println!(
-                    "On macOS, check 'Launch at Login' in the ASCII Arcade status-bar menu."
-                );
+                println!("On macOS, check 'Launch at Login' in the ASCII Arcade status-bar menu.");
                 return Ok(());
             }
 

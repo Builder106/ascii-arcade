@@ -334,13 +334,13 @@ pub mod autostart {
 
     #[cfg(windows)]
     mod imp {
+        use windows::core::PCWSTR;
         use windows::Win32::Foundation::WIN32_ERROR;
         use windows::Win32::System::Registry::{
             RegCloseKey, RegCreateKeyExW, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW,
             RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE,
             REG_OPTION_NON_VOLATILE, REG_SZ,
         };
-        use windows::core::PCWSTR;
 
         const RUN_KEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
         const APP_VALUE: &str = "AsciiArcade";
@@ -425,14 +425,7 @@ pub mod autostart {
                 if err != ERROR_SUCCESS {
                     return false;
                 }
-                let q = RegQueryValueExW(
-                    hkey,
-                    PCWSTR(value_wide.as_ptr()),
-                    None,
-                    None,
-                    None,
-                    None,
-                );
+                let q = RegQueryValueExW(hkey, PCWSTR(value_wide.as_ptr()), None, None, None, None);
                 let _ = RegCloseKey(hkey);
                 q == ERROR_SUCCESS
             }
