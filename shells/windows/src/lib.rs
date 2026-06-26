@@ -67,7 +67,7 @@ mod imp {
         GetSystemMetrics, PeekMessageW, PostQuitMessage, RegisterClassW, SendMessageTimeoutW,
         SetWindowPos, ShowWindow, TranslateMessage, CW_USEDEFAULT, HMENU, HWND_BOTTOM, MSG,
         PM_REMOVE, SMTO_NORMAL, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN,
-        SM_YVIRTUALSCREEN, SW_SHOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WM_DESTROY, WM_QUIT,
+        SM_YVIRTUALSCREEN, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOW, WM_DESTROY, WM_QUIT,
         WNDCLASSW, WS_CHILD, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_VISIBLE,
     };
 
@@ -219,7 +219,15 @@ mod imp {
             // Push behind all siblings so the icon layer (SHELLDLL_DefView) stays on top.
             // Without this, our window outranks the icon layer when the parent is Progman
             // or when the spawned WorkerW lands above the icon WorkerW (Windows Server).
-            let _ = SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            let _ = SetWindowPos(
+                hwnd,
+                HWND_BOTTOM,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+            );
             Ok(hwnd)
         }
     }
