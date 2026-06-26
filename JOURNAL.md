@@ -4,6 +4,10 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-06-26 — E2e demo suite live on Rust web shell; two MP4 recordings produced #milestone
+
+Replaced the Swift Vapor / DOOM webServer in the playwright demo config with the new `aa-web` axum shell. Added `aa_core::ansi::frame_to_ansi` (ANSI truecolor run-length encoder) so any built-in scene can be streamed to an xterm.js terminal over WebSocket. New `shells/web` crate serves a scene-picker page + WebSocket endpoint at `/ws/{scene}` at 30 fps. Demo suite: warmup + DOOM steps generalized to scene-agnostic; `01-doom.feature` repurposed as the donut demo; `02-matrix.feature` exercises the runtime scene switcher. All four tests passed on first run (`npm run demo`) and the reporter wrote `donut-in-the-browser-*.mp4` and `matrix-rain-in-the-browser-*.mp4` to `e2e/recordings/`.
+
 ## 2026-06-25 — Windows shell done; icon layer is a Windows Server/RDP limitation #decision
 
 After confirming the wallpaper renders and application windows appear correctly above it, we hit one remaining issue: desktop icons disappear when aa-windows runs on Windows Server 2019 via RDP. Tried five approaches (WS_CHILD + HWND_BOTTOM, WS_POPUP + SetWindowPos, dropping WM_SPAWN_WORKERW) — none restored the icon layer on Server. Root cause: Windows Server's desktop shell in an RDP session uses a different DWM composition path from Windows 10/11 consumer editions; the icon layer (SHELLDLL_DefView) doesn't coexist with a custom GDI wallpaper surface the same way. Confirmed NOT a code bug: normal application windows (Server Manager, CMD) correctly appear above the wallpaper in all tests. Declared the Windows shell done pending one native Windows 10/11 desktop test for icon behavior. GCP VM stopped; branch merged to main.
