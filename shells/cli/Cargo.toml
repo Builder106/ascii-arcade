@@ -1,0 +1,30 @@
+[package]
+name = "aa"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "ASCII Arcade — unified CLI: play scenes in the terminal, manage the wallpaper, and control autostart."
+
+[[bin]]
+name = "aa"
+path = "src/main.rs"
+
+[dependencies]
+aa-core = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+crossterm = "0.28"
+
+# Web server (for `aa web`).
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+axum = { version = "0.8", features = ["ws"] }
+
+# Linux wallpaper shell + rasteriser — only needed when building for Linux.
+[target.'cfg(target_os = "linux")'.dependencies]
+aa-linux = { workspace = true }
+aa-render = { workspace = true }
+
+# Windows wallpaper shell + rasteriser — only needed when building for Windows.
+[target.'cfg(windows)'.dependencies]
+aa-windows = { workspace = true }
+aa-render = { workspace = true }

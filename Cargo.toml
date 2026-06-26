@@ -7,6 +7,7 @@ members = [
     "shells/windows",
     "shells/linux",
     "shells/web",
+    "shells/cli",
 ]
 
 # Shared metadata for every crate in the cross-platform Rust port. The macOS
@@ -22,6 +23,8 @@ repository = "https://github.com/Builder106/ascii-arcade"
 aa-core = { path = "crates/aa-core" }
 aa-render = { path = "crates/aa-render" }
 aa-doom = { path = "crates/aa-doom" }
+aa-linux = { path = "shells/linux" }
+aa-windows = { path = "shells/windows" }
 
 [profile.release]
 opt-level = 3
