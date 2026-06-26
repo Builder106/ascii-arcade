@@ -31,7 +31,10 @@ use crate::scene::Scene;
 pub const BUILTIN_IDS: &[&str] = &["donut", "helix", "matrix", "fire", "pipes", "life", "clock"];
 
 /// Construct a built-in scene by id. Returns `None` for unknown ids.
-pub fn make(id: &str) -> Option<Box<dyn Scene>> {
+///
+/// The return type includes `Send` so scenes can be moved into async tasks
+/// (e.g. the `aa-web` axum shell) without wrapping in a mutex.
+pub fn make(id: &str) -> Option<Box<dyn Scene + Send>> {
     match id {
         "donut" => Some(Box::new(DonutScene::new())),
         "helix" => Some(Box::new(HelixScene::new())),

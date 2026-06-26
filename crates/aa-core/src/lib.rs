@@ -9,6 +9,7 @@
 //! time and returns a [`Frame`]; the pull/push distinction between the math
 //! scenes and PTY-backed DOOM is hidden behind it.
 
+pub mod ansi;
 pub mod color;
 pub mod frame;
 pub mod rng;
