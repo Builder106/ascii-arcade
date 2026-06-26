@@ -34,12 +34,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Format check
         run: cargo fmt --all --check
-      - name: Clippy (engine crates)
-        run: cargo clippy -p aa-core -p aa-render -p aa-doom --all-targets -- -D warnings
+      - name: Clippy (engine crates + web shell)
+        run: cargo clippy -p aa-core -p aa-render -p aa-doom -p aa-web --all-targets -- -D warnings
       - name: Test (engine crates)
         run: cargo test -p aa-core -p aa-render -p aa-doom
       - name: Build headless example
         run: cargo build -p aa-core --example play
+      - name: Build web shell
+        run: cargo build -p aa-web
 
   # Native wallpaper shells: each builds only on its own OS (Win32 / X11 +
   # Wayland). This is the real gate for the shell code, which can't link on the
