@@ -64,19 +64,15 @@ mod imp {
     use windows::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows::Win32::UI::WindowsAndMessaging::{
         CreateWindowExW, DefWindowProcW, DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW,
-        GetSystemMetrics, PeekMessageW, PostQuitMessage, RegisterClassW, SendMessageTimeoutW,
-        SetWindowPos, ShowWindow, TranslateMessage, HMENU, MSG, PM_REMOVE, SMTO_NORMAL,
-        SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
-        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOW, WM_DESTROY, WM_QUIT, WNDCLASSW,
-        WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP, WS_VISIBLE,
+        GetSystemMetrics, PeekMessageW, PostQuitMessage, RegisterClassW, SetWindowPos, ShowWindow,
+        TranslateMessage, HMENU, MSG, PM_REMOVE, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
+        SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOW,
+        WM_DESTROY, WM_QUIT, WNDCLASSW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP, WS_VISIBLE,
     };
 
     fn win32<T>(r: windows::core::Result<T>) -> Result<T, ShellError> {
         r.map_err(|e| ShellError::Win32(e.message()))
     }
-
-    /// The desktop's "spawn a WorkerW behind the icons" magic message.
-    const WM_SPAWN_WORKERW: u32 = 0x052C;
 
     pub fn run(scene_id: &str, opts: RenderOptions) -> Result<(), ShellError> {
         let mut scene = aa_core::scenes::make(scene_id)
@@ -138,16 +134,11 @@ mod imp {
     fn find_icon_host() -> Result<HWND, ShellError> {
         unsafe {
             let progman = win32(FindWindowW(w!("Progman"), PCWSTR::null()))?;
-            // Trigger WorkerW layer creation (harmless if already exists).
-            let _ = SendMessageTimeoutW(
-                progman,
-                WM_SPAWN_WORKERW,
-                WPARAM(0),
-                LPARAM(0),
-                SMTO_NORMAL,
-                1000,
-                None,
-            );
+            // NOTE: deliberately NOT sending WM_SPAWN_WORKERW (0x052C) here.
+            // On Windows Server / RDP sessions that message causes the shell to
+            // reorganise and hide SHELLDLL_DefView, making the icon layer vanish.
+            // On Windows 10/11 desktop the spawned WorkerW is the correct parent,
+            // but the Z-order anchor approach below works on both without it.
             let mut icon_host: HWND = HWND::default();
             let _ = EnumWindows(
                 Some(enum_find_icon_host),
