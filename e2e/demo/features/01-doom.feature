@@ -1,12 +1,9 @@
-Feature: DOOM in the browser
+Feature: Donut in the browser
 
-  The Vapor server streams text-mode DOOM to an xterm.js terminal over a
-  WebSocket. This walkthrough boots it and drives it from the keyboard.
+  The classic 3D ASCII donut, rotating continuously. This is the default scene
+  served by the aa-web shell.
 
-  Scenario: DOOM boots and responds to the keyboard
-    Given I open the DOOM page
-    When I wait for DOOM to start rendering
-    And I press "Enter" to advance past the intro
-    And I move with the arrow keys
-    And I press "Space" to fire
-    Then DOOM keeps rendering frames
+  Scenario: Donut rotates and keeps rendering
+    Given I open the scene page
+    And I wait for the scene to render
+    Then the terminal shows animated output

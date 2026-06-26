@@ -1,15 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 import { defineBddConfig } from "playwright-bdd";
 
-// Narrative demo recordings of the browser-DOOM bonus surface. The wallpaper
-// app itself is a desktop overlay and is recorded manually; this suite covers
-// the one headlessly-recordable surface (the Vapor server + xterm.js page).
+// Narrative demo recordings of the browser-facing web shell. The wallpaper
+// apps (Windows/Linux) are desktop overlays recorded manually; this suite
+// covers the headlessly-recordable surface: the Rust aa-web server streaming
+// scenes as ANSI truecolor to an xterm.js terminal in the browser.
 const testDir = defineBddConfig({
   features: "demo/features/**/*.feature",
   steps: "demo/steps/**/*.ts",
 });
 
-const PORT = process.env.DOOM_PORT ?? "8787";
+const PORT = process.env.AA_WEB_PORT ?? "8788";
 
 export default defineConfig({
   testDir,
@@ -18,22 +19,14 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [["list"], ["./demo/reporters/video-reporter.ts"]],
-  // Build + boot the Vapor server, then run the demo against it. The server runs
-  // with cwd = this e2e dir, so pin the binary/WAD paths explicitly to the repo root.
+  // Build + boot the Rust web shell, then run the demo against it. `cargo build`
+  // is cached after the first run so subsequent demo runs start in a few seconds.
   webServer: {
     command:
-      // GIT_CONFIG_* override: some setups (incl. this repo's owner) set
-      // git's `safe.bareRepository=explicit` globally, which breaks SwiftPM's
-      // package cache. Injecting it here keeps `swift run` from re-fetching.
-      "export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.bareRepository GIT_CONFIG_VALUE_0=all; " +
-      "../scripts/setup.sh >/dev/null 2>&1 || true; " +
-      "swift build --package-path .. && " +
-      `DOOM_PORT=${PORT} ` +
-      'DOOM_ASCII_PATH="$PWD/../bin/doom_ascii" ' +
-      'DOOM_WAD_DIR="$PWD/../wad" ' +
-      "swift run --package-path .. Server",
+      `cargo build -p aa-web --manifest-path ../Cargo.toml && ` +
+      `AA_WEB_PORT=${PORT} ../target/debug/aa-web`,
     url: `http://127.0.0.1:${PORT}`,
-    timeout: 240_000,
+    timeout: 300_000,
     reuseExistingServer: true,
   },
   use: {
