@@ -290,3 +290,152 @@ mod imp {
         Ok(())
     }
 }
+
+/// Manage the `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` entry that
+/// tells Windows to launch `aa-windows` at user login.
+pub mod autostart {
+    /// Register `aa-windows` as a Windows login item.
+    /// `scene` and `theme` are passed through as CLI args to the launched process.
+    pub fn install(scene: &str, theme: &str) -> Result<(), String> {
+        #[cfg(windows)]
+        {
+            imp::install(scene, theme)
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = (scene, theme);
+            Err("autostart is only supported on Windows".into())
+        }
+    }
+
+    /// Remove the `aa-windows` login item, if present.
+    pub fn remove() -> Result<(), String> {
+        #[cfg(windows)]
+        {
+            imp::remove()
+        }
+        #[cfg(not(windows))]
+        {
+            Err("autostart is only supported on Windows".into())
+        }
+    }
+
+    /// Returns `true` if the login-item registry value is currently present.
+    pub fn is_installed() -> bool {
+        #[cfg(windows)]
+        {
+            imp::is_installed()
+        }
+        #[cfg(not(windows))]
+        {
+            false
+        }
+    }
+
+    #[cfg(windows)]
+    mod imp {
+        use windows::Win32::Foundation::WIN32_ERROR;
+        use windows::Win32::System::Registry::{
+            RegCloseKey, RegCreateKeyExW, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW,
+            RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE,
+            REG_OPTION_NON_VOLATILE, REG_SZ,
+        };
+        use windows::core::PCWSTR;
+
+        const RUN_KEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+        const APP_VALUE: &str = "AsciiArcade";
+        const ERROR_SUCCESS: WIN32_ERROR = WIN32_ERROR(0u32);
+
+        fn to_wide(s: &str) -> Vec<u16> {
+            s.encode_utf16().chain(std::iter::once(0u16)).collect()
+        }
+
+        pub fn install(scene: &str, theme: &str) -> Result<(), String> {
+            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            let cmd = format!("\"{}\" {} {}", exe.display(), scene, theme);
+
+            let key_wide = to_wide(RUN_KEY);
+            let value_wide = to_wide(APP_VALUE);
+            let cmd_wide: Vec<u16> = cmd.encode_utf16().chain(std::iter::once(0u16)).collect();
+            let cmd_bytes: Vec<u8> = cmd_wide.iter().flat_map(|&c| c.to_le_bytes()).collect();
+
+            unsafe {
+                let mut hkey = HKEY::default();
+                let err = RegCreateKeyExW(
+                    HKEY_CURRENT_USER,
+                    PCWSTR(key_wide.as_ptr()),
+                    0,
+                    PCWSTR::null(),
+                    REG_OPTION_NON_VOLATILE,
+                    KEY_SET_VALUE,
+                    None,
+                    &mut hkey,
+                    None,
+                );
+                if err != ERROR_SUCCESS {
+                    return Err(format!("RegCreateKeyExW failed: 0x{:08x}", err.0));
+                }
+                let set_err = RegSetValueExW(
+                    hkey,
+                    PCWSTR(value_wide.as_ptr()),
+                    0,
+                    REG_SZ,
+                    Some(cmd_bytes.as_slice()),
+                );
+                let _ = RegCloseKey(hkey);
+                if set_err != ERROR_SUCCESS {
+                    return Err(format!("RegSetValueExW failed: 0x{:08x}", set_err.0));
+                }
+            }
+            Ok(())
+        }
+
+        pub fn remove() -> Result<(), String> {
+            let key_wide = to_wide(RUN_KEY);
+            let value_wide = to_wide(APP_VALUE);
+            unsafe {
+                let mut hkey = HKEY::default();
+                let err = RegOpenKeyExW(
+                    HKEY_CURRENT_USER,
+                    PCWSTR(key_wide.as_ptr()),
+                    0,
+                    KEY_SET_VALUE,
+                    &mut hkey,
+                );
+                if err == ERROR_SUCCESS {
+                    let _ = RegDeleteValueW(hkey, PCWSTR(value_wide.as_ptr()));
+                    let _ = RegCloseKey(hkey);
+                }
+            }
+            Ok(())
+        }
+
+        pub fn is_installed() -> bool {
+            let key_wide = to_wide(RUN_KEY);
+            let value_wide = to_wide(APP_VALUE);
+            unsafe {
+                let mut hkey = HKEY::default();
+                let err = RegOpenKeyExW(
+                    HKEY_CURRENT_USER,
+                    PCWSTR(key_wide.as_ptr()),
+                    0,
+                    KEY_QUERY_VALUE,
+                    &mut hkey,
+                );
+                if err != ERROR_SUCCESS {
+                    return false;
+                }
+                let q = RegQueryValueExW(
+                    hkey,
+                    PCWSTR(value_wide.as_ptr()),
+                    None,
+                    None,
+                    None,
+                    None,
+                );
+                let _ = RegCloseKey(hkey);
+                q == ERROR_SUCCESS
+            }
+        }
+    }
+}

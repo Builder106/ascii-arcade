@@ -505,3 +505,90 @@ mod tests {
         let _ = detect_backend();
     }
 }
+
+/// Manage the XDG autostart `.desktop` entry that tells the desktop session to
+/// launch `aa-linux` at login.
+pub mod autostart {
+    /// Install `~/.config/autostart/ascii-arcade.desktop` so `aa-linux` starts
+    /// with the user's graphical session. `scene` and `theme` become CLI args.
+    pub fn install(scene: &str, theme: &str) -> Result<(), String> {
+        #[cfg(target_os = "linux")]
+        {
+            imp::install(scene, theme)
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = (scene, theme);
+            Err("autostart is only supported on Linux".into())
+        }
+    }
+
+    /// Remove the `~/.config/autostart/ascii-arcade.desktop` entry, if present.
+    pub fn remove() -> Result<(), String> {
+        #[cfg(target_os = "linux")]
+        {
+            imp::remove()
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            Err("autostart is only supported on Linux".into())
+        }
+    }
+
+    /// Returns `true` if the autostart `.desktop` file currently exists.
+    pub fn is_installed() -> bool {
+        #[cfg(target_os = "linux")]
+        {
+            imp::is_installed()
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            false
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    mod imp {
+        use std::path::PathBuf;
+
+        fn desktop_path() -> Option<PathBuf> {
+            let home = std::env::var_os("HOME")?;
+            Some(PathBuf::from(home).join(".config/autostart/ascii-arcade.desktop"))
+        }
+
+        pub fn install(scene: &str, theme: &str) -> Result<(), String> {
+            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            let path = desktop_path().ok_or("could not determine $HOME")?;
+            std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
+            let content = format!(
+                "[Desktop Entry]\n\
+                 Type=Application\n\
+                 Name=ASCII Arcade\n\
+                 Comment=Live ASCII wallpaper\n\
+                 Exec={} {} {}\n\
+                 X-GNOME-Autostart-enabled=true\n\
+                 Hidden=false\n\
+                 NoDisplay=false\n",
+                exe.display(),
+                scene,
+                theme,
+            );
+            std::fs::write(&path, content).map_err(|e| e.to_string())?;
+            println!("autostart installed: {}", path.display());
+            Ok(())
+        }
+
+        pub fn remove() -> Result<(), String> {
+            let path = desktop_path().ok_or("could not determine $HOME")?;
+            if path.exists() {
+                std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+                println!("autostart removed: {}", path.display());
+            }
+            Ok(())
+        }
+
+        pub fn is_installed() -> bool {
+            desktop_path().map(|p| p.exists()).unwrap_or(false)
+        }
+    }
+}
