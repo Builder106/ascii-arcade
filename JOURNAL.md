@@ -4,6 +4,14 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-06-26 — `aa` unified CLI shipped; CI updated to gate it #feature
+
+Added `shells/cli/` crate (`name = "aa"`) that bundles all user-facing surface into one binary: `aa play <scene>` (crossterm terminal renderer, all platforms), `aa run <scene>` (delegates to the native wallpaper shell or opens ASCII Arcade.app on macOS), `aa web <scene>` (embedded axum 0.8 + xterm.js WebSocket server, same transport as `aa-web`), `aa autostart enable/disable/status` (delegates to `aa_linux::autostart` or `aa_windows::autostart`, with a user-facing message on macOS pointing at the status-bar menu), `aa scenes`, `aa themes`. Platform-gated deps in Cargo.toml so the binary compiles everywhere without carrying native linkage it doesn't need. Tokio runtime constructed explicitly — avoids the `#[tokio::main]` overhead for the synchronous subcommands. CI: added `cargo clippy -p aa` to the `core` job (macOS + Windows only — skip Ubuntu because `aa` pulls in `aa-linux` which needs the wayland headers only present in the `shells` job), and added `cargo build/clippy -p aa` to the `shells` job where those headers are already installed. `cargo clippy -p aa` passes `-D warnings` clean.
+
+## 2026-06-26 — Login item / autostart wired on all three platforms #feature
+
+macOS was already done via `SMAppService.mainApp.register()` behind the "Launch at Login" menu item (landed silently in a prior session). Added the Linux and Windows counterparts: `aa_linux::autostart::{install,remove}` writes/removes `~/.config/autostart/ascii-arcade.desktop` (XDG; works on GNOME, KDE, Hyprland, sway); `aa_windows::autostart::{install,remove}` writes/removes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\AsciiArcade`. Both shells now accept `--autostart-enable [scene] [theme]` and `--autostart-disable` CLI flags. Added `Win32_System_Registry` feature to the `windows` crate dep. Full `cargo check --workspace` passes on macOS.
+
 ## 2026-06-26 — E2e demo suite live on Rust web shell; two MP4 recordings produced #milestone
 
 Replaced the Swift Vapor / DOOM webServer in the playwright demo config with the new `aa-web` axum shell. Added `aa_core::ansi::frame_to_ansi` (ANSI truecolor run-length encoder) so any built-in scene can be streamed to an xterm.js terminal over WebSocket. New `shells/web` crate serves a scene-picker page + WebSocket endpoint at `/ws/{scene}` at 30 fps. Demo suite: warmup + DOOM steps generalized to scene-agnostic; `01-doom.feature` repurposed as the donut demo; `02-matrix.feature` exercises the runtime scene switcher. All four tests passed on first run (`npm run demo`) and the reporter wrote `donut-in-the-browser-*.mp4` and `matrix-rain-in-the-browser-*.mp4` to `e2e/recordings/`.
