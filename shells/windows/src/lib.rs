@@ -65,10 +65,10 @@ mod imp {
     use windows::Win32::UI::WindowsAndMessaging::{
         CreateWindowExW, DefWindowProcW, DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW,
         GetSystemMetrics, PeekMessageW, PostQuitMessage, RegisterClassW, SendMessageTimeoutW,
-        SetWindowPos, ShowWindow, TranslateMessage, CW_USEDEFAULT, HMENU, HWND_BOTTOM, MSG,
-        PM_REMOVE, SMTO_NORMAL, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN,
-        SM_YVIRTUALSCREEN, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOW, WM_DESTROY, WM_QUIT,
-        WNDCLASSW, WS_CHILD, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_VISIBLE,
+        SetWindowPos, ShowWindow, TranslateMessage, HMENU, MSG, PM_REMOVE, SMTO_NORMAL,
+        SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOW, WM_DESTROY, WM_QUIT, WNDCLASSW,
+        WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP, WS_VISIBLE,
     };
 
     fn win32<T>(r: windows::core::Result<T>) -> Result<T, ShellError> {
@@ -95,7 +95,7 @@ mod imp {
         };
         let (vw, vh) = (vw.max(1), vh.max(1));
 
-        let host = find_wallpaper_host()?;
+        let host = find_icon_host()?;
         let hwnd = create_render_window(host, vx, vy, vw, vh)?;
         unsafe {
             let _ = ShowWindow(hwnd, SW_SHOW);
@@ -131,13 +131,14 @@ mod imp {
         }
     }
 
-    /// Find the WorkerW that hosts the wallpaper, spawning it if needed. Falls
-    /// back to `Progman` itself (some shells paint the wallpaper there directly).
-    fn find_wallpaper_host() -> Result<HWND, ShellError> {
+    /// Find the top-level window that directly hosts `SHELLDLL_DefView` (the
+    /// desktop icon layer). We use this as the Z-order anchor: our render
+    /// window is inserted directly behind it so icons stay on top.
+    /// Falls back to `Progman` if the icon host can't be found.
+    fn find_icon_host() -> Result<HWND, ShellError> {
         unsafe {
             let progman = win32(FindWindowW(w!("Progman"), PCWSTR::null()))?;
-            // Ask the desktop to create the WorkerW layer. Ignore the result:
-            // on shells that don't, we fall back to Progman below.
+            // Trigger WorkerW layer creation (harmless if already exists).
             let _ = SendMessageTimeoutW(
                 progman,
                 WM_SPAWN_WORKERW,
@@ -147,37 +148,30 @@ mod imp {
                 1000,
                 None,
             );
-
-            let mut found: HWND = HWND::default();
+            let mut icon_host: HWND = HWND::default();
             let _ = EnumWindows(
-                Some(enum_find_workerw),
-                LPARAM(&mut found as *mut _ as isize),
+                Some(enum_find_icon_host),
+                LPARAM(&mut icon_host as *mut _ as isize),
             );
-            if found.is_invalid() {
+            if icon_host.is_invalid() {
                 Ok(progman)
             } else {
-                Ok(found)
+                Ok(icon_host)
             }
         }
     }
 
-    /// Top-level enum callback: the wallpaper WorkerW is the sibling that comes
-    /// right after the window hosting `SHELLDLL_DefView` (the icon layer).
-    unsafe extern "system" fn enum_find_workerw(
+    /// Enum callback: find whichever top-level window directly contains
+    /// `SHELLDLL_DefView` (the desktop icon layer).
+    unsafe extern "system" fn enum_find_icon_host(
         top: HWND,
         lparam: LPARAM,
     ) -> windows::Win32::Foundation::BOOL {
         let defview = FindWindowExW(top, HWND::default(), w!("SHELLDLL_DefView"), PCWSTR::null());
         if let Ok(dv) = defview {
             if !dv.is_invalid() {
-                if let Ok(worker) =
-                    FindWindowExW(HWND::default(), top, w!("WorkerW"), PCWSTR::null())
-                {
-                    if !worker.is_invalid() {
-                        let out = lparam.0 as *mut HWND;
-                        *out = worker;
-                    }
-                }
+                let out = lparam.0 as *mut HWND;
+                *out = top;
             }
         }
         true.into()
@@ -202,26 +196,28 @@ mod imp {
             // Registering twice in one process is harmless; ignore a zero atom.
             RegisterClassW(&wc);
 
+            // WS_POPUP (top-level, no parent) so we can place ourselves in the
+            // global Z-order directly behind the icon host window. WS_CHILD would
+            // lock our Z-order inside a parent that is itself above the icon layer.
             let hwnd = win32(CreateWindowExW(
                 WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
                 class_name,
                 w!("ASCII Arcade"),
-                WS_CHILD | WS_VISIBLE,
-                if x == 0 { CW_USEDEFAULT } else { x },
+                WS_POPUP | WS_VISIBLE,
+                x,
                 y,
                 w,
                 h,
-                parent,
+                HWND::default(),
                 HMENU::default(),
                 hinstance,
                 None,
             ))?;
-            // Push behind all siblings so the icon layer (SHELLDLL_DefView) stays on top.
-            // Without this, our window outranks the icon layer when the parent is Progman
-            // or when the spawned WorkerW lands above the icon WorkerW (Windows Server).
+            // Insert directly behind the icon host in the global Z-order so
+            // SHELLDLL_DefView (desktop icons) always renders on top of us.
             let _ = SetWindowPos(
                 hwnd,
-                HWND_BOTTOM,
+                parent,
                 0,
                 0,
                 0,
