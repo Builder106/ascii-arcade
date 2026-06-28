@@ -13,8 +13,8 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_double};
 
-use aa_core::scenes::{self, BUILTIN_IDS};
 use aa_core::scene::Scene;
+use aa_core::scenes::{self, BUILTIN_IDS};
 use aa_core::theme::Theme;
 
 const BYTES_PER_CELL: usize = 8;
@@ -135,8 +135,8 @@ pub extern "C" fn aa_engine_next_frame(
     for (i, cell) in frame.cells.iter().enumerate() {
         let off = i * BYTES_PER_CELL;
         let ch = cell.ch as u32;
-        e.frame_buf[off]     = (ch        & 0xFF) as u8;
-        e.frame_buf[off + 1] = ((ch >> 8)  & 0xFF) as u8;
+        e.frame_buf[off] = (ch & 0xFF) as u8;
+        e.frame_buf[off + 1] = ((ch >> 8) & 0xFF) as u8;
         e.frame_buf[off + 2] = ((ch >> 16) & 0xFF) as u8;
         e.frame_buf[off + 3] = ((ch >> 24) & 0xFF) as u8;
 
@@ -201,9 +201,9 @@ pub extern "C" fn aa_scene_names_free(names: *mut *mut c_char, count: u32) {
 #[cfg(target_os = "android")]
 mod android {
     use super::*;
-    use jni::JNIEnv;
     use jni::objects::{JClass, JString};
     use jni::sys::{jboolean, jbyteArray, jdouble, jint, jlong, jobjectArray, jstring};
+    use jni::JNIEnv;
 
     fn jstring_to_string(env: &mut JNIEnv, s: JString) -> Option<String> {
         env.get_string(&s).ok().map(|js| js.into())
@@ -244,7 +244,9 @@ mod android {
         width: jint,
         height: jint,
     ) {
-        if handle == 0 { return; }
+        if handle == 0 {
+            return;
+        }
         let e = unsafe { &mut *(handle as *mut AaEngine) };
         e.scene.set_grid(width as usize, height as usize);
     }
@@ -256,7 +258,9 @@ mod android {
         handle: jlong,
         theme_name: JString,
     ) {
-        if handle == 0 { return; }
+        if handle == 0 {
+            return;
+        }
         let name = match jstring_to_string(&mut env, theme_name) {
             Some(s) => s,
             None => return,
@@ -275,7 +279,9 @@ mod android {
         setting_id: JString,
         value: jdouble,
     ) {
-        if handle == 0 { return; }
+        if handle == 0 {
+            return;
+        }
         let id = match jstring_to_string(&mut env, setting_id) {
             Some(s) => s,
             None => return,
@@ -303,8 +309,8 @@ mod android {
         for (i, cell) in frame.cells.iter().enumerate() {
             let off = i * BYTES_PER_CELL;
             let ch = cell.ch as u32;
-            e.frame_buf[off]     = (ch        & 0xFF) as u8;
-            e.frame_buf[off + 1] = ((ch >> 8)  & 0xFF) as u8;
+            e.frame_buf[off] = (ch & 0xFF) as u8;
+            e.frame_buf[off + 1] = ((ch >> 8) & 0xFF) as u8;
             e.frame_buf[off + 2] = ((ch >> 16) & 0xFF) as u8;
             e.frame_buf[off + 3] = ((ch >> 24) & 0xFF) as u8;
             match cell.color {
