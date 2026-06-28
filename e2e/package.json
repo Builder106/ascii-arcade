@@ -10,8 +10,8 @@
     "postinstall": "playwright install chromium"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
-    "playwright": "^1.55.0",
-    "playwright-bdd": "^9.0.0"
+    "@playwright/test": "^1.61.1",
+    "playwright": "^1.61.1",
+    "playwright-bdd": "^9.2.0"
   }
 }
