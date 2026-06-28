@@ -1,0 +1,9 @@
+{
+  "name": "aa-engine",
+  "version": "0.1.0",
+  "description": "Expo native module wrapping the aa-ffi Rust library for iOS and Android.",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

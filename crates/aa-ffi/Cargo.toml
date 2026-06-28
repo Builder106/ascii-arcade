@@ -1,0 +1,17 @@
+[package]
+name = "aa-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "C ABI for aa-core — static lib (iOS) and cdylib (Android) consumed by the mobile Expo shell."
+
+[lib]
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+aa-core = { workspace = true }
+
+# JNI bindings for the Android cdylib target only.
+[target.'cfg(target_os = "android")'.dependencies]
+jni = { version = "0.21", default-features = false }

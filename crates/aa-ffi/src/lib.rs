@@ -1,0 +1,357 @@
+//! C ABI for `aa-core`.
+//!
+//! Compiled as `staticlib` for iOS (linked into the Expo native module's
+//! XCFramework) and `cdylib` for Android (loaded as `libaa_ffi.so`).
+//!
+//! Frame buffer layout — 8 bytes per cell:
+//!   [0–3]  Unicode scalar as u32 LE
+//!   [4]    R (0 when has_color == 0)
+//!   [5]    G
+//!   [6]    B
+//!   [7]    has_color: 1 = use RGB above, 0 = use theme colour in shell
+
+use std::ffi::{CStr, CString};
+use std::os::raw::{c_char, c_double};
+
+use aa_core::scenes::{self, BUILTIN_IDS};
+use aa_core::scene::Scene;
+use aa_core::theme::Theme;
+
+const BYTES_PER_CELL: usize = 8;
+
+pub struct AaEngine {
+    scene: Box<dyn Scene + Send>,
+    frame_buf: Vec<u8>,
+}
+
+impl AaEngine {
+    fn new(scene_id: &str) -> Option<Self> {
+        scenes::make(scene_id).map(|scene| AaEngine {
+            scene,
+            frame_buf: Vec::new(),
+        })
+    }
+}
+
+unsafe fn str_from_ptr<'a>(ptr: *const c_char) -> Option<&'a str> {
+    if ptr.is_null() {
+        return None;
+    }
+    CStr::from_ptr(ptr).to_str().ok()
+}
+
+// ── Public C API ─────────────────────────────────────────────────────────────
+
+#[no_mangle]
+pub extern "C" fn aa_engine_create(scene_id: *const c_char) -> *mut AaEngine {
+    let id = unsafe {
+        match str_from_ptr(scene_id) {
+            Some(s) => s,
+            None => return std::ptr::null_mut(),
+        }
+    };
+    match AaEngine::new(id) {
+        Some(engine) => Box::into_raw(Box::new(engine)),
+        None => std::ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn aa_engine_destroy(engine: *mut AaEngine) {
+    if !engine.is_null() {
+        unsafe { drop(Box::from_raw(engine)) };
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn aa_engine_set_grid(engine: *mut AaEngine, width: u32, height: u32) {
+    if engine.is_null() {
+        return;
+    }
+    let e = unsafe { &mut *engine };
+    e.scene.set_grid(width as usize, height as usize);
+}
+
+#[no_mangle]
+pub extern "C" fn aa_engine_set_theme(engine: *mut AaEngine, theme_name: *const c_char) {
+    if engine.is_null() {
+        return;
+    }
+    let name = unsafe {
+        match str_from_ptr(theme_name) {
+            Some(s) => s,
+            None => return,
+        }
+    };
+    let e = unsafe { &mut *engine };
+    if let Some(theme) = Theme::by_name(name) {
+        e.scene.apply_base_color(theme.text);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn aa_engine_apply_setting(
+    engine: *mut AaEngine,
+    setting_id: *const c_char,
+    value: c_double,
+) {
+    if engine.is_null() {
+        return;
+    }
+    let id = unsafe {
+        match str_from_ptr(setting_id) {
+            Some(s) => s,
+            None => return,
+        }
+    };
+    let e = unsafe { &mut *engine };
+    e.scene.apply_setting(id, value);
+}
+
+#[no_mangle]
+pub extern "C" fn aa_engine_next_frame(
+    engine: *mut AaEngine,
+    t: c_double,
+    out_width: *mut u32,
+    out_height: *mut u32,
+) -> *const u8 {
+    if engine.is_null() {
+        return std::ptr::null();
+    }
+    let e = unsafe { &mut *engine };
+    let frame = e.scene.frame(t);
+
+    if !out_width.is_null() {
+        unsafe { *out_width = frame.width as u32 };
+    }
+    if !out_height.is_null() {
+        unsafe { *out_height = frame.height as u32 };
+    }
+
+    // Encode frame into the internal buffer (reused across calls).
+    let num_cells = frame.width * frame.height;
+    e.frame_buf.resize(num_cells * BYTES_PER_CELL, 0);
+
+    for (i, cell) in frame.cells.iter().enumerate() {
+        let off = i * BYTES_PER_CELL;
+        let ch = cell.ch as u32;
+        e.frame_buf[off]     = (ch        & 0xFF) as u8;
+        e.frame_buf[off + 1] = ((ch >> 8)  & 0xFF) as u8;
+        e.frame_buf[off + 2] = ((ch >> 16) & 0xFF) as u8;
+        e.frame_buf[off + 3] = ((ch >> 24) & 0xFF) as u8;
+
+        match cell.color {
+            Some(c) => {
+                e.frame_buf[off + 4] = c.r;
+                e.frame_buf[off + 5] = c.g;
+                e.frame_buf[off + 6] = c.b;
+                e.frame_buf[off + 7] = 1;
+            }
+            None => {
+                e.frame_buf[off + 4] = 0;
+                e.frame_buf[off + 5] = 0;
+                e.frame_buf[off + 6] = 0;
+                e.frame_buf[off + 7] = 0;
+            }
+        }
+    }
+
+    e.frame_buf.as_ptr()
+}
+
+#[no_mangle]
+pub extern "C" fn aa_scene_names(out_count: *mut u32) -> *mut *mut c_char {
+    if !out_count.is_null() {
+        unsafe { *out_count = BUILTIN_IDS.len() as u32 };
+    }
+    // Allocate array with a null terminator slot.
+    let mut ptrs: Vec<*mut c_char> = BUILTIN_IDS
+        .iter()
+        .map(|s| CString::new(*s).unwrap().into_raw())
+        .collect();
+    ptrs.push(std::ptr::null_mut());
+    let ptr = ptrs.as_mut_ptr();
+    std::mem::forget(ptrs);
+    ptr
+}
+
+#[no_mangle]
+pub extern "C" fn aa_scene_names_free(names: *mut *mut c_char, count: u32) {
+    if names.is_null() {
+        return;
+    }
+    unsafe {
+        for i in 0..count as usize {
+            let p = *names.add(i);
+            if !p.is_null() {
+                drop(CString::from_raw(p));
+            }
+        }
+        // Reconstruct the Vec (length = count + 1 for the null terminator) to free it.
+        let cap = count as usize + 1;
+        drop(Vec::from_raw_parts(names, cap, cap));
+    }
+}
+
+// ── Android JNI bridge ───────────────────────────────────────────────────────
+//
+// Class: expo.modules.aaengine.AaEngineModule
+// The handle passed to every JNI function is the `AaEngine*` cast to `jlong`.
+
+#[cfg(target_os = "android")]
+mod android {
+    use super::*;
+    use jni::JNIEnv;
+    use jni::objects::{JClass, JString};
+    use jni::sys::{jboolean, jbyteArray, jdouble, jint, jlong, jobjectArray, jstring};
+
+    fn jstring_to_string(env: &mut JNIEnv, s: JString) -> Option<String> {
+        env.get_string(&s).ok().map(|js| js.into())
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeCreate(
+        mut env: JNIEnv,
+        _class: JClass,
+        scene_name: JString,
+    ) -> jlong {
+        let name = match jstring_to_string(&mut env, scene_name) {
+            Some(s) => s,
+            None => return 0,
+        };
+        match AaEngine::new(&name) {
+            Some(engine) => Box::into_raw(Box::new(engine)) as jlong,
+            None => 0,
+        }
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeDestroy(
+        _env: JNIEnv,
+        _class: JClass,
+        handle: jlong,
+    ) {
+        if handle != 0 {
+            unsafe { drop(Box::from_raw(handle as *mut AaEngine)) };
+        }
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeSetGrid(
+        _env: JNIEnv,
+        _class: JClass,
+        handle: jlong,
+        width: jint,
+        height: jint,
+    ) {
+        if handle == 0 { return; }
+        let e = unsafe { &mut *(handle as *mut AaEngine) };
+        e.scene.set_grid(width as usize, height as usize);
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeSetTheme(
+        mut env: JNIEnv,
+        _class: JClass,
+        handle: jlong,
+        theme_name: JString,
+    ) {
+        if handle == 0 { return; }
+        let name = match jstring_to_string(&mut env, theme_name) {
+            Some(s) => s,
+            None => return,
+        };
+        let e = unsafe { &mut *(handle as *mut AaEngine) };
+        if let Some(theme) = Theme::by_name(&name) {
+            e.scene.apply_base_color(theme.text);
+        }
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeApplySetting(
+        mut env: JNIEnv,
+        _class: JClass,
+        handle: jlong,
+        setting_id: JString,
+        value: jdouble,
+    ) {
+        if handle == 0 { return; }
+        let id = match jstring_to_string(&mut env, setting_id) {
+            Some(s) => s,
+            None => return,
+        };
+        let e = unsafe { &mut *(handle as *mut AaEngine) };
+        e.scene.apply_setting(&id, value);
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeNextFrame(
+        env: JNIEnv,
+        _class: JClass,
+        handle: jlong,
+        t: jdouble,
+    ) -> jbyteArray {
+        if handle == 0 {
+            return std::ptr::null_mut();
+        }
+        let e = unsafe { &mut *(handle as *mut AaEngine) };
+        let frame = e.scene.frame(t);
+
+        let num_cells = frame.width * frame.height;
+        e.frame_buf.resize(num_cells * BYTES_PER_CELL, 0);
+
+        for (i, cell) in frame.cells.iter().enumerate() {
+            let off = i * BYTES_PER_CELL;
+            let ch = cell.ch as u32;
+            e.frame_buf[off]     = (ch        & 0xFF) as u8;
+            e.frame_buf[off + 1] = ((ch >> 8)  & 0xFF) as u8;
+            e.frame_buf[off + 2] = ((ch >> 16) & 0xFF) as u8;
+            e.frame_buf[off + 3] = ((ch >> 24) & 0xFF) as u8;
+            match cell.color {
+                Some(c) => {
+                    e.frame_buf[off + 4] = c.r;
+                    e.frame_buf[off + 5] = c.g;
+                    e.frame_buf[off + 6] = c.b;
+                    e.frame_buf[off + 7] = 1;
+                }
+                None => {
+                    e.frame_buf[off + 4] = 0;
+                    e.frame_buf[off + 5] = 0;
+                    e.frame_buf[off + 6] = 0;
+                    e.frame_buf[off + 7] = 0;
+                }
+            }
+        }
+
+        // Copy frame buffer bytes into a new Java byte[] and return it.
+        // JNI byte[] is signed, but we pass raw bytes — the Kotlin side reads
+        // them as unsigned via `and(0xFF)`.
+        let byte_slice: &[i8] = unsafe {
+            std::slice::from_raw_parts(e.frame_buf.as_ptr() as *const i8, e.frame_buf.len())
+        };
+        match env.new_byte_array(e.frame_buf.len() as i32) {
+            Ok(arr) => {
+                let _ = env.set_byte_array_region(&arr, 0, byte_slice);
+                arr.into_raw()
+            }
+            Err(_) => std::ptr::null_mut(),
+        }
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeSceneNames(
+        mut env: JNIEnv,
+        _class: JClass,
+    ) -> jobjectArray {
+        let string_class = env.find_class("java/lang/String").unwrap();
+        let empty = env.new_string("").unwrap();
+        let arr = env
+            .new_object_array(BUILTIN_IDS.len() as i32, &string_class, &empty)
+            .unwrap();
+        for (i, id) in BUILTIN_IDS.iter().enumerate() {
+            let s = env.new_string(*id).unwrap();
+            env.set_object_array_element(&arr, i as i32, &s).unwrap();
+        }
+        arr.into_raw()
+    }
+}

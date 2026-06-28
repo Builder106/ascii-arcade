@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "ASCII Arcade",
+    "slug": "ascii-arcade",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "ascii-arcade",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.builder106.asciiarcade"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      },
+      "package": "com.builder106.asciiarcade"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./assets/splash.png",
+          "resizeMode": "contain"
+        }
+      ],
+      "./plugins/withGlogFmtFix"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
