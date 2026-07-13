@@ -46,12 +46,17 @@ Pick the lightest base that fits:
 - **Pure, stateless math** (donut, helix): implement `ShapeFrameGenerator`
   (`frame(atTime:) -> String` returning `height` rows of `width` columns) and add
   a `GeneratorScene` entry to `makeScenes()` in `Sources/AsciiArcade/main.swift`.
-- **Stateful simulation** (Matrix, Fire, Life, Pipes): subclass `SteppedScene` and
+- **Stateful simulation** (Matrix, Life, Pipes): subclass `SteppedScene` and
   override `reset()`, `step()`, `render()`, and `stepInterval`. The base turns the
   host's "frame at time `t`" pull into a fixed-timestep loop, and gives you grid
   sizing, base-colour, and settings plumbing for free.
-- **Externally driven / interactive** (DOOM): conform to `AsciiScene` directly and
-  manage your own backing work in `start()`/`stop()` (see `DoomScene`).
+- **Externally driven / interactive** (DOOM): conform to `AsciiScene` directly,
+  override `isInteractive` to return `true`, and manage your own backing work in
+  `start()`/`stop()` (see `DoomScene`). `isInteractive` is also the opt-in gate:
+  `AppDelegate` (`Sources/AsciiArcade/main.swift`) hides any scene with
+  `isInteractive == true` from the Scene menu and from cycling until the user
+  turns on *"Enable DOOM Scene"* — so a new interactive scene inherits the same
+  opt-in behaviour for free, no extra plumbing needed.
 
 To draw in colour, return a `ColoredFrame` from `coloredFrame(atTime:)` — a glyph
 grid plus a parallel grid of optional `RGBColor` (a `nil` cell is painted in the

@@ -15,9 +15,9 @@
 
 A macOS live-wallpaper customizer that renders ASCII scenes as your desktop
 background. Pick a spinning [Andy Sloane donut](https://www.a1k0n.net/2011/07/20/donut-math.html),
-Matrix rain, a crackling fire, Conway's Game of Life, a giant block clock, or
-**playable text-mode DOOM** — all drawn straight onto the desktop, behind your
-windows.
+Matrix rain, Conway's Game of Life, or the old pipes screensaver — all drawn
+straight onto the desktop, behind your windows. **Playable text-mode DOOM** is
+also in there as an opt-in scene (see below).
 
 It started as the merge of two earlier projects: `donut` (the ASCII wallpaper
 host) and `DOOM` (text-mode DOOM over a PTY). DOOM is just another *scene*: its
@@ -32,32 +32,36 @@ can play it as your wallpaper.
 | **Donut** | The classic rotating ASCII torus | theme | — |
 | **Helix** | A precessing double-helix variant | theme | — |
 | **Matrix** | Falling digital rain with bright heads + fading trails | theme-tinted | — |
-| **Fire** | The Doom-fire cellular effect, black→red→orange→white | full colour | — |
 | **Life** | Conway's Game of Life, seeded with classic patterns; auto-reseeds when it stalls | theme-tinted | — |
 | **Pipes** | The old pipes screensaver in box-drawing glyphs | per-pipe hue | — |
-| **Clock** | A large block-digit clock (HH:MM:SS) | theme | — |
-| **DOOM** | `doom_ascii` rendered to the desktop, in its native colours | full colour | ✅ keyboard |
+| **DOOM** *(opt-in)* | `doom_ascii` rendered to the desktop, in its native colours | full colour | ✅ keyboard |
 
 Switch scenes and themes from the menu-bar `◎` item, or cycle scenes with **⌘⌥C**.
 
+**DOOM is opt-in.** A playable shooter isn't what everyone wants greeting them
+on a shared or school machine, so DOOM stays out of the Scene list, ⌘⌥C
+cycling, and idle auto-cycle until you turn on *"Enable DOOM Scene"* in the
+menu. Once enabled, it behaves like any other scene.
+
 **Capture.** macOS's native ⌘⇧3/⌘⇧4 skips the wallpaper layer — use the in-app shortcuts instead: **⌘⌥S** saves a PNG to ~/Desktop and copies it to the clipboard; **⌘⌥R** records a 3-second MP4 clip and opens it in Finder when done. Both commands are also in the `◎` menu under *Capture*.
 
-**Colour.** Scenes can paint each glyph individually: Fire and DOOM use their own
-palettes, while Matrix, Life, and the math scenes key off the theme's text colour
+**Colour.** Scenes can paint each glyph individually: DOOM uses its own native
+palette, while Matrix, Life, and the math scenes key off the theme's text colour
 (green rain under Hacker, amber rain under Amber, …). Themes: Hacker (green),
 Amber, Ice, Ghost.
 
 **Scene Settings.** Each scene exposes a few knobs under *Scene Settings* in the
-menu — Matrix speed/density, Fire intensity/wind, Life speed/cell-size, Pipes
-speed/count, Clock size/seconds.
+menu — Matrix speed/density, Life speed/cell-size, Pipes speed/count.
 
 **Auto-cycle when idle.** Toggle *Auto-cycle when idle* and ASCII Arcade rotates
-through the scenes like a slideshow after ~90 s with no input, then snaps back to
-your chosen scene the moment you touch the keyboard or mouse. Rendering also
-pauses while the displays sleep.
+through the scenes like a slideshow after ~90 s with no input, advancing to the
+next scene every 20 s, then snaps back to your chosen scene the moment you touch
+the keyboard or mouse. DOOM is skipped by the rotation unless you've opted into
+it. Rendering also pauses while the displays sleep.
 
 ## DOOM controls
 
+Needs *"Enable DOOM Scene"* turned on first (see [Scenes](#scenes) above).
 Forwarded to `doom_ascii` while DOOM is the active wallpaper (toggle with
 *"Capture keys for DOOM"* in the menu):
 
@@ -134,6 +138,34 @@ Pick a scene from the dropdown; the server streams ANSI truecolor frames at
 Optionally, `scripts/install_agent.sh` installs a LaunchAgent that watches for the
 hotword `doom` typed anywhere and pops the browser up automatically.
 
+## Terminal (Rust CLI)
+
+The unified `aa` binary (`shells/cli`) plays scenes directly in a terminal —
+no wallpaper, no browser — and doubles as the browser/autostart entry point on
+Linux and Windows:
+
+```bash
+cargo run -p aa -- play donut     # render live in this terminal (q to quit)
+cargo run -p aa -- web            # same server as aa-web, via a subcommand
+cargo run -p aa -- scenes         # list built-in scene ids
+```
+
+DOOM is opt-in here too, and more strictly than on macOS: it isn't even
+compiled in unless you build with `--features doom` (an optional dependency,
+so a normal build doesn't pull in the PTY-spawning GPL code at all), and even
+then `aa scenes`/`aa play`/`aa web` won't reveal or accept it without
+`--enable-doom` (or `AA_WEB_ENABLE_DOOM=1` for the standalone `aa-web`
+binary):
+
+```bash
+cargo run -p aa --features doom -- play doom --enable-doom
+```
+
+`aa run` (the actual desktop-wallpaper mode on Linux/Windows) doesn't offer
+DOOM at all — playing DOOM as your literal wallpaper needs fixed-grid bitmap
+compositing and global keyboard capture that only the macOS shell implements
+today.
+
 ## Demo
 
 <details>
@@ -177,7 +209,7 @@ flowchart LR
   DOOM glue (`DoomScreenBuffer` parses the ANSI stream into a char grid;
   `DoomScene` owns the PTY; `DoomLauncher` resolves the binary + IWAD). Colour
   scenes return a `ColoredFrame` (a glyph grid plus a parallel grid of optional
-  per-cell `RGBColor`); the stateful ones (Matrix, Fire, Life, Pipes) share a
+  per-cell `RGBColor`); the stateful ones (Matrix, Life, Pipes) share a
   `SteppedScene` base that runs a fixed-timestep simulation off the render clock.
 - **`PTYBridge`** — spawns `doom_ascii` in a pseudo-terminal and pipes its output.
 - **`AsciiArcade`** — the AppKit wallpaper host (scene picker, themes, key forwarding).
