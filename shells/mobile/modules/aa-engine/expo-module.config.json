@@ -1,9 +1,0 @@
-{
-  "platforms": ["ios", "android"],
-  "ios": {
-    "modules": ["AaEngineModule"]
-  },
-  "android": {
-    "modules": ["expo.modules.aaengine.AaEngineModule"]
-  }
-}

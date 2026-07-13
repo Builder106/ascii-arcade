@@ -1,0 +1,52 @@
+name: AsciiArcade
+options:
+  bundleIdPrefix: com.builder106
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  xcodeVersion: "16.4"
+
+targets:
+  AsciiArcade:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: AsciiArcade
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        INFOPLIST_FILE: AsciiArcade/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        PRODUCT_BUNDLE_IDENTIFIER: com.builder106.asciiarcade
+        DEVELOPMENT_TEAM: ""
+        TARGETED_DEVICE_FAMILY: "1,2"
+        FRAMEWORK_SEARCH_PATHS:
+          - "$(inherited)"
+          - "$(SRCROOT)/Frameworks"
+        OTHER_LDFLAGS:
+          - "$(inherited)"
+          - "-lc++"
+          - "-lresolv"
+      configs:
+        Debug:
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+          DEBUG_INFORMATION_FORMAT: dwarf
+        Release:
+          SWIFT_OPTIMIZATION_LEVEL: "-Osize"
+          DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+    dependencies:
+      - framework: Frameworks/AaEngine.xcframework
+        embed: false
+    preBuildScripts:
+      - name: "[Rust] Build aa-ffi if xcframework missing"
+        script: |
+          set -e
+          XCF="${SRCROOT}/Frameworks/AaEngine.xcframework"
+          if [ ! -d "$XCF" ]; then
+            echo "AaEngine.xcframework not found — building Rust library..."
+            cd "${SRCROOT}/../.."
+            bash scripts/build-ios.sh
+          fi
+        showEnvVarsInLog: false
+        basedOnDependencyAnalysis: false

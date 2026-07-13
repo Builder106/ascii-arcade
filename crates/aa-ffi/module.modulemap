@@ -1,0 +1,4 @@
+module AaFfi {
+    header "aa_engine.h"
+    export *
+}
