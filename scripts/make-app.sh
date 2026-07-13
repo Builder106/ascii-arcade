@@ -11,6 +11,10 @@ set -euo pipefail
 #                 throw disk-I/O errors on Google Drive / network shares)
 #   INCLUDE_DOOM  1 to bundle the GPL-2.0 doom_ascii binary (off by default;
 #                 if you set it you must also redistribute doom_ascii's source)
+#   UNIVERSAL     1 to build a universal (arm64 + x86_64) binary instead of
+#                 native-arch-only. Needed for release builds: GitHub's
+#                 macos-15 runners are Apple Silicon, so a plain build there
+#                 would silently ship arm64-only and not run on Intel Macs.
 
 ROOT="$(cd "$(dirname "$0")"/..; pwd)"
 cd "$ROOT"
@@ -25,6 +29,9 @@ APP="$OUT_DIR/$APP_NAME.app"
 BUILD_ARGS=(-c release)
 if [ -n "${SCRATCH_PATH:-}" ]; then
 	BUILD_ARGS+=(--scratch-path "$SCRATCH_PATH")
+fi
+if [ "${UNIVERSAL:-0}" = "1" ]; then
+	BUILD_ARGS+=(--arch arm64 --arch x86_64)
 fi
 
 echo "Building $EXEC_NAME (release)…"
