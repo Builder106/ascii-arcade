@@ -67,25 +67,6 @@ final class MatrixRainSceneTests: XCTestCase {
     }
 }
 
-final class FireSceneTests: XCTestCase {
-    func testBottomRowIgnitesAndIsColored() {
-        let s = FireScene()
-        s.setGrid(width: 40, height: 12)
-        let f = s.coloredFrame(atTime: 0.0)!
-        let base = (12 - 1) * 40
-        for x in 0..<40 {
-            XCTAssertNotEqual(f.chars[base + x], " ", "bottom row should be lit")
-            XCTAssertNotNil(f.colors[base + x])
-        }
-    }
-
-    func testDeterministicForSameSeedAndSize() {
-        let a = FireScene(); a.setGrid(width: 50, height: 18)
-        let b = FireScene(); b.setGrid(width: 50, height: 18)
-        XCTAssertEqual(advance(a).text(), advance(b).text())
-    }
-}
-
 final class GameOfLifeSceneTests: XCTestCase {
     func testDimensionsAndColoredLiveCells() {
         let s = GameOfLifeScene()
@@ -129,28 +110,6 @@ final class PipesSceneTests: XCTestCase {
             XCTAssertNotNil(f.colors[i])
         }
         XCTAssertGreaterThan(drawn, 0)
-    }
-}
-
-final class ClockSceneTests: XCTestCase {
-    private func fixedDate(h: Int, m: Int, s: Int) -> Date {
-        var c = DateComponents()
-        c.year = 2026; c.month = 6; c.day = 23
-        c.hour = h; c.minute = m; c.second = s
-        return Calendar.current.date(from: c)!
-    }
-
-    func testRendersDigitsMonochrome() {
-        let clock = ClockScene()
-        clock.now = { [weak self] in self?.fixedDate(h: 12, m: 34, s: 56) ?? Date() }
-        clock.setGrid(width: 100, height: 30)
-        let f = clock.coloredFrame(atTime: 0.0)!
-        XCTAssertTrue(f.chars.contains("█"), "the clock should draw block pixels")
-        // Monochrome: the host paints it in the theme colour, so no per-cell colours.
-        XCTAssertTrue(f.colors.allSatisfy { $0 == nil })
-        let lines = f.text().split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertEqual(lines.count, 30)
-        for line in lines { XCTAssertEqual(line.count, 100) }
     }
 }
 

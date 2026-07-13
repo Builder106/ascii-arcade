@@ -37,15 +37,17 @@ func makeScenes() -> [any AsciiScene] {
         GeneratorScene(displayName: "Donut") { w, h in DonutFrameGenerator(width: w, height: h) },
         GeneratorScene(displayName: "Helix") { w, h in HelixFrameGenerator(width: w, height: h) },
         MatrixRainScene(),
-        FireScene(),
         GameOfLifeScene(),
         PipesScene(),
-        ClockScene(),
         DoomScene(workingDirectory: cwd)
     ]
 }
 
 let sceneNames: [String] = makeScenes().map { $0.displayName }
+/// Scenes that consume keyboard input (DOOM) are gated behind the "Enable DOOM
+/// Scene" opt-in — see `AppDelegate.doomEnabled` — so they don't ambush someone
+/// who just wanted an ambient wallpaper.
+let sceneIsInteractive: [Bool] = makeScenes().map { $0.isInteractive }
 
 // MARK: - Wallpaper helpers
 
@@ -492,8 +494,32 @@ struct PersistedState: Codable {
     var themeIndex: Int
     var captureKeysForDoom: Bool
     var idleAutoCycle: Bool
+    var doomEnabled: Bool
     /// scene index (as String for JSON) → (settingId → chosen option index).
     var sceneSettings: [String: [String: Int]]
+
+    init(sceneIndex: Int, themeIndex: Int, captureKeysForDoom: Bool, idleAutoCycle: Bool,
+         doomEnabled: Bool, sceneSettings: [String: [String: Int]]) {
+        self.sceneIndex = sceneIndex
+        self.themeIndex = themeIndex
+        self.captureKeysForDoom = captureKeysForDoom
+        self.idleAutoCycle = idleAutoCycle
+        self.doomEnabled = doomEnabled
+        self.sceneSettings = sceneSettings
+    }
+
+    /// Custom decode so state saved before `doomEnabled` existed still loads —
+    /// missing key defaults to `false` (opt-in stays off) instead of discarding
+    /// the whole saved state (scene/theme/settings) on every returning user.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        sceneIndex = try c.decode(Int.self, forKey: .sceneIndex)
+        themeIndex = try c.decode(Int.self, forKey: .themeIndex)
+        captureKeysForDoom = try c.decode(Bool.self, forKey: .captureKeysForDoom)
+        idleAutoCycle = try c.decode(Bool.self, forKey: .idleAutoCycle)
+        doomEnabled = try c.decodeIfPresent(Bool.self, forKey: .doomEnabled) ?? false
+        sceneSettings = try c.decode([String: [String: Int]].self, forKey: .sceneSettings)
+    }
 }
 
 // MARK: - Screen recording
@@ -648,6 +674,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var currentThemeIndex = 0
     var currentSceneIndex = 0
     var captureKeysForDoom = true
+    /// DOOM is opt-in: hidden from the Scene menu and skipped by cycling/idle
+    /// auto-cycle until the user explicitly turns it on. Defaults off so it
+    /// can't ambush someone who just wanted an ambient wallpaper.
+    var doomEnabled = false
     var originalWallpapers: [NSScreen: URL] = [:]
 
     // Per-scene chosen setting options: sceneIndex → (settingId → optionIndex).
@@ -686,8 +716,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             currentThemeIndex = min(max(0, s.themeIndex), availableThemes.count - 1)
             captureKeysForDoom = s.captureKeysForDoom
             idleAutoCycle = s.idleAutoCycle
+            doomEnabled = s.doomEnabled
             sceneSettingSelections = Dictionary(uniqueKeysWithValues:
                 s.sceneSettings.compactMap { key, val in Int(key).map { ($0, val) } })
+        }
+        // A scene lineup change (e.g. removing scenes) can shift indices out from
+        // under a restored `sceneIndex` and land it on DOOM by coincidence — never
+        // let that bypass the opt-in.
+        if sceneIsInteractive[currentSceneIndex], !doomEnabled {
+            currentSceneIndex = 0
         }
 
         for screen in NSScreen.screens {
@@ -805,7 +842,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             if now - lastAutoCycle >= idleCycleInterval {
                 lastAutoCycle = now
-                selectScene((currentSceneIndex + 1) % sceneNames.count)
+                selectScene(nextCyclableSceneIndex(from: currentSceneIndex))
             }
         } else if wasIdle {
             // User came back — restore the scene they had chosen.
@@ -890,13 +927,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem?.button?.title = "◎"
+        rebuildMenu()
+    }
 
+    /// (Re)build the status-bar menu from scratch. Called at startup and again
+    /// whenever something that changes its shape — the DOOM opt-in toggle — is
+    /// flipped, so the Scene list and the DOOM-only items stay in sync.
+    private func rebuildMenu() {
         let menu = NSMenu()
 
         let header = NSMenuItem(title: "Scene", action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
-        for (i, name) in sceneNames.enumerated() {
+        for (i, name) in sceneNames.enumerated() where !sceneIsInteractive[i] || doomEnabled {
             let item = NSMenuItem(title: name, action: #selector(selectSceneMenu(_:)), keyEquivalent: "")
             item.target = self
             item.tag = i
@@ -909,10 +952,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         cycleItem.target = self
         menu.addItem(cycleItem)
 
-        let captureItem = NSMenuItem(title: "Capture keys for DOOM", action: #selector(toggleCapture(_:)), keyEquivalent: "")
-        captureItem.target = self
-        captureItem.state = captureKeysForDoom ? .on : .off
-        menu.addItem(captureItem)
+        let doomItem = NSMenuItem(title: "Enable DOOM Scene", action: #selector(toggleDoomEnabled(_:)), keyEquivalent: "")
+        doomItem.target = self
+        doomItem.state = doomEnabled ? .on : .off
+        menu.addItem(doomItem)
+
+        // Only meaningful once DOOM is opted into — hidden otherwise so it
+        // doesn't clutter the default menu with a control for a scene that
+        // isn't reachable.
+        if doomEnabled {
+            let captureItem = NSMenuItem(title: "Capture keys for DOOM", action: #selector(toggleCapture(_:)), keyEquivalent: "")
+            captureItem.target = self
+            captureItem.state = captureKeysForDoom ? .on : .off
+            menu.addItem(captureItem)
+        }
 
         let settingsItem = NSMenuItem(title: "Scene Settings", action: nil, keyEquivalent: "")
         settingsItem.submenu = NSMenu(title: "Scene Settings")
@@ -1042,6 +1095,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             themeIndex: currentThemeIndex,
             captureKeysForDoom: captureKeysForDoom,
             idleAutoCycle: idleAutoCycle,
+            doomEnabled: doomEnabled,
             sceneSettings: sceneSettings)
         if let data = try? JSONEncoder().encode(state) {
             UserDefaults.standard.set(data, forKey: stateKey)
@@ -1062,13 +1116,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func cycleScenes() {
-        selectScene((currentSceneIndex + 1) % sceneNames.count)
+        selectScene(nextCyclableSceneIndex(from: currentSceneIndex))
+    }
+
+    /// Next scene index in rotation order, skipping DOOM (or any interactive
+    /// scene) while it isn't opted into. Used by ⌘⌥C and idle auto-cycle so
+    /// neither can land on DOOM behind the user's back.
+    private func nextCyclableSceneIndex(from index: Int) -> Int {
+        var next = (index + 1) % sceneNames.count
+        while sceneIsInteractive[next], !doomEnabled, next != index {
+            next = (next + 1) % sceneNames.count
+        }
+        return next
     }
 
     @objc func toggleCapture(_ sender: NSMenuItem) {
         captureKeysForDoom.toggle()
         sender.state = captureKeysForDoom ? .on : .off
         saveState()
+    }
+
+    /// Toggle the DOOM opt-in. Turning it off while DOOM is the active scene
+    /// switches away from it first, same as disabling idle auto-cycle mid-idle
+    /// restores the prior scene.
+    @objc func toggleDoomEnabled(_ sender: NSMenuItem) {
+        doomEnabled.toggle()
+        if !doomEnabled, sceneIsInteractive[currentSceneIndex] {
+            selectScene(0)
+        } else {
+            saveState()
+        }
+        rebuildMenu()
     }
 
     @objc func selectTheme(_ sender: NSMenuItem) {
