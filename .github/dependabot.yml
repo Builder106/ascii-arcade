@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # Cargo workspace root — one entry resolves the whole workspace graph and
+  # opens PRs against whichever manifest actually declares a given
+  # dependency, so member crates don't need their own entries. Left
+  # ungrouped: a bump to axum/windows/tokio can carry real behavior changes,
+  # and bundling unrelated crate bumps into one PR makes a red CI run harder
+  # to bisect.
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Package.swift lives at the repo root.
+  - package-ecosystem: "swift"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Covers every workflow under .github/workflows/, including release.yml.
+  # Grouped: these are mechanical version-pin bumps (actions/checkout@v5 and
+  # similar), not behavior changes worth reviewing individually.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
