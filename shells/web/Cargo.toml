@@ -14,3 +14,11 @@ path = "src/main.rs"
 aa-core = { workspace = true }
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.8", features = ["ws"] }
+
+# DOOM is opt-in: not a dependency at all unless built with `--features doom`,
+# and even then hidden from /api/scenes and refused at /ws/doom until
+# AA_WEB_ENABLE_DOOM=1 is also set at runtime. See `make_scene` in src/main.rs.
+aa-doom = { workspace = true, optional = true }
+
+[features]
+doom = ["dep:aa-doom"]

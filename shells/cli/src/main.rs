@@ -18,6 +18,15 @@
 //! aa scenes
 //! aa themes
 //!     List built-in scenes and themes.
+//!
+//! --enable-doom
+//!     Unlocks the DOOM scene for `play`/`web`/`scenes` on this invocation.
+//!     DOOM is a playable shooter, so it's opt-in rather than just another
+//!     scene: it also needs the binary built with `--features doom` in the
+//!     first place (`aa-doom` is an optional dependency, off by default).
+//!     Not available via `aa run` — DOOM as an actual desktop wallpaper
+//!     (fixed-grid bitmap compositing + global keyboard capture while another
+//!     app has focus) isn't implemented on Linux/Windows yet.
 //! ```
 
 use clap::{Parser, Subcommand};
@@ -33,6 +42,12 @@ use clap::{Parser, Subcommand};
 struct Cli {
     #[command(subcommand)]
     command: Command,
+
+    /// Unlock the DOOM scene for this invocation (also needs the binary built
+    /// with `--features doom`). DOOM is a playable shooter, so it isn't on by
+    /// default — see the `aa-doom` crate.
+    #[arg(long, global = true)]
+    enable_doom: bool,
 }
 
 #[derive(Subcommand)]
@@ -105,9 +120,10 @@ fn main() {
 }
 
 fn dispatch(cli: Cli) -> i32 {
+    let enable_doom = cli.enable_doom;
     match cli.command {
         Command::Play { scene, theme, fps } => {
-            if let Err(e) = cmd_play(&scene, resolve_theme(&theme), fps) {
+            if let Err(e) = cmd_play(&scene, resolve_theme(&theme), fps, enable_doom) {
                 eprintln!("aa play: {e}");
                 return 1;
             }
@@ -123,7 +139,7 @@ fn dispatch(cli: Cli) -> i32 {
                 .enable_all()
                 .build()
                 .expect("tokio runtime");
-            if let Err(e) = rt.block_on(cmd_web(scene, resolve_theme(&theme), port)) {
+            if let Err(e) = rt.block_on(cmd_web(scene, resolve_theme(&theme), port, enable_doom)) {
                 eprintln!("aa web: {e}");
                 return 1;
             }
@@ -137,6 +153,9 @@ fn dispatch(cli: Cli) -> i32 {
         Command::Scenes => {
             for id in aa_core::scenes::BUILTIN_IDS {
                 println!("{id}");
+            }
+            if cfg!(feature = "doom") && enable_doom {
+                println!("doom");
             }
         }
         Command::Themes => {
@@ -155,12 +174,61 @@ fn resolve_theme(name: &str) -> aa_core::Theme {
     })
 }
 
+// ── scene resolution (incl. the opt-in DOOM seam) ───────────────────────────
+
+/// Construct a scene by id. DOOM isn't part of `aa_core::scenes::BUILTIN_IDS`
+/// on purpose (see crates/aa-core) — this is the one seam where the CLI adds
+/// it back in, deliberately gated behind both a Cargo feature (is it even
+/// compiled in?) and a runtime opt-in (did the user actually ask to unlock
+/// it, on *this* invocation?). `doom_scaling` is ignored for every other id.
+fn make_scene(
+    id: &str,
+    enable_doom: bool,
+    doom_scaling: usize,
+) -> Result<Box<dyn aa_core::Scene + Send>, String> {
+    let _ = (enable_doom, doom_scaling); // read only when built with `--features doom`
+
+    #[cfg(feature = "doom")]
+    if id == "doom" {
+        if !enable_doom {
+            return Err("DOOM is opt-in — rerun with --enable-doom to play it".into());
+        }
+        return Ok(Box::new(aa_doom::DoomScene::new(doom_scaling)));
+    }
+
+    #[cfg(not(feature = "doom"))]
+    if id == "doom" {
+        return Err(
+            "this build of aa doesn't include DOOM — rebuild with `cargo build --features doom`"
+                .into(),
+        );
+    }
+
+    aa_core::scenes::make(id).ok_or_else(|| format!("unknown scene '{id}'"))
+}
+
+/// Smallest DOOM `-scaling` factor (1..=16) whose character grid still fits
+/// inside `(cols, rows)`, so `aa play doom` renders as sharp as the terminal
+/// allows instead of overflowing it and wrapping garbage. DOOM's resolution
+/// is fixed at launch (like the macOS host's `DOOM_SCALING`), not re-fit on a
+/// later terminal resize.
+#[cfg(feature = "doom")]
+fn doom_scaling_for(cols: u16, rows: u16) -> usize {
+    (1..=16)
+        .find(|&n| {
+            let (w, h) = aa_doom::grid_size(n);
+            w <= cols as usize && h <= rows as usize
+        })
+        .unwrap_or(16)
+}
+
 // ── play ──────────────────────────────────────────────────────────────────────
 
 fn cmd_play(
     scene_id: &str,
     theme: aa_core::Theme,
     fps: u32,
+    enable_doom: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crossterm::{
         cursor,
@@ -203,8 +271,14 @@ fn cmd_play(
     let _guard = TermGuard;
 
     let (cols, rows) = terminal::size()?;
-    let mut scene = aa_core::scenes::make(scene_id).unwrap_or_else(|| {
-        eprintln!("aa: unknown scene '{scene_id}', falling back to donut");
+
+    #[cfg(feature = "doom")]
+    let doom_scaling = doom_scaling_for(cols, rows);
+    #[cfg(not(feature = "doom"))]
+    let doom_scaling = 1; // unused: make_scene ignores it when the feature is off
+
+    let mut scene = make_scene(scene_id, enable_doom, doom_scaling).unwrap_or_else(|e| {
+        eprintln!("aa: {e}, falling back to donut");
         aa_core::scenes::make("donut").unwrap()
     });
     scene.apply_base_color(theme.text);
@@ -330,6 +404,7 @@ async fn cmd_web(
     scene_id: String,
     theme: aa_core::Theme,
     port: u16,
+    enable_doom: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use axum::{
         extract::{
@@ -343,17 +418,30 @@ async fn cmd_web(
     use std::time::{Duration, Instant};
     use tokio::time::MissedTickBehavior;
 
+    // DOOM's framebuffer is fixed at scene-construction time (see
+    // `make_scene`), but a browser tab's terminal size isn't known until its
+    // first `__resize__:` message arrives just after connecting — after the
+    // scene already exists. Rather than delay construction on that
+    // handshake, use one fixed, conservative grid (160×50) that fits most
+    // browser windows; unlike the CLI's `aa play doom`, it isn't fit exactly.
+    const WEB_DOOM_SCALING: usize = 4;
+
     #[derive(Clone, Copy)]
     struct AppState {
         theme: aa_core::Theme,
+        enable_doom: bool,
     }
 
     async fn root() -> Html<&'static str> {
         Html(include_str!("../../web/static/index.html"))
     }
 
-    async fn scene_list() -> Json<&'static [&'static str]> {
-        Json(aa_core::scenes::BUILTIN_IDS)
+    async fn scene_list(State(s): State<AppState>) -> Json<Vec<&'static str>> {
+        let mut ids: Vec<&'static str> = aa_core::scenes::BUILTIN_IDS.to_vec();
+        if cfg!(feature = "doom") && s.enable_doom {
+            ids.push("doom");
+        }
+        Json(ids)
     }
 
     async fn ws_upgrade(
@@ -361,15 +449,16 @@ async fn cmd_web(
         ws: WebSocketUpgrade,
         State(s): State<AppState>,
     ) -> impl IntoResponse {
-        ws.on_upgrade(move |socket| run_ws(socket, sid, s.theme))
+        ws.on_upgrade(move |socket| run_ws(socket, sid, s.theme, s.enable_doom))
     }
 
-    async fn run_ws(mut socket: WebSocket, sid: String, theme: aa_core::Theme) {
-        let Some(mut scene) = aa_core::scenes::make(&sid) else {
-            let _ = socket
-                .send(Message::Text(format!("unknown scene: {sid}\r\n").into()))
-                .await;
-            return;
+    async fn run_ws(mut socket: WebSocket, sid: String, theme: aa_core::Theme, enable_doom: bool) {
+        let mut scene = match make_scene(&sid, enable_doom, WEB_DOOM_SCALING) {
+            Ok(s) => s,
+            Err(e) => {
+                let _ = socket.send(Message::Text(format!("{e}\r\n").into())).await;
+                return;
+            }
         };
         let mut cols = 120usize;
         let mut rows = 40usize;
@@ -417,7 +506,7 @@ async fn cmd_web(
         .route("/", get(root))
         .route("/api/scenes", get(scene_list))
         .route("/ws/{scene_id}", get(ws_upgrade))
-        .with_state(AppState { theme });
+        .with_state(AppState { theme, enable_doom });
 
     let addr = format!("0.0.0.0:{port}");
     println!("aa web  →  http://{addr}");
@@ -488,5 +577,63 @@ fn cmd_autostart(action: AutostartAction) -> Result<(), String> {
             #[allow(unreachable_code)]
             Err("autostart status is not supported on this platform".into())
         }
+    }
+}
+
+#[cfg(test)]
+mod scene_resolution_tests {
+    use super::*;
+
+    #[test]
+    fn make_scene_rejects_doom_without_opt_in() {
+        // True regardless of how this crate was built: whether DOOM is even
+        // compiled in or just not unlocked for this run, asking for "doom"
+        // without --enable-doom must never silently succeed. (Not
+        // `.unwrap_err()`: that needs `Box<dyn Scene + Send>: Debug`, which
+        // trait objects over `Scene` don't implement.)
+        match make_scene("doom", false, 1) {
+            Err(e) => assert!(e.contains("opt-in") || e.contains("doesn't include DOOM")),
+            Ok(_) => panic!("expected doom to be rejected without --enable-doom"),
+        }
+    }
+
+    #[test]
+    fn make_scene_still_resolves_ordinary_scenes() {
+        assert!(make_scene("donut", false, 1).is_ok());
+    }
+
+    #[test]
+    fn make_scene_rejects_unknown_scene() {
+        assert!(make_scene("not-a-real-scene", false, 1).is_err());
+    }
+
+    #[cfg(feature = "doom")]
+    #[test]
+    fn make_scene_allows_doom_with_opt_in() {
+        assert!(make_scene("doom", true, 8).is_ok());
+    }
+
+    #[cfg(feature = "doom")]
+    #[test]
+    fn doom_scaling_picks_smallest_fit() {
+        assert_eq!(doom_scaling_for(640, 200), 1);
+        assert_eq!(doom_scaling_for(320, 100), 2);
+    }
+
+    #[cfg(feature = "doom")]
+    #[test]
+    fn doom_scaling_fits_a_typical_80x24_terminal() {
+        let n = doom_scaling_for(80, 24);
+        let (w, h) = aa_doom::grid_size(n);
+        assert!(
+            w <= 80 && h <= 24,
+            "grid {w}x{h} overflows an 80x24 terminal"
+        );
+    }
+
+    #[cfg(feature = "doom")]
+    #[test]
+    fn doom_scaling_falls_back_instead_of_panicking_on_a_tiny_terminal() {
+        assert_eq!(doom_scaling_for(1, 1), 16);
     }
 }

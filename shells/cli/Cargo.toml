@@ -19,6 +19,14 @@ crossterm = "0.28"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
 axum = { version = "0.8", features = ["ws"] }
 
+# DOOM is opt-in: not a dependency at all unless built with `--features doom`,
+# and even then hidden from `aa scenes`/`aa play`/`aa web` until `--enable-doom`
+# is also passed at runtime. See `make_scene` in src/main.rs.
+aa-doom = { workspace = true, optional = true }
+
+[features]
+doom = ["dep:aa-doom"]
+
 # Linux wallpaper shell + rasteriser — only needed when building for Linux.
 [target.'cfg(target_os = "linux")'.dependencies]
 aa-linux = { workspace = true }
