@@ -103,8 +103,11 @@ fi
 sed -i '' -E "s/^version = \"[0-9]+\.[0-9]+\.[0-9]+\"\$/version = \"$VERSION\"/" Cargo.toml
 
 # Re-resolve the workspace graph so Cargo.lock's own version fields for the
-# path-dependency members pick up the bump without a full compile.
-cargo metadata --format-version=1 --offline >/dev/null
+# path-dependency members pick up the bump without a full compile. Not
+# --offline: a dependency that's in the lockfile but never actually been
+# fetched locally (e.g. a Windows-only transitive dep on a macOS dev machine)
+# would otherwise hard-fail metadata resolution instead of just downloading it.
+cargo metadata --format-version=1 >/dev/null
 
 git add Cargo.toml Cargo.lock
 git commit -m "chore(release): $TAG"
