@@ -38,6 +38,14 @@ struct SceneView: View {
             }
         }
         .background(Color(theme.background))
+        .onAppear {
+            // A scene removed from the engine since this id was last persisted
+            // (e.g. a retired scene) would otherwise leave `AaEngine(sceneId:)`
+            // returning nil and the canvas permanently blank.
+            if !scenes.contains(sceneId), let fallback = scenes.first {
+                sceneId = fallback
+            }
+        }
         .alert("Saved to Photos", isPresented: $exporter.didSucceed) {
             Button("OK") {}
         } message: {

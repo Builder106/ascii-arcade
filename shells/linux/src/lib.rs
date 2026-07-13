@@ -130,7 +130,7 @@ mod x11 {
     pub fn run(scene_id: &str, opts: RenderOptions) -> Result<(), String> {
         let mut scene =
             aa_core::scenes::make(scene_id).ok_or(format!("unknown scene '{scene_id}'"))?;
-        // Colour scenes (Matrix, fire, …) key their palette off the theme colour.
+        // Colour scenes (Matrix, …) key their palette off the theme colour.
         scene.apply_base_color(opts.theme.text);
 
         let (conn, screen_num) = x11rb::connect(None).map_err(|e| e.to_string())?;
@@ -270,7 +270,7 @@ mod wayland {
     pub fn run(scene_id: &str, opts: RenderOptions) -> Result<(), String> {
         let mut scene =
             aa_core::scenes::make(scene_id).ok_or(format!("unknown scene '{scene_id}'"))?;
-        // Colour scenes (Matrix, fire, …) key their palette off the theme colour.
+        // Colour scenes (Matrix, …) key their palette off the theme colour.
         scene.apply_base_color(opts.theme.text);
 
         let conn = Connection::connect_to_env().map_err(|e| e.to_string())?;

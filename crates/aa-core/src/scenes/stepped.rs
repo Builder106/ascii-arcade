@@ -1,4 +1,4 @@
-//! Fixed-timestep driver shared by the stateful scenes (Matrix, fire, Life,
+//! Fixed-timestep driver shared by the stateful scenes (Matrix, Life,
 //! pipes).
 //!
 //! Port of `SteppedScene.swift`. The Swift original is an open base *class* the

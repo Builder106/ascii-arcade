@@ -2,7 +2,7 @@
 //!
 //! Ported from `AsciiScene` (Swift). The pull/push distinction (math scenes
 //! compute on demand; DOOM streams from a PTY) is hidden behind one method:
-//! [`Scene::frame`] takes `&mut self` so stateful scenes (Matrix, fire, Life,
+//! [`Scene::frame`] takes `&mut self` so stateful scenes (Matrix, Life,
 //! pipes, DOOM) can advance their simulation, and returns a fully-realised
 //! [`Frame`] carrying optional per-cell colour.
 

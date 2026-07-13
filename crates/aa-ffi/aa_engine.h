@@ -12,7 +12,7 @@ typedef struct AaEngine AaEngine;
 
 /**
  * Construct an engine running the named scene.
- * Valid scene ids: "donut", "helix", "matrix", "fire", "pipes", "life", "clock".
+ * Valid scene ids: "donut", "helix", "matrix", "pipes", "life".
  * Returns NULL for unknown ids.
  */
 AaEngine* aa_engine_create(const char* scene_id);

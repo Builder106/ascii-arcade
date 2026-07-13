@@ -1,7 +1,7 @@
 //! A small, deterministic PRNG (SplitMix64).
 //!
 //! Ported from `SceneSetting.swift`'s `SeededGenerator`. Stateful scenes (Matrix
-//! rain, fire, Life, pipes) seed from this so a fixed "Seed" setting reproduces
+//! rain, Life, pipes) seed from this so a fixed "Seed" setting reproduces
 //! the same animation and unit tests stay stable across platforms.
 
 pub struct SeededRng {

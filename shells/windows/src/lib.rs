@@ -77,7 +77,7 @@ mod imp {
     pub fn run(scene_id: &str, opts: RenderOptions) -> Result<(), ShellError> {
         let mut scene = aa_core::scenes::make(scene_id)
             .ok_or_else(|| ShellError::Win32(format!("unknown scene '{scene_id}'")))?;
-        // Colour scenes (Matrix, fire, …) key their palette off the theme colour.
+        // Colour scenes (Matrix, …) key their palette off the theme colour.
         scene.apply_base_color(opts.theme.text);
 
         // Virtual-screen geometry (spans all monitors).

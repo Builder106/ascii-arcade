@@ -60,14 +60,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xterm@4/lib/xterm.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.5/lib/xterm-addon-fit.min.js"></script>
   <script>
-    const SCENES = ['donut', 'helix', 'matrix', 'fire', 'pipes', 'life', 'clock'];
     const picker = document.getElementById('scene-picker');
-    SCENES.forEach(id => {
-      const opt = document.createElement('option');
-      opt.value = id;
-      opt.textContent = id.charAt(0).toUpperCase() + id.slice(1);
-      picker.appendChild(opt);
-    });
 
     const term = new window.Terminal({
       fontFamily: 'Menlo, monospace',
@@ -112,7 +105,19 @@
       if (ws && ws.readyState === WebSocket.OPEN) ws.send(data);
     });
 
-    connect(SCENES[0]);
+    // Scene ids come from the server rather than a hardcoded list here, so the
+    // picker can never drift out of sync with `aa_core::scenes::BUILTIN_IDS`.
+    fetch('/api/scenes')
+      .then(res => res.json())
+      .then(scenes => {
+        scenes.forEach(id => {
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = id.charAt(0).toUpperCase() + id.slice(1);
+          picker.appendChild(opt);
+        });
+        if (scenes.length > 0) connect(scenes[0]);
+      });
   </script>
 </body>
 </html>

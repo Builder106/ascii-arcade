@@ -43,7 +43,7 @@ final class GlyphAtlas {
         var set = Set<Unicode.Scalar>()
         for cp in 0x21...0x7E    { set.insert(Unicode.Scalar(cp)!) }  // printable ASCII
         for cp in 0xFF65...0xFF9F { set.insert(Unicode.Scalar(cp)!) }  // half-width katakana (Matrix)
-        for cp in 0x2580...0x259F { set.insert(Unicode.Scalar(cp)!) }  // block elements (Fire)
+        for cp in 0x2580...0x259F { set.insert(Unicode.Scalar(cp)!) }  // block elements (Life)
         for cp in 0x2500...0x253C { set.insert(Unicode.Scalar(cp)!) }  // box drawing (Pipes)
 
         scalars = set.sorted { $0.value < $1.value }

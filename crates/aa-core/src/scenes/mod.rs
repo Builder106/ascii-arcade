@@ -7,17 +7,13 @@
 
 pub mod stepped;
 
-pub mod clock;
 pub mod donut;
-pub mod fire;
 pub mod helix;
 pub mod life;
 pub mod matrix;
 pub mod pipes;
 
-pub use clock::ClockScene;
 pub use donut::DonutScene;
-pub use fire::FireScene;
 pub use helix::HelixScene;
 pub use life::LifeScene;
 pub use matrix::MatrixScene;
@@ -28,7 +24,7 @@ use crate::scene::Scene;
 /// Stable identifiers for the built-in scenes (used by shells to persist the
 /// user's choice and by the headless renderer's CLI). Order mirrors the macOS
 /// host's scene menu.
-pub const BUILTIN_IDS: &[&str] = &["donut", "helix", "matrix", "fire", "pipes", "life", "clock"];
+pub const BUILTIN_IDS: &[&str] = &["donut", "helix", "matrix", "pipes", "life"];
 
 /// Construct a built-in scene by id. Returns `None` for unknown ids.
 ///
@@ -39,10 +35,8 @@ pub fn make(id: &str) -> Option<Box<dyn Scene + Send>> {
         "donut" => Some(Box::new(DonutScene::new())),
         "helix" => Some(Box::new(HelixScene::new())),
         "matrix" => Some(Box::new(MatrixScene::new())),
-        "fire" => Some(Box::new(FireScene::new())),
         "pipes" => Some(Box::new(PipesScene::new())),
         "life" => Some(Box::new(LifeScene::new())),
-        "clock" => Some(Box::new(ClockScene::new())),
         _ => None,
     }
 }
