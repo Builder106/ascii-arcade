@@ -164,7 +164,7 @@ jobs:
           VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
           mkdir -p dist-release
-          cp target/release/aa-windows.exe "dist-release/aa-windows-v${VERSION}.exe"
+          cp target/release/aa-windows.exe "dist-release/ASCII-Arcade-v${VERSION}-windows.exe"
           cp target/release/aa.exe "dist-release/aa-v${VERSION}-windows.exe"
       - uses: actions/upload-artifact@v4
         with:
@@ -196,7 +196,7 @@ jobs:
           VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
           mkdir -p dist-release
-          tar -C target/release -czf "dist-release/aa-linux-v${VERSION}.tar.gz" aa-linux
+          tar -C target/release -czf "dist-release/ASCII-Arcade-v${VERSION}-linux.tar.gz" aa-linux
           tar -C target/release -czf "dist-release/aa-v${VERSION}-linux.tar.gz" aa
       - uses: actions/upload-artifact@v4
         with:
