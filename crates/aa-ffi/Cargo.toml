@@ -14,4 +14,4 @@ aa-core = { workspace = true }
 
 # JNI bindings for the Android cdylib target only.
 [target.'cfg(target_os = "android")'.dependencies]
-jni = { version = "0.21", default-features = false }
+jni = { version = "0.22", default-features = false }
