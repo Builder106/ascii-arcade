@@ -36,15 +36,32 @@ jobs:
         run: cargo fmt --all --check
       - name: Clippy (engine crates + web shell)
         run: cargo clippy -p aa-core -p aa-render -p aa-doom -p aa-web --all-targets -- -D warnings
+      - name: Clippy (web shell, doom feature)
+        run: cargo clippy -p aa-web --all-targets --features doom -- -D warnings
       - name: Clippy (CLI — no native deps on macOS/Windows)
         if: matrix.os != 'ubuntu-24.04'
         run: cargo clippy -p aa --all-targets -- -D warnings
+      - name: Clippy (CLI, doom feature)
+        if: matrix.os != 'ubuntu-24.04'
+        run: cargo clippy -p aa --all-targets --features doom -- -D warnings
       - name: Test (engine crates)
         run: cargo test -p aa-core -p aa-render -p aa-doom
+      - name: Test (web shell)
+        run: cargo test -p aa-web
+      - name: Test (web shell, doom feature)
+        run: cargo test -p aa-web --features doom
+      - name: Test (CLI — no native deps on macOS/Windows)
+        if: matrix.os != 'ubuntu-24.04'
+        run: cargo test -p aa
+      - name: Test (CLI, doom feature)
+        if: matrix.os != 'ubuntu-24.04'
+        run: cargo test -p aa --features doom
       - name: Build headless example
         run: cargo build -p aa-core --example play
       - name: Build web shell
         run: cargo build -p aa-web
+      - name: Build web shell (doom feature)
+        run: cargo build -p aa-web --features doom
 
   # Native wallpaper shells: each builds only on its own OS (Win32 / X11 +
   # Wayland). This is the real gate for the shell code, which can't link on the
@@ -78,8 +95,16 @@ jobs:
         run: cargo clippy -p ${{ matrix.crate }} -- -D warnings
       - name: Build CLI
         run: cargo build -p aa
+      - name: Build CLI (doom feature)
+        run: cargo build -p aa --features doom
       - name: Clippy CLI
         run: cargo clippy -p aa -- -D warnings
+      - name: Clippy CLI (doom feature)
+        run: cargo clippy -p aa --features doom -- -D warnings
+      - name: Test CLI
+        run: cargo test -p aa
+      - name: Test CLI (doom feature)
+        run: cargo test -p aa --features doom
 
   # Build release binaries and upload as downloadable artifacts. Runs on every
   # push to main and on manual dispatch so the Windows .exe is always available
