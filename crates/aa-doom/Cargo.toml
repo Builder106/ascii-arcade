@@ -11,4 +11,4 @@ aa-core = { workspace = true }
 # portable-pty wraps ConPTY (Windows) and forkpty (macOS/Linux) behind one API,
 # replacing the Darwin-only PTYBridge — the single change that makes
 # DOOM-on-Windows possible.
-portable-pty = "0.8"
+portable-pty = "0.9"
