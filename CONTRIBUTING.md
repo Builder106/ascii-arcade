@@ -30,6 +30,29 @@ obligations. App settings persist via `UserDefaults` under the bundle id
 `com.builder106.ascii-arcade`; resource lookup (`DoomLauncher`) checks
 `Bundle.main` first so it works both from the `.app` and from `swift run`.
 
+## Releasing
+
+Releases are cut manually, roughly monthly — there's no enforced schedule,
+just a target rhythm. When `main` is in good shape:
+
+```bash
+./scripts/cut-release.sh 0.2.0
+```
+
+This bumps `Cargo.toml`'s workspace version, commits, tags, and pushes, which
+triggers `.github/workflows/release.yml`. That workflow re-verifies the
+tagged commit (`swift test` + `cargo test`, matrixed across macOS/Linux/
+Windows) before building anything, then publishes a GitHub Release with six
+assets: the macOS DMG, the Windows and Linux native-shell binaries, and the
+cross-platform `aa` CLI for all three OSes.
+
+Like the local `.app` build, release builds never set `INCLUDE_DOOM=1` — the
+DMG doesn't bundle the GPL `doom_ascii` binary, matching DOOM's opt-in
+treatment everywhere else in this app. The Rust binaries *do* build with
+`--features doom` (safe: that only adds the ability to spawn a separately
+supplied `doom_ascii`, never links or bundles its code), but DOOM still stays
+behind the runtime `--enable-doom` flag either way.
+
 ## Project layout
 
 - `Sources/AsciiArcadeCore` — frame generators, the `AsciiScene` protocol, and

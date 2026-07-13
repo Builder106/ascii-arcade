@@ -1,0 +1,235 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >-
+          X.Y.Z to (re-)publish. Only needed when re-running a failed leg
+          without re-tagging — pick the vX.Y.Z tag as "Use workflow from",
+          then optionally set this too as a double-check that they match.
+        required: false
+        type: string
+
+concurrency:
+  group: release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Resolves and validates the version/tag for this run before anything else
+  # starts, and fails fast on anything malformed or ambiguous. Kept out of
+  # `verify` deliberately: `verify` is matrixed, and a matrix job's outputs
+  # are whichever leg happens to set them last, not a defined value.
+  resolve-version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - name: Resolve and validate
+        id: resolve
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="$GITHUB_REF_NAME"
+            if [[ -n "$INPUT_VERSION" && "v$INPUT_VERSION" != "$TAG" ]]; then
+              echo "::error::inputs.version (v$INPUT_VERSION) doesn't match the tag this run is on ($TAG)."
+              exit 1
+            fi
+          elif [[ -n "$INPUT_VERSION" ]]; then
+            TAG="v$INPUT_VERSION"
+          else
+            echo "::error::Not run from a tag push and no 'version' input given. Re-dispatch with 'Use workflow from' set to the vX.Y.Z tag, or supply 'version'."
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$VERSION' is not semver X.Y.Z"
+            exit 1
+          fi
+          if ! git ls-remote --exit-code --tags "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/$TAG" >/dev/null; then
+            echo "::error::Tag $TAG doesn't exist on origin. Run scripts/cut-release.sh first."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  # Re-runs the test suite against the exact tagged commit. Tag pushes don't
+  # trigger ci.yml/rust.yml (those only watch branches), so without this, a
+  # release would only ever be as verified as "main happened to be green
+  # whenever this commit last landed" — matrixed across all three OSes so
+  # the Linux/Windows shell code is actually tested, not just compile-checked
+  # by the packaging build below.
+  verify:
+    name: Verify (${{ matrix.os }})
+    needs: resolve-version
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-version.outputs.tag }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Linux wallpaper deps
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libwayland-dev libxkbcommon-dev libxcb1-dev
+      - name: Swift build + test
+        if: matrix.os == 'macos-15'
+        run: |
+          swift build
+          swift test
+      - name: Rust test (workspace, excluding out-of-scope aa-ffi)
+        run: cargo test --workspace --exclude aa-ffi
+      - name: Rust test (aa, doom feature)
+        run: cargo test -p aa --features doom
+      - name: Rust test (aa-web, doom feature)
+        run: cargo test -p aa-web --features doom
+
+  release-macos:
+    name: Package macOS
+    needs: [resolve-version, verify]
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-version.outputs.tag }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      # macos-15 runners are Apple Silicon; UNIVERSAL=1 makes the .app an
+      # arm64+x86_64 binary so it still runs on Intel Macs (macOS 13+ floor).
+      - name: Build .app + DMG (universal)
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+          UNIVERSAL: "1"
+        run: |
+          ./scripts/make-app.sh
+          ./scripts/make-dmg.sh
+      - name: Build aa CLI (universal)
+        run: |
+          cargo build -p aa --release --features doom --target x86_64-apple-darwin
+          cargo build -p aa --release --features doom --target aarch64-apple-darwin
+          lipo -create -output aa \
+            target/x86_64-apple-darwin/release/aa \
+            target/aarch64-apple-darwin/release/aa
+      - name: Stage release assets
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          mkdir -p dist-release
+          mv "dist/ASCII-Arcade.dmg" "dist-release/ASCII-Arcade-v${VERSION}.dmg"
+          tar -czf "dist-release/aa-v${VERSION}-macos.tar.gz" aa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: dist-release/*
+          retention-days: 1
+
+  release-windows:
+    name: Package Windows
+    needs: [resolve-version, verify]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-version.outputs.tag }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # aa-windows has no `doom` feature (only the aa CLI does) — see
+      # shells/windows/Cargo.toml.
+      - run: cargo build -p aa-windows --release
+      - run: cargo build -p aa --release --features doom
+      - name: Stage release assets
+        shell: bash
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          mkdir -p dist-release
+          cp target/release/aa-windows.exe "dist-release/aa-windows-v${VERSION}.exe"
+          cp target/release/aa.exe "dist-release/aa-v${VERSION}-windows.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: dist-release/*
+          retention-days: 1
+
+  release-linux:
+    name: Package Linux
+    needs: [resolve-version, verify]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-version.outputs.tag }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Linux wallpaper deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libwayland-dev libxkbcommon-dev libxcb1-dev
+      # aa-linux has no `doom` feature (only the aa CLI does) — see
+      # shells/linux/Cargo.toml.
+      - run: cargo build -p aa-linux --release
+      - run: cargo build -p aa --release --features doom
+      - name: Stage release assets
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          mkdir -p dist-release
+          tar -C target/release -czf "dist-release/aa-linux-v${VERSION}.tar.gz" aa-linux
+          tar -C target/release -czf "dist-release/aa-v${VERSION}-linux.tar.gz" aa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: dist-release/*
+          retention-days: 1
+
+  # Gathers all three platforms' assets and publishes exactly one GitHub
+  # Release, atomically, rather than each packaging job creating/appending
+  # piecemeal. Idempotent: re-dispatching against the same tag after a
+  # partial failure uploads (with --clobber) instead of erroring on
+  # "release already exists".
+  publish:
+    name: Publish release
+    needs: [resolve-version, release-macos, release-windows, release-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "release-*"
+          path: dist-release
+          merge-multiple: true
+      - name: Create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve-version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — updating assets (re-run)."
+            gh release upload "$TAG" dist-release/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" dist-release/* --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
+          fi
