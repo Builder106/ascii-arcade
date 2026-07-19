@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "C ABI for aa-core — static lib (iOS) and cdylib (Android) consumed by the mobile Expo shell."
+description = "C ABI for aa-core — static lib consumed by the native iOS shell, cdylib consumed by the native Android shell."
 
 [lib]
 crate-type = ["staticlib", "cdylib"]

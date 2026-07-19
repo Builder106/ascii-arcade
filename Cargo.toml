@@ -14,8 +14,8 @@ members = [
 # Shared metadata for every crate in the cross-platform Rust port. The macOS
 # wallpaper shell remains Swift/AppKit and consumes aa-core via a C ABI; the
 # Windows (WorkerW) and Linux (X11 + wlr-layer-shell) shells are native Rust.
-# The mobile shell (shells/mobile, Expo/React Native) also links aa-ffi as a
-# native library (.a on iOS, .so on Android).
+# The native iOS (shells/ios) and Android (shells/android) shells also link
+# aa-ffi as a native library (.a on iOS, .so on Android) — see crates/aa-ffi.
 [workspace.package]
 version = "0.1.0"
 edition = "2021"

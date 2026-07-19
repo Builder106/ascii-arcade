@@ -1,7 +1,8 @@
 //! C ABI for `aa-core`.
 //!
-//! Compiled as `staticlib` for iOS (linked into the Expo native module's
-//! XCFramework) and `cdylib` for Android (loaded as `libaa_ffi.so`).
+//! Compiled as `staticlib` for iOS (linked into the native Swift shell's
+//! AaEngine.xcframework) and `cdylib` for Android (loaded as `libaa_ffi.so`
+//! by the native Kotlin shell's live wallpaper service).
 //!
 //! Frame buffer layout — 8 bytes per cell:
 //!   [0–3]  Unicode scalar as u32 LE
@@ -195,40 +196,60 @@ pub extern "C" fn aa_scene_names_free(names: *mut *mut c_char, count: u32) {
 
 // ── Android JNI bridge ───────────────────────────────────────────────────────
 //
-// Class: expo.modules.aaengine.AaEngineModule
+// Class: com.builder106.asciiarcade.engine.AaEngineNative — must be a
+// top-level Kotlin `object`, not a companion object (a companion-scoped
+// `external fun` mangles to a `$Companion`-suffixed symbol that would not
+// match these names).
 // The handle passed to every JNI function is the `AaEngine*` cast to `jlong`.
 
 #[cfg(target_os = "android")]
 mod android {
     use super::*;
+    use jni::errors::LogErrorAndDefault;
+    use jni::jni_str;
     use jni::objects::{JClass, JString};
-    use jni::sys::{jboolean, jbyteArray, jdouble, jint, jlong, jobjectArray, jstring};
-    use jni::JNIEnv;
+    use jni::sys::{jbyteArray, jdouble, jint, jlong, jobjectArray};
+    use jni::{Env, EnvUnowned};
 
-    fn jstring_to_string(env: &mut JNIEnv, s: JString) -> Option<String> {
-        env.get_string(&s).ok().map(|js| js.into())
+    // jni 0.22 split the old `JNIEnv` into `EnvUnowned` (the FFI-safe type
+    // received as a native-method parameter) and `Env` (the full JNI API,
+    // only reachable inside an `EnvUnowned::with_env` closure). `with_env`
+    // wraps the closure in `catch_unwind` and `.resolve::<LogErrorAndDefault>()`
+    // maps both errors and panics to a logged message plus a default return
+    // value (0/null) — the same "fail quietly, return a sentinel" behavior
+    // this bridge already wanted, now provided by the crate instead of a
+    // hand-rolled `.unwrap_or(null)`.
+    fn jstring_to_string(env: &Env<'_>, s: &JString<'_>) -> jni::errors::Result<String> {
+        Ok(s.mutf8_chars(env)?.into())
     }
 
     #[no_mangle]
-    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeCreate(
-        mut env: JNIEnv,
-        _class: JClass,
-        scene_name: JString,
+    pub extern "system" fn Java_com_builder106_asciiarcade_engine_AaEngineNative_nativeCreate<
+        'local,
+    >(
+        mut unowned_env: EnvUnowned<'local>,
+        _class: JClass<'local>,
+        scene_name: JString<'local>,
     ) -> jlong {
-        let name = match jstring_to_string(&mut env, scene_name) {
-            Some(s) => s,
-            None => return 0,
-        };
-        match AaEngine::new(&name) {
-            Some(engine) => Box::into_raw(Box::new(engine)) as jlong,
-            None => 0,
-        }
+        unowned_env
+            .with_env(|env| -> jni::errors::Result<jlong> {
+                let name = jstring_to_string(env, &scene_name)?;
+                Ok(match AaEngine::new(&name) {
+                    Some(engine) => Box::into_raw(Box::new(engine)) as jlong,
+                    None => 0,
+                })
+            })
+            .resolve::<LogErrorAndDefault>()
     }
 
+    // No JNI calls in the body, so this never needs to upgrade EnvUnowned to
+    // Env via with_env().
     #[no_mangle]
-    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeDestroy(
-        _env: JNIEnv,
-        _class: JClass,
+    pub extern "system" fn Java_com_builder106_asciiarcade_engine_AaEngineNative_nativeDestroy<
+        'local,
+    >(
+        _env: EnvUnowned<'local>,
+        _class: JClass<'local>,
         handle: jlong,
     ) {
         if handle != 0 {
@@ -237,9 +258,11 @@ mod android {
     }
 
     #[no_mangle]
-    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeSetGrid(
-        _env: JNIEnv,
-        _class: JClass,
+    pub extern "system" fn Java_com_builder106_asciiarcade_engine_AaEngineNative_nativeSetGrid<
+        'local,
+    >(
+        _env: EnvUnowned<'local>,
+        _class: JClass<'local>,
         handle: jlong,
         width: jint,
         height: jint,
@@ -252,112 +275,125 @@ mod android {
     }
 
     #[no_mangle]
-    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeSetTheme(
-        mut env: JNIEnv,
-        _class: JClass,
+    pub extern "system" fn Java_com_builder106_asciiarcade_engine_AaEngineNative_nativeSetTheme<
+        'local,
+    >(
+        mut unowned_env: EnvUnowned<'local>,
+        _class: JClass<'local>,
         handle: jlong,
-        theme_name: JString,
+        theme_name: JString<'local>,
     ) {
-        if handle == 0 {
-            return;
-        }
-        let name = match jstring_to_string(&mut env, theme_name) {
-            Some(s) => s,
-            None => return,
-        };
-        let e = unsafe { &mut *(handle as *mut AaEngine) };
-        if let Some(theme) = Theme::by_name(&name) {
-            e.scene.apply_base_color(theme.text);
-        }
+        unowned_env
+            .with_env(|env| -> jni::errors::Result<()> {
+                if handle == 0 {
+                    return Ok(());
+                }
+                let name = jstring_to_string(env, &theme_name)?;
+                let e = unsafe { &mut *(handle as *mut AaEngine) };
+                if let Some(theme) = Theme::by_name(&name) {
+                    e.scene.apply_base_color(theme.text);
+                }
+                Ok(())
+            })
+            .resolve::<LogErrorAndDefault>()
     }
 
     #[no_mangle]
-    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeApplySetting(
-        mut env: JNIEnv,
-        _class: JClass,
+    pub extern "system" fn Java_com_builder106_asciiarcade_engine_AaEngineNative_nativeApplySetting<
+        'local,
+    >(
+        mut unowned_env: EnvUnowned<'local>,
+        _class: JClass<'local>,
         handle: jlong,
-        setting_id: JString,
+        setting_id: JString<'local>,
         value: jdouble,
     ) {
-        if handle == 0 {
-            return;
-        }
-        let id = match jstring_to_string(&mut env, setting_id) {
-            Some(s) => s,
-            None => return,
-        };
-        let e = unsafe { &mut *(handle as *mut AaEngine) };
-        e.scene.apply_setting(&id, value);
+        unowned_env
+            .with_env(|env| -> jni::errors::Result<()> {
+                if handle == 0 {
+                    return Ok(());
+                }
+                let id = jstring_to_string(env, &setting_id)?;
+                let e = unsafe { &mut *(handle as *mut AaEngine) };
+                e.scene.apply_setting(&id, value);
+                Ok(())
+            })
+            .resolve::<LogErrorAndDefault>()
     }
 
     #[no_mangle]
-    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeNextFrame(
-        env: JNIEnv,
-        _class: JClass,
+    pub extern "system" fn Java_com_builder106_asciiarcade_engine_AaEngineNative_nativeNextFrame<
+        'local,
+    >(
+        mut unowned_env: EnvUnowned<'local>,
+        _class: JClass<'local>,
         handle: jlong,
         t: jdouble,
     ) -> jbyteArray {
-        if handle == 0 {
-            return std::ptr::null_mut();
-        }
-        let e = unsafe { &mut *(handle as *mut AaEngine) };
-        let frame = e.scene.frame(t);
-
-        let num_cells = frame.width * frame.height;
-        e.frame_buf.resize(num_cells * BYTES_PER_CELL, 0);
-
-        for (i, cell) in frame.cells.iter().enumerate() {
-            let off = i * BYTES_PER_CELL;
-            let ch = cell.ch as u32;
-            e.frame_buf[off] = (ch & 0xFF) as u8;
-            e.frame_buf[off + 1] = ((ch >> 8) & 0xFF) as u8;
-            e.frame_buf[off + 2] = ((ch >> 16) & 0xFF) as u8;
-            e.frame_buf[off + 3] = ((ch >> 24) & 0xFF) as u8;
-            match cell.color {
-                Some(c) => {
-                    e.frame_buf[off + 4] = c.r;
-                    e.frame_buf[off + 5] = c.g;
-                    e.frame_buf[off + 6] = c.b;
-                    e.frame_buf[off + 7] = 1;
+        unowned_env
+            .with_env(|env| -> jni::errors::Result<jbyteArray> {
+                if handle == 0 {
+                    return Ok(std::ptr::null_mut());
                 }
-                None => {
-                    e.frame_buf[off + 4] = 0;
-                    e.frame_buf[off + 5] = 0;
-                    e.frame_buf[off + 6] = 0;
-                    e.frame_buf[off + 7] = 0;
-                }
-            }
-        }
+                let e = unsafe { &mut *(handle as *mut AaEngine) };
+                let frame = e.scene.frame(t);
 
-        // Copy frame buffer bytes into a new Java byte[] and return it.
-        // JNI byte[] is signed, but we pass raw bytes — the Kotlin side reads
-        // them as unsigned via `and(0xFF)`.
-        let byte_slice: &[i8] = unsafe {
-            std::slice::from_raw_parts(e.frame_buf.as_ptr() as *const i8, e.frame_buf.len())
-        };
-        match env.new_byte_array(e.frame_buf.len() as i32) {
-            Ok(arr) => {
-                let _ = env.set_byte_array_region(&arr, 0, byte_slice);
-                arr.into_raw()
-            }
-            Err(_) => std::ptr::null_mut(),
-        }
+                let num_cells = frame.width * frame.height;
+                e.frame_buf.resize(num_cells * BYTES_PER_CELL, 0);
+
+                for (i, cell) in frame.cells.iter().enumerate() {
+                    let off = i * BYTES_PER_CELL;
+                    let ch = cell.ch as u32;
+                    e.frame_buf[off] = (ch & 0xFF) as u8;
+                    e.frame_buf[off + 1] = ((ch >> 8) & 0xFF) as u8;
+                    e.frame_buf[off + 2] = ((ch >> 16) & 0xFF) as u8;
+                    e.frame_buf[off + 3] = ((ch >> 24) & 0xFF) as u8;
+                    match cell.color {
+                        Some(c) => {
+                            e.frame_buf[off + 4] = c.r;
+                            e.frame_buf[off + 5] = c.g;
+                            e.frame_buf[off + 6] = c.b;
+                            e.frame_buf[off + 7] = 1;
+                        }
+                        None => {
+                            e.frame_buf[off + 4] = 0;
+                            e.frame_buf[off + 5] = 0;
+                            e.frame_buf[off + 6] = 0;
+                            e.frame_buf[off + 7] = 0;
+                        }
+                    }
+                }
+
+                // JNI byte[] is signed, but we pass raw bytes — the Kotlin
+                // side reads them as unsigned via `and(0xFF)`.
+                let byte_slice: &[i8] = unsafe {
+                    std::slice::from_raw_parts(e.frame_buf.as_ptr() as *const i8, e.frame_buf.len())
+                };
+                let arr = env.new_byte_array(e.frame_buf.len())?;
+                arr.set_region(env, 0, byte_slice)?;
+                Ok(arr.into_raw())
+            })
+            .resolve::<LogErrorAndDefault>()
     }
 
     #[no_mangle]
-    pub extern "system" fn Java_expo_modules_aaengine_AaEngineModule_nativeSceneNames(
-        mut env: JNIEnv,
-        _class: JClass,
+    pub extern "system" fn Java_com_builder106_asciiarcade_engine_AaEngineNative_nativeSceneNames<
+        'local,
+    >(
+        mut unowned_env: EnvUnowned<'local>,
+        _class: JClass<'local>,
     ) -> jobjectArray {
-        let string_class = env.find_class("java/lang/String").unwrap();
-        let empty = env.new_string("").unwrap();
-        let arr = env
-            .new_object_array(BUILTIN_IDS.len() as i32, &string_class, &empty)
-            .unwrap();
-        for (i, id) in BUILTIN_IDS.iter().enumerate() {
-            let s = env.new_string(*id).unwrap();
-            env.set_object_array_element(&arr, i as i32, &s).unwrap();
-        }
-        arr.into_raw()
+        unowned_env
+            .with_env(|env| -> jni::errors::Result<jobjectArray> {
+                let string_class = env.find_class(jni_str!("java/lang/String"))?;
+                let empty = env.new_string("")?;
+                let arr = env.new_object_array(BUILTIN_IDS.len() as i32, &string_class, &empty)?;
+                for (i, id) in BUILTIN_IDS.iter().enumerate() {
+                    let s = env.new_string(*id)?;
+                    arr.set_element(env, i, &s)?;
+                }
+                Ok(arr.into_raw())
+            })
+            .resolve::<LogErrorAndDefault>()
     }
 }
