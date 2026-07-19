@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Plain platform theme — no AndroidX/Material dependency needed for
+         this vertical slice (a full-bleed SurfaceView + one button). -->
+    <style name="Theme.AsciiArcade" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+</resources>

@@ -38,3 +38,17 @@ shells/ios/Frameworks/AaEngine.xcframework/
 # --- Xcode per-developer state (regenerated locally, not shared)
 xcuserdata/
 *.xcuserstate
+
+# Native Android shell (shells/android)
+# --- gradlew, gradlew.bat, and gradle/wrapper/ ARE committed (standard Gradle
+# convention: any clone can build without a preinstalled Gradle) — only the
+# cache/output dirs and per-developer local.properties are ignored here.
+shells/android/.gradle/
+shells/android/app/build/
+shells/android/build/
+shells/android/local.properties
+shells/android/.idea/
+shells/android/*.iml
+
+# --- Built Rust native library (produced by scripts/build-android.sh)
+shells/android/app/src/main/jniLibs/
