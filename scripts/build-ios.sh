@@ -7,6 +7,7 @@
 # Prerequisites:
 #   rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
 #   Xcode command-line tools (xcodebuild)
+#   cbindgen: cargo install cbindgen
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,6 +18,15 @@ OUT_DIR="$REPO_ROOT/shells/ios/Frameworks"
 XCFRAMEWORK="$OUT_DIR/AaEngine.xcframework"
 
 cd "$REPO_ROOT"
+
+if ! command -v cbindgen &>/dev/null; then
+  echo "cbindgen not found — installing..."
+  cargo install cbindgen
+  export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
+echo "── Regenerating aa_engine.h from aa-ffi/src/lib.rs ──────────────"
+cbindgen --config "$HEADERS_DIR/cbindgen.toml" --crate "$CRATE" --output "$HEADERS_DIR/aa_engine.h"
 
 echo "── Installing Rust iOS targets ──────────────────────────────────"
 rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios

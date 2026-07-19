@@ -43,6 +43,9 @@ unsafe fn str_from_ptr<'a>(ptr: *const c_char) -> Option<&'a str> {
 
 // ── Public C API ─────────────────────────────────────────────────────────────
 
+/// Construct an engine running the named scene.
+/// Valid scene ids: "donut", "helix", "matrix", "pipes", "life".
+/// Returns NULL for unknown ids.
 #[no_mangle]
 pub extern "C" fn aa_engine_create(scene_id: *const c_char) -> *mut AaEngine {
     let id = unsafe {
@@ -57,6 +60,7 @@ pub extern "C" fn aa_engine_create(scene_id: *const c_char) -> *mut AaEngine {
     }
 }
 
+/// Destroy the engine and release all resources.
 #[no_mangle]
 pub extern "C" fn aa_engine_destroy(engine: *mut AaEngine) {
     if !engine.is_null() {
@@ -64,6 +68,7 @@ pub extern "C" fn aa_engine_destroy(engine: *mut AaEngine) {
     }
 }
 
+/// Resize the character grid the scene renders into.
 #[no_mangle]
 pub extern "C" fn aa_engine_set_grid(engine: *mut AaEngine, width: u32, height: u32) {
     if engine.is_null() {
@@ -73,6 +78,8 @@ pub extern "C" fn aa_engine_set_grid(engine: *mut AaEngine, width: u32, height: 
     e.scene.set_grid(width as usize, height as usize);
 }
 
+/// Set the colour theme by name ("Hacker", "Amber", "Ice", "Ghost").
+/// Unknown names are silently ignored.
 #[no_mangle]
 pub extern "C" fn aa_engine_set_theme(engine: *mut AaEngine, theme_name: *const c_char) {
     if engine.is_null() {
@@ -90,6 +97,7 @@ pub extern "C" fn aa_engine_set_theme(engine: *mut AaEngine, theme_name: *const 
     }
 }
 
+/// Forward a scene-specific setting (id + numeric value).
 #[no_mangle]
 pub extern "C" fn aa_engine_apply_setting(
     engine: *mut AaEngine,
@@ -109,6 +117,18 @@ pub extern "C" fn aa_engine_apply_setting(
     e.scene.apply_setting(id, value);
 }
 
+/// Render the next frame at animation time `t` (seconds).
+///
+/// Returns a pointer to a flat byte buffer owned by the engine — valid until
+/// the next call to `aa_engine_next_frame` or `aa_engine_destroy`.
+/// Returns NULL on error.
+///
+/// Buffer layout: width * height cells, 8 bytes each:
+///   `[0–3]` char as uint32_t little-endian (Unicode scalar value)
+///   `[4]`   red   (0 when has_color == 0)
+///   `[5]`   green
+///   `[6]`   blue
+///   `[7]`   has_color: 1 = use rgb above, 0 = use the active theme colour
 #[no_mangle]
 pub extern "C" fn aa_engine_next_frame(
     engine: *mut AaEngine,
@@ -160,6 +180,9 @@ pub extern "C" fn aa_engine_next_frame(
     e.frame_buf.as_ptr()
 }
 
+/// Return a null-terminated array of built-in scene id strings.
+/// `*out_count` is set to the number of ids (excluding the null terminator).
+/// Free the result with `aa_scene_names_free(names, count)`.
 #[no_mangle]
 pub extern "C" fn aa_scene_names(out_count: *mut u32) -> *mut *mut c_char {
     if !out_count.is_null() {
@@ -176,6 +199,7 @@ pub extern "C" fn aa_scene_names(out_count: *mut u32) -> *mut *mut c_char {
     ptr
 }
 
+/// Free a names array returned by `aa_scene_names`.
 #[no_mangle]
 pub extern "C" fn aa_scene_names_free(names: *mut *mut c_char, count: u32) {
     if names.is_null() {
