@@ -65,7 +65,7 @@ mod imp {
     use windows::Win32::UI::WindowsAndMessaging::{
         CreateWindowExW, DefWindowProcW, DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW,
         GetSystemMetrics, PeekMessageW, PostQuitMessage, RegisterClassW, SetWindowPos, ShowWindow,
-        TranslateMessage, HMENU, MSG, PM_REMOVE, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
+        TranslateMessage, MSG, PM_REMOVE, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
         SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOW,
         WM_DESTROY, WM_QUIT, WNDCLASSW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP, WS_VISIBLE,
     };
@@ -157,8 +157,8 @@ mod imp {
     unsafe extern "system" fn enum_find_icon_host(
         top: HWND,
         lparam: LPARAM,
-    ) -> windows::Win32::Foundation::BOOL {
-        let defview = FindWindowExW(top, HWND::default(), w!("SHELLDLL_DefView"), PCWSTR::null());
+    ) -> windows::core::BOOL {
+        let defview = FindWindowExW(Some(top), None, w!("SHELLDLL_DefView"), PCWSTR::null());
         if let Ok(dv) = defview {
             if !dv.is_invalid() {
                 let out = lparam.0 as *mut HWND;
@@ -199,16 +199,16 @@ mod imp {
                 y,
                 w,
                 h,
-                HWND::default(),
-                HMENU::default(),
-                hinstance,
+                None,
+                None,
+                Some(hinstance),
                 None,
             ))?;
             // Insert directly behind the icon host in the global Z-order so
             // SHELLDLL_DefView (desktop icons) always renders on top of us.
             let _ = SetWindowPos(
                 hwnd,
-                parent,
+                Some(parent),
                 0,
                 0,
                 0,
@@ -263,7 +263,7 @@ mod imp {
         };
 
         unsafe {
-            let hdc = GetDC(hwnd);
+            let hdc = GetDC(Some(hwnd));
             if hdc.is_invalid() {
                 return Err(ShellError::Win32("GetDC returned null".into()));
             }
@@ -282,7 +282,7 @@ mod imp {
                 DIB_RGB_COLORS,
                 SRCCOPY,
             );
-            ReleaseDC(hwnd, hdc);
+            ReleaseDC(Some(hwnd), hdc);
             if scanned == 0 {
                 return Err(ShellError::Win32("StretchDIBits drew 0 scanlines".into()));
             }
@@ -364,7 +364,7 @@ pub mod autostart {
                 let err = RegCreateKeyExW(
                     HKEY_CURRENT_USER,
                     PCWSTR(key_wide.as_ptr()),
-                    0,
+                    Some(0),
                     PCWSTR::null(),
                     REG_OPTION_NON_VOLATILE,
                     KEY_SET_VALUE,
@@ -378,7 +378,7 @@ pub mod autostart {
                 let set_err = RegSetValueExW(
                     hkey,
                     PCWSTR(value_wide.as_ptr()),
-                    0,
+                    Some(0),
                     REG_SZ,
                     Some(cmd_bytes.as_slice()),
                 );
@@ -398,7 +398,7 @@ pub mod autostart {
                 let err = RegOpenKeyExW(
                     HKEY_CURRENT_USER,
                     PCWSTR(key_wide.as_ptr()),
-                    0,
+                    Some(0),
                     KEY_SET_VALUE,
                     &mut hkey,
                 );
@@ -418,7 +418,7 @@ pub mod autostart {
                 let err = RegOpenKeyExW(
                     HKEY_CURRENT_USER,
                     PCWSTR(key_wide.as_ptr()),
-                    0,
+                    Some(0),
                     KEY_QUERY_VALUE,
                     &mut hkey,
                 );
