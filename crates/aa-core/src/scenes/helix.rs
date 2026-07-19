@@ -1,8 +1,35 @@
-//! Rotating, precessing helix — a tube wound into a coil, lit and z-buffered.
+//! An infinite helix, lit and z-buffered, flown down from an aerial view.
 //!
 //! Port of `HelixFrameGenerator.swift`. A math scene in the same mould as
 //! [`crate::scenes::donut`]: hold the grid size, compute a fresh [`Frame`] from
 //! `t`. Monochrome, so every cell's colour is left `None`.
+//!
+//! The coil itself never moves and has no fixed length — the helix is
+//! conceptually infinite, so each frame only generates the window of turns
+//! currently near the camera (`VISIBLE_TURNS` worth of `u`, centered on
+//! wherever the camera currently is) rather than a fixed-size coil. The
+//! shape is translation-invariant along its own axis, so a freshly
+//! generated window looks identical to the last one — nothing to stitch or
+//! blend, just keep sliding the window as the camera moves.
+//!
+//! The only motion is the camera: it rides the coil's own central axis,
+//! looking straight down it (aerial view), and descends at a constant rate
+//! forever — one direction, no turning around, no bouncing between ends,
+//! because an infinite helix has no ends to bounce between. (Earlier
+//! versions rotated or tilted the object itself, and later oscillated the
+//! camera back and forth over a finite coil; all three read as wrong for
+//! this scene — only the camera should move, continuously, in one
+//! direction.)
+//!
+//! `depth` is just how far below the camera a point sits (`cam_z - pz`),
+//! since the camera only ever looks down. Points at or above the camera
+//! (`depth <= NEAR_CLIP`) are skipped the way a near clip plane would skip
+//! them, rather than letting `1/depth` blow up as a turn's height passes
+//! the camera's current position. The camera rides the coil's exact
+//! central axis (radius zero), while the tube's surface never reaches that
+//! axis (`R - R_MINOR` is well clear of zero) — so depth can approach
+//! `NEAR_CLIP` as the camera passes a turn's height, but the point is never
+//! actually *at* the camera in 3D, only close in the one axial coordinate.
 
 use crate::frame::Frame;
 use crate::scene::Scene;
@@ -15,11 +42,32 @@ pub struct HelixScene {
 }
 
 impl HelixScene {
-    // Tube major/minor radius, turn count and vertical pitch — the coil shape.
+    // Tube major/minor radius and vertical pitch — the coil's cross-section
+    // and rise-per-turn. R_MINOR is kept small relative to PITCH (vertical
+    // turn spacing is ~6x the tube diameter) so consecutive turns show real
+    // background gaps between them and read as a coil rather than a solid
+    // filled blob — a thicker tube visually merges turns together well
+    // before they touch in 3D.
     const R: f64 = 1.5;
-    const R_MINOR: f64 = 0.4;
-    const NUM_TURNS: f64 = 2.5;
+    const R_MINOR: f64 = 0.2;
     const PITCH: f64 = 0.4;
+
+    // How many turns' worth of u-range to generate around the camera each
+    // frame — enough to see turns both ahead of and behind it, like a
+    // tunnel, without generating the (literally unbounded) rest of the coil.
+    const VISIBLE_TURNS: f64 = 3.0;
+
+    // Units/sec the camera descends. Constant and one-directional.
+    const CAM_SPEED: f64 = 0.5;
+
+    // Reference axial distance used only to calibrate the projection scale
+    // (`K1`) — roughly one turn's vertical spacing, so a turn at a "normal"
+    // viewing distance fills a sensible fraction of the screen.
+    const CAM_REF_DEPTH: f64 = 2.5;
+    // Depths shallower than this are treated as behind/at the camera and
+    // skipped, rather than letting `1/depth` blow up as a turn's height
+    // passes the camera's current position.
+    const NEAR_CLIP: f64 = 0.3;
 
     pub fn new() -> Self {
         HelixScene {
@@ -54,22 +102,20 @@ impl Scene for HelixScene {
         let mut zbuf = vec![0.0f64; screen];
         let mut frame = Frame::blank(w, h);
 
-        let a = t * 1.0;
-        let b = t * 0.5;
-        let c = (t * 0.4).sin() * 0.6; // precessing wobble around z-axis
-        let (cos_a, sin_a) = (a.cos(), a.sin());
-        let (cos_b, sin_b) = (b.cos(), b.sin());
-        let (cos_c, sin_c) = (c.cos(), c.sin());
+        let cam_z = -Self::CAM_SPEED * t;
 
-        let k2 = 5.0;
-        // Reduced 3.0 → 2.0 to shrink the helix to roughly donut scale.
-        let projection = k2 * 2.0 / (8.0 * (Self::R + Self::R_MINOR));
+        let projection = Self::CAM_REF_DEPTH * 2.0 / (8.0 * (Self::R + Self::R_MINOR));
         let k1 = w.min(h) as f64 * projection;
 
-        let half_height = Self::PITCH * Self::NUM_TURNS * PI;
+        // The window of turns to generate this frame, centered on wherever
+        // the camera currently is (pz ≈ PITCH * u, so u_center is just the
+        // camera's position rescaled into u-space).
+        let u_center = cam_z / Self::PITCH;
+        let u_half_range = Self::VISIBLE_TURNS * PI;
+        let u_end = u_center + u_half_range;
 
-        let mut u = 0.0;
-        while u < Self::NUM_TURNS * 2.0 * PI {
+        let mut u = u_center - u_half_range;
+        while u < u_end {
             let (cos_u, sin_u) = (u.cos(), u.sin());
             let mut v = 0.0;
             while v < 2.0 * PI {
@@ -77,48 +123,37 @@ impl Scene for HelixScene {
 
                 let px = cos_u * (Self::R + Self::R_MINOR * cos_v);
                 let py = sin_u * (Self::R + Self::R_MINOR * cos_v);
-                let pz = Self::PITCH * u - half_height + Self::R_MINOR * sin_v;
+                let pz = Self::PITCH * u + Self::R_MINOR * sin_v;
 
-                let nx = cos_v * cos_u;
                 let ny = cos_v * sin_u;
                 let nz = sin_v;
 
-                // Rz(C) — precession
-                let px_c = px * cos_c - py * sin_c;
-                let py_c = px * sin_c + py * cos_c;
-                let nx_c = nx * cos_c - ny * sin_c;
-                let ny_c = nx * sin_c + ny * cos_c;
+                // The camera looks straight down the coil's axis from its
+                // current position, so depth is just the axial gap between
+                // camera and point — no rotation needed at all, since
+                // neither the coil nor the camera's orientation ever
+                // changes, only the camera's position along the axis.
+                let depth = cam_z - pz;
+                if depth > Self::NEAR_CLIP {
+                    let ooz = 1.0 / depth;
 
-                // Rx(A)
-                let py1 = py_c * cos_a - pz * sin_a;
-                let pz1 = py_c * sin_a + pz * cos_a;
-                let ny1 = ny_c * cos_a - nz * sin_a;
-                let nz1 = ny_c * sin_a + nz * cos_a;
+                    // Light from (0, 1, −1)/√2, fixed in world space (the
+                    // coil never rotates, so the normal needs no rotating).
+                    let l = ny - nz;
 
-                // Ry(B)
-                let x = px_c * cos_b + pz1 * sin_b;
-                let y = py1;
-                let z = k2 - px_c * sin_b + pz1 * cos_b;
-                let ooz = 1.0 / z;
-
-                let ny_rot = ny1;
-                let nz_rot = -nx_c * sin_b + nz1 * cos_b;
-
-                // Light from (0, 1, −1)/√2
-                let l = ny_rot - nz_rot;
-
-                if l > 0.0 {
-                    let xp = (w as f64 / 2.0 + k1 * ooz * x) as isize;
-                    let yp = (h as f64 / 2.0 - k1 * ooz * y) as isize;
-                    if xp >= 0 && yp >= 0 {
-                        let (xp, yp) = (xp as usize, yp as usize);
-                        if xp < w && yp < h {
-                            let i = yp * w + xp;
-                            if ooz > zbuf[i] {
-                                zbuf[i] = ooz;
-                                let li = (l * 5.66) as isize;
-                                let li = li.clamp(0, LUMINANCE.len() as isize - 1) as usize;
-                                frame.cells[i].ch = LUMINANCE[li] as char;
+                    if l > 0.0 {
+                        let xp = (w as f64 / 2.0 + k1 * ooz * px) as isize;
+                        let yp = (h as f64 / 2.0 - k1 * ooz * py) as isize;
+                        if xp >= 0 && yp >= 0 {
+                            let (xp, yp) = (xp as usize, yp as usize);
+                            if xp < w && yp < h {
+                                let i = yp * w + xp;
+                                if ooz > zbuf[i] {
+                                    zbuf[i] = ooz;
+                                    let li = (l * 5.66) as isize;
+                                    let li = li.clamp(0, LUMINANCE.len() as isize - 1) as usize;
+                                    frame.cells[i].ch = LUMINANCE[li] as char;
+                                }
                             }
                         }
                     }
@@ -161,5 +196,27 @@ mod tests {
         let mut s = HelixScene::new();
         s.set_grid(60, 30);
         assert_eq!(s.frame(2.5).text(), s.frame(2.5).text());
+    }
+
+    #[test]
+    fn stays_visible_across_an_arbitrarily_long_descent() {
+        // Unlike a bounded coil, an infinite one has no legitimate "camera
+        // has passed the whole thing" moment — the window always follows
+        // the camera, so this expects the coil visible at every sampled
+        // instant, including very large t. Large t also exercises u_center
+        // (and therefore u itself) at large magnitudes, which is the one
+        // place long uptimes could plausibly degrade — cos/sin range
+        // reduction losing precision far from zero — so this doubles as a
+        // long-uptime regression check.
+        let mut s = HelixScene::new();
+        s.set_grid(80, 40);
+        for t in [0.0, 5.0, 13.0, 47.0, 500.0, 10_000.0, 1_000_000.0] {
+            let f = s.frame(t);
+            let non_blank = f.cells.iter().filter(|c| c.ch != ' ').count();
+            assert!(
+                non_blank > 50,
+                "coil should stay visible at every point along an infinite descent (t={t}, non_blank={non_blank})"
+            );
+        }
     }
 }
