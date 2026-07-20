@@ -80,7 +80,7 @@ jobs:
         os: [macos-15, ubuntu-24.04, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve-version.outputs.tag }}
       - uses: dtolnay/rust-toolchain@stable
@@ -108,7 +108,7 @@ jobs:
     needs: [resolve-version, verify]
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve-version.outputs.tag }}
       - uses: dtolnay/rust-toolchain@stable
@@ -138,7 +138,7 @@ jobs:
           mkdir -p dist-release
           mv "dist/ASCII-Arcade.dmg" "dist-release/ASCII-Arcade-v${VERSION}.dmg"
           tar -czf "dist-release/aa-v${VERSION}-macos.tar.gz" aa
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-macos
           path: dist-release/*
@@ -149,7 +149,7 @@ jobs:
     needs: [resolve-version, verify]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve-version.outputs.tag }}
       - uses: dtolnay/rust-toolchain@stable
@@ -166,7 +166,7 @@ jobs:
           mkdir -p dist-release
           cp target/release/aa-windows.exe "dist-release/ASCII-Arcade-v${VERSION}-windows.exe"
           cp target/release/aa.exe "dist-release/aa-v${VERSION}-windows.exe"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-windows
           path: dist-release/*
@@ -177,7 +177,7 @@ jobs:
     needs: [resolve-version, verify]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve-version.outputs.tag }}
       - uses: dtolnay/rust-toolchain@stable
@@ -198,7 +198,7 @@ jobs:
           mkdir -p dist-release
           tar -C target/release -czf "dist-release/ASCII-Arcade-v${VERSION}-linux.tar.gz" aa-linux
           tar -C target/release -czf "dist-release/aa-v${VERSION}-linux.tar.gz" aa
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-linux
           path: dist-release/*
@@ -216,7 +216,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: "release-*"
           path: dist-release
