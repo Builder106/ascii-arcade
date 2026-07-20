@@ -31,6 +31,6 @@ aa-render = { workspace = true }
 # backend cross-compiles from any host. The Wayland crates link libwayland and
 # need libxkbcommon at build time.
 [target.'cfg(target_os = "linux")'.dependencies]
-x11rb = { version = "0.13", features = ["randr"], optional = true }
+x11rb = { version = "0.14", features = ["randr"], optional = true }
 smithay-client-toolkit = { version = "0.20", optional = true }
 wayland-client = { version = "0.31", optional = true }
