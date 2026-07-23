@@ -123,7 +123,7 @@ final class ArcadeRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
 
         let uniforms = Uniforms(
             viewportSize: SIMD2<Float>(Float(view.drawableSize.width), Float(view.drawableSize.height)),
-            bgColor: rgba(theme.background),
+            bgColor: SIMD4<Float>(0, 0, 0, 1),
             fgColor: rgba(theme.text)
         )
 

@@ -8,21 +8,16 @@ import AsciiArcadeCore
 struct Theme {
     let name: String
     let textColor: NSColor
-    let backgroundColor: NSColor
+    /// Behind-the-glyphs fill for the view's own layer — not the desktop wallpaper.
+    /// `nil` leaves the layer transparent so the real desktop shows through.
+    let backgroundColor: NSColor?
 }
 
 let availableThemes: [Theme] = [
-    Theme(name: "Hacker",
-          textColor: .systemGreen,
-          backgroundColor: .black),
-    Theme(name: "Amber",
-          textColor: NSColor(calibratedRed: 1.0,  green: 0.65, blue: 0.0,   alpha: 1.0),
-          backgroundColor: NSColor(calibratedRed: 0.102, green: 0.031, blue: 0.0, alpha: 1.0)),
-    Theme(name: "Ice",
-          textColor: .cyan,
-          backgroundColor: NSColor(calibratedRed: 0.0, green: 0.051, blue: 0.102, alpha: 1.0)),
-    Theme(name: "Ghost",
-          textColor: NSColor(calibratedRed: 0.11, green: 0.11, blue: 0.118, alpha: 1.0),
+    Theme(name: "Hacker", textColor: .systemGreen, backgroundColor: nil),
+    Theme(name: "Amber", textColor: NSColor(calibratedRed: 1.0, green: 0.65, blue: 0.0, alpha: 1.0), backgroundColor: nil),
+    Theme(name: "Ice", textColor: .cyan, backgroundColor: nil),
+    Theme(name: "Ghost", textColor: NSColor(calibratedRed: 0.11, green: 0.11, blue: 0.118, alpha: 1.0),
           backgroundColor: NSColor(calibratedRed: 0.961, green: 0.961, blue: 0.961, alpha: 1.0)),
 ]
 
@@ -50,22 +45,6 @@ let sceneNames: [String] = makeScenes().map { $0.displayName }
 let sceneIsInteractive: [Bool] = makeScenes().map { $0.isInteractive }
 
 // MARK: - Wallpaper helpers
-
-private func solidColorWallpaperURL(_ color: NSColor) -> URL? {
-    let size = NSSize(width: 2, height: 2)
-    let image = NSImage(size: size)
-    image.lockFocus()
-    color.setFill()
-    NSRect(origin: .zero, size: size).fill()
-    image.unlockFocus()
-    guard let tiff = image.tiffRepresentation,
-          let rep  = NSBitmapImageRep(data: tiff),
-          let png  = rep.representation(using: .png, properties: [:]) else { return nil }
-    let url = FileManager.default.temporaryDirectory
-        .appendingPathComponent("ascii_arcade_wallpaper_\(abs(color.hashValue)).png")
-    try? png.write(to: url)
-    return url
-}
 
 private func setWallpaper(_ url: URL, for screen: NSScreen) {
     try? NSWorkspace.shared.setDesktopImageURL(url, for: screen, options: [:])
@@ -145,12 +124,6 @@ final class SceneView: NSView {
         layer?.isOpaque = false
         layer?.backgroundColor = NSColor.clear.cgColor
 
-        layer?.shadowColor = availableThemes[0].textColor.cgColor
-        layer?.shadowRadius = 10
-        layer?.shadowOpacity = 0.45
-        layer?.shadowOffset = .zero
-        layer?.shadowPath = CGPath(rect: bounds, transform: nil)
-
         scanlinesLayer.addSublayer(scanlineStripeLayer)
         scanlinesLayer.frame = bounds
         scanlinesLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
@@ -206,7 +179,7 @@ final class SceneView: NSView {
 
     func applyTheme(_ theme: Theme) {
         themeTextColor = theme.textColor
-        layer?.shadowColor = theme.textColor.cgColor
+        layer?.backgroundColor = theme.backgroundColor?.cgColor ?? NSColor.clear.cgColor
         let rgb = SceneView.rgbColor(from: theme.textColor)
         for scene in scenes { scene.applyBaseColor(rgb) }
         needsDisplay = true
@@ -234,7 +207,6 @@ final class SceneView: NSView {
     override func layout() {
         super.layout()
         updateScanlines()
-        layer?.shadowPath = CGPath(rect: bounds, transform: nil)
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -744,12 +716,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         setupStatusItem()
 
-        // Returning users get their theme's wallpaper back; first run leaves the
-        // existing desktop untouched until a theme is picked.
-        if restored != nil, let url = solidColorWallpaperURL(availableThemes[currentThemeIndex].backgroundColor) {
-            for screen in NSScreen.screens { setWallpaper(url, for: screen) }
-        }
-
         let axOptions = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         AXIsProcessTrustedWithOptions(axOptions)
 
@@ -1153,9 +1119,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         currentThemeIndex = sender.tag
         let theme = availableThemes[currentThemeIndex]
         for view in views { view.applyTheme(theme) }
-        if let url = solidColorWallpaperURL(theme.backgroundColor) {
-            for screen in NSScreen.screens { setWallpaper(url, for: screen) }
-        }
         updateMenuThemeCheckmarks()
         saveState()
     }

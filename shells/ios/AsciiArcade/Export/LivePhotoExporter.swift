@@ -22,7 +22,7 @@ final class LivePhotoExporter: ObservableObject {
         errorMessage = nil
         didSucceed = false
 
-        let bgColor = rgba(theme.background)
+        let bgColor = SIMD4<Float>(0, 0, 0, 1)
         let fgColor = rgba(theme.text)
 
         Task {

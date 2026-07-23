@@ -37,7 +37,7 @@ struct SceneView: View {
                 .padding(.bottom, insets.bottom + 49 + 8)
             }
         }
-        .background(Color(theme.background))
+        .background(Color.black)
         .onAppear {
             // A scene removed from the engine since this id was last persisted
             // (e.g. a retired scene) would otherwise leave `AaEngine(sceneId:)`
