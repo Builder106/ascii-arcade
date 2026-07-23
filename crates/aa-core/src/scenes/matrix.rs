@@ -56,18 +56,25 @@ impl MatrixScene {
         1.0 / 60.0
     }
 
-    fn make_column(&mut self, spawn_above: bool) -> Column {
-        let h = self.height;
-        let lo = (h / 6).max(4) as i64;
-        let hi = ((h * 2) / 3).max(6) as i64;
+    /// Build a fresh column. `reuse`, if given, is refilled in place instead of
+    /// allocating a new glyph buffer — the caller passes in the buffer of the
+    /// column being replaced (columns respawn frequently).
+    fn make_column(&mut self, spawn_above: bool, reuse: Option<Vec<u8>>) -> Column {
+        let h = self.height.max(1);
+        let lo = (self.height / 6).max(4) as i64;
+        let hi = ((self.height * 2) / 3).max(6) as i64;
         let trail = self.rng.next_range_inclusive(lo, hi);
         let speed = self.speed * self.rng.next_range_f64(0.6, 1.3);
         let start = if spawn_above {
-            -self.rng.next_range_f64(0.0, h.max(1) as f64)
+            -self.rng.next_range_f64(0.0, h as f64)
         } else {
             0.0
         };
-        let glyphs = (0..h.max(1)).map(|_| *self.rng.choose(GLYPHS)).collect();
+        let mut glyphs = reuse.unwrap_or_default();
+        glyphs.resize(h, 0);
+        for g in glyphs.iter_mut() {
+            *g = *self.rng.choose(GLYPHS);
+        }
         Column {
             head: start,
             speed,
@@ -82,7 +89,7 @@ impl MatrixScene {
         self.rng = SeededRng::new(
             0x5EED_1234 ^ (w as u64).wrapping_mul(2654435761).wrapping_add(h as u64),
         );
-        self.columns = (0..w).map(|_| self.make_column(true)).collect();
+        self.columns = (0..w).map(|_| self.make_column(true, None)).collect();
         // Stagger initial activation so the screen fills in rather than all at once.
         let density = self.density;
         for i in 0..self.columns.len() {
@@ -102,7 +109,8 @@ impl MatrixScene {
             if !self.columns[i].active {
                 // Re-activate idle columns to drift toward the density target.
                 if self.rng.next_f64() < density * 0.02 {
-                    let mut col = self.make_column(true);
+                    let old_glyphs = std::mem::take(&mut self.columns[i].glyphs);
+                    let mut col = self.make_column(true, Some(old_glyphs));
                     col.active = true;
                     self.columns[i] = col;
                 }
@@ -116,7 +124,8 @@ impl MatrixScene {
                 self.columns[i].glyphs[r] = g;
             }
             if self.columns[i].head - self.columns[i].trail as f64 > h as f64 {
-                let mut col = self.make_column(true);
+                let old_glyphs = std::mem::take(&mut self.columns[i].glyphs);
+                let mut col = self.make_column(true, Some(old_glyphs));
                 col.active = self.rng.next_f64() < density;
                 self.columns[i] = col;
             }

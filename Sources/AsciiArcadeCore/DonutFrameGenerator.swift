@@ -42,7 +42,16 @@ public struct DonutFrameGenerator: ShapeFrameGenerator {
         let R2 = 2.0
         let K2 = 5.0
         let projectionFactor = K2 * 3.0 / (8.0 * (R1 + R2))
-        let K1 = Double(min(width, height)) * projectionFactor
+        let minDim = min(width, height)
+        let K1 = Double(minDim) * projectionFactor
+
+        // Sample density scales with the actual grid resolution (relative to a
+        // 40-cell reference) instead of a fixed step, so a small window doesn't
+        // do the same ~28K point-projections as a large one, and a huge display
+        // isn't under-sampled at the same fixed density.
+        let densityScale = min(2.5, max(0.35, 40.0 / Double(max(1, minDim))))
+        let thetaStep = 0.07 * densityScale
+        let phiStep = 0.02 * densityScale
 
         var theta = 0.0
         while theta < 2 * Double.pi {
@@ -78,9 +87,9 @@ public struct DonutFrameGenerator: ShapeFrameGenerator {
                     }
                 }
 
-                phi += 0.02
+                phi += phiStep
             }
-            theta += 0.07
+            theta += thetaStep
         }
 
         var result = ""

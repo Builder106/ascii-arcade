@@ -221,9 +221,10 @@ flowchart LR
 Sources/AsciiArcadeCore   frame generators + scene/DOOM glue
 Sources/PTYBridge         pseudo-terminal wrapper
 Sources/AsciiArcade       wallpaper app (executable)
-Sources/Server            Vapor browser server (executable, bonus)
 Sources/Hotword           hotword detector
 Sources/WatcherCLI        hotword → browser daemon (executable, bonus)
+Server/                   Vapor browser server, its own SwiftPM package
+                          (keeps Vapor out of the wallpaper app's build)
 wad/                      committed Freedoom IWADs
 bin/                      doom_ascii binary (built by setup.sh)
 ```

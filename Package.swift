@@ -11,12 +11,12 @@ let package = Package(
         .library(name: "PTYBridge", targets: ["PTYBridge"]),
         .library(name: "Hotword", targets: ["Hotword"]),
         .executable(name: "AsciiArcade", targets: ["AsciiArcade"]),
-        .executable(name: "Server", targets: ["Server"]),
         .executable(name: "WatcherCLI", targets: ["WatcherCLI"])
     ],
-    dependencies: [
-        .package(url: "https://github.com/vapor/vapor.git", from: "4.92.0")
-    ],
+    // The Vapor-dependent "Server" bonus target (streams DOOM to a browser tab)
+    // lives in its own package at Server/Package.swift — build/run it from
+    // there (`swift run --package-path Server Server`) so a build of the
+    // wallpaper package itself never resolves Vapor's dependency tree.
     targets: [
         // Frame generators (donut/helix), the unified scene protocol,
         // and the DOOM-as-a-scene glue (ANSI screen buffer + PTY-backed scene).
@@ -45,18 +45,6 @@ let package = Package(
             dependencies: ["AsciiArcadeCore", "Hotword"],
             path: "Sources/AsciiArcade"
         ),
-        // Bonus: stream DOOM to a browser tab over a Vapor WebSocket.
-        .executableTarget(
-            name: "Server",
-            dependencies: [
-                .product(name: "Vapor", package: "vapor"),
-                "AsciiArcadeCore"
-            ],
-            path: "Sources/Server",
-            resources: [
-                .process("Public")
-            ]
-        ),
         // Bonus: type the hotword anywhere to bring up the browser DOOM.
         .executableTarget(
             name: "WatcherCLI",
@@ -72,14 +60,6 @@ let package = Package(
             name: "HotwordTests",
             dependencies: ["Hotword"],
             path: "Tests/HotwordTests"
-        ),
-        .testTarget(
-            name: "ServerTests",
-            dependencies: [
-                "Server",
-                .product(name: "Vapor", package: "vapor")
-            ],
-            path: "Tests/ServerTests"
         )
     ]
 )

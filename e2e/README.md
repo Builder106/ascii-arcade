@@ -21,7 +21,7 @@ npm run demo           # builds + boots the Swift Server, records, transcodes
 
 `npm run demo` will:
 1. start the server via the `webServer` block in `playwright.demo.config.ts`
-   (it runs `scripts/setup.sh` to ensure `bin/doom_ascii` exists, then `swift run Server`),
+   (it runs `scripts/setup.sh` to ensure `bin/doom_ascii` exists, then `swift run --package-path Server Server`),
 2. run the demo scenarios with `DEMO=1` (slow-mo + dwell beats + a visible cursor),
 3. transcode each scenario's `webm` → `mp4` into `e2e/recordings/` via the custom
    reporter (warmup + 0-byte clips are discarded).

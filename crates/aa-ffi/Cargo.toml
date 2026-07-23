@@ -7,7 +7,12 @@ repository.workspace = true
 description = "C ABI for aa-core — static lib consumed by the native iOS shell, cdylib consumed by the native Android shell."
 
 [lib]
-crate-type = ["staticlib", "cdylib"]
+# Default to cdylib only — Android's build (scripts/build-android.sh, via
+# `cargo ndk ... build`) needs the Cargo.toml-declared crate-type. iOS
+# (scripts/build-ios.sh) instead overrides to staticlib per-invocation via
+# `cargo rustc -- --crate-type staticlib`, so a routine desktop dev build no
+# longer produces (and links) an unused staticlib alongside the cdylib.
+crate-type = ["cdylib"]
 
 [dependencies]
 aa-core = { workspace = true }

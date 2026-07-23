@@ -31,4 +31,8 @@ aa-windows = { path = "shells/windows" }
 
 [profile.release]
 opt-level = 3
-lto = "thin"
+# Fat LTO + a single codegen unit: this binary idles as a 24/7 background
+# wallpaper renderer, so a slower release build is worth the smaller, more
+# optimized per-frame hot path (over thin LTO's faster-but-looser codegen).
+lto = "fat"
+codegen-units = 1

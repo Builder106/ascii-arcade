@@ -31,14 +31,18 @@ cbindgen --config "$HEADERS_DIR/cbindgen.toml" --crate "$CRATE" --output "$HEADE
 echo "── Installing Rust iOS targets ──────────────────────────────────"
 rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
 
+# aa-ffi's Cargo.toml declares crate-type = ["cdylib"] (what Android's
+# cargo-ndk build needs); `cargo rustc -- --crate-type staticlib` overrides
+# that for this invocation only, producing the .a iOS links against without
+# also building a cdylib nobody on this platform uses.
 echo "── Building for aarch64-apple-ios (device) ──────────────────────"
-cargo build -p "$CRATE" --target aarch64-apple-ios --release
+cargo rustc -p "$CRATE" --target aarch64-apple-ios --release -- --crate-type staticlib
 
 echo "── Building for aarch64-apple-ios-sim (Apple Silicon sim) ──────"
-cargo build -p "$CRATE" --target aarch64-apple-ios-sim --release
+cargo rustc -p "$CRATE" --target aarch64-apple-ios-sim --release -- --crate-type staticlib
 
 echo "── Building for x86_64-apple-ios (Intel sim) ───────────────────"
-cargo build -p "$CRATE" --target x86_64-apple-ios --release
+cargo rustc -p "$CRATE" --target x86_64-apple-ios --release -- --crate-type staticlib
 
 echo "── Lipo-ing simulator slices ────────────────────────────────────"
 LIPO_SIM_DIR="$REPO_ROOT/target/lipo-ios-sim/release"

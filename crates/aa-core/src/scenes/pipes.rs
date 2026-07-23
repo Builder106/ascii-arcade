@@ -35,6 +35,9 @@ pub struct PipesScene {
     pipes: Vec<Pipe>,
     filled: usize,
     hue_cursor: u32,
+    // Precomputed hue → RGB table (one entry per integer degree) so pipe spawns
+    // don't redo HSV→RGB trig math every time.
+    hue_lut: [RgbColor; 360],
     rng: SeededRng,
     speed: f64,
     pipe_count: f64,
@@ -51,6 +54,7 @@ impl PipesScene {
             pipes: Vec::new(),
             filled: 0,
             hue_cursor: 0,
+            hue_lut: std::array::from_fn(|h| hsv(h as f64, 0.65, 1.0)),
             rng: SeededRng::new(0xC0FFEE),
             speed: 22.0,
             pipe_count: 4.0,
@@ -69,8 +73,13 @@ impl PipesScene {
     fn reset(&mut self) {
         let size = self.width * self.height;
         self.rng = SeededRng::new(0xC0FFEE ^ (size as u64).wrapping_mul(2654435761));
-        self.grid = vec![' '; size];
-        self.colors = vec![None; size];
+        if self.grid.len() == size {
+            self.grid.fill(' ');
+            self.colors.fill(None);
+        } else {
+            self.grid = vec![' '; size];
+            self.colors = vec![None; size];
+        }
         self.filled = 0;
         let n = self.pipe_count();
         self.pipes = (0..n).map(|_| self.spawn_pipe(None)).collect();
@@ -94,9 +103,9 @@ impl PipesScene {
     }
 
     fn next_hue(&mut self) -> RgbColor {
-        let hue = self.hue_cursor as f64 * 47.0;
+        let hue = (self.hue_cursor as f64 * 47.0).rem_euclid(360.0) as usize;
         self.hue_cursor += 1;
-        hsv(hue.rem_euclid(360.0), 0.65, 1.0)
+        self.hue_lut[hue.min(359)]
     }
 
     fn step(&mut self) {
@@ -110,8 +119,8 @@ impl PipesScene {
             self.pipes[i] = pipe;
         }
         if self.filled > (size * 55) / 100 {
-            self.grid = vec![' '; size];
-            self.colors = vec![None; size];
+            self.grid.fill(' ');
+            self.colors.fill(None);
             self.filled = 0;
             let n = self.pipe_count();
             self.pipes = (0..n).map(|_| self.spawn_pipe(None)).collect();

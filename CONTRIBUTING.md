@@ -59,8 +59,11 @@ behind the runtime `--enable-doom` flag either way.
   the DOOM glue (`DoomScreenBuffer`, `DoomScene`, `DoomLauncher`).
 - `Sources/PTYBridge` — pseudo-terminal process wrapper.
 - `Sources/AsciiArcade` — the AppKit wallpaper host.
-- `Sources/Server`, `Sources/Hotword`, `Sources/WatcherCLI` — the optional
-  browser path.
+- `Sources/Hotword`, `Sources/WatcherCLI` — the optional browser path's local
+  half (hotword watcher).
+- `Server/` — the Vapor-dependent browser server, split into its own SwiftPM
+  package (`Server/Package.swift`) so building the wallpaper app itself never
+  resolves Vapor. Build/run it with `swift run --package-path Server Server`.
 
 ## Adding a scene
 

@@ -183,16 +183,9 @@ impl ScreenBuffer {
         match final_byte {
             b'H' | b'f' => {
                 // Cursor position (1-based, default 1;1).
-                let s = String::from_utf8_lossy(params);
-                let mut parts = s.split(';');
-                let row1 = parts
-                    .next()
-                    .and_then(|p| p.parse::<usize>().ok())
-                    .unwrap_or(1);
-                let col1 = parts
-                    .next()
-                    .and_then(|p| p.parse::<usize>().ok())
-                    .unwrap_or(1);
+                let mut parts = params.split(|&b| b == b';');
+                let row1 = parts.next().and_then(parse_uint_field).unwrap_or(1);
+                let col1 = parts.next().and_then(parse_uint_field).unwrap_or(1);
                 self.cursor_row = row1.saturating_sub(1).min(self.height - 1);
                 self.cursor_col = col1.saturating_sub(1).min(self.width - 1);
             }
@@ -203,9 +196,7 @@ impl ScreenBuffer {
                 }
             }
             b'K' => {
-                let mode = String::from_utf8_lossy(params)
-                    .parse::<usize>()
-                    .unwrap_or(0);
+                let mode = parse_uint_field(params).unwrap_or(0);
                 self.erase_line(mode);
             }
             b'm' => self.apply_sgr(params),
@@ -217,37 +208,35 @@ impl ScreenBuffer {
     /// empty / `0` / `39` reset it; `38;2;R;G;B` sets a truecolor value (what
     /// `doom_ascii -chars block` emits). Bold (`1`) and everything else is
     /// dropped.
+    ///
+    /// DOOM emits one of these per colored pixel, so this parses the raw
+    /// `;`-separated ASCII digit fields directly off `params` — no UTF-8
+    /// validation or heap allocation, since SGR params are always plain digits.
     fn apply_sgr(&mut self, params: &[u8]) {
-        let s = String::from_utf8_lossy(params);
-        // Each `;`-separated field; an empty field parses to None and resets.
-        let parts: Vec<Option<i64>> = s.split(';').map(|p| p.parse::<i64>().ok()).collect();
-
-        if parts.is_empty() || (parts.len() == 1 && matches!(parts[0], Some(0) | None)) {
+        if params.is_empty() {
             self.current_color = None;
             return;
         }
-
-        let mut i = 0;
-        while i < parts.len() {
-            match parts[i] {
-                Some(0) | Some(39) => {
-                    self.current_color = None;
-                    i += 1;
-                }
+        let mut fields = params.split(|&b| b == b';');
+        while let Some(field) = fields.next() {
+            match parse_int_field(field) {
+                Some(0) | Some(39) => self.current_color = None,
                 Some(38) => {
-                    if i + 4 < parts.len() && parts[i + 1] == Some(2) {
-                        if let (Some(r), Some(g), Some(b)) =
-                            (parts[i + 2], parts[i + 3], parts[i + 4])
-                        {
+                    // Only a well-formed `38;2;R;G;B` (as doom always emits) sets
+                    // colour; anything shorter is dropped along with the fields
+                    // already consumed peeking ahead for it.
+                    let mode = fields.next().and_then(parse_int_field);
+                    let r = fields.next().and_then(parse_int_field);
+                    let g = fields.next().and_then(parse_int_field);
+                    let b = fields.next().and_then(parse_int_field);
+                    if mode == Some(2) {
+                        if let (Some(r), Some(g), Some(b)) = (r, g, b) {
                             self.current_color =
                                 Some(RgbColor::new(clamp_byte(r), clamp_byte(g), clamp_byte(b)));
-                            i += 5;
-                            continue;
                         }
                     }
-                    i += 1;
                 }
-                _ => i += 1,
+                _ => {}
             }
         }
     }
@@ -284,6 +273,27 @@ impl ScreenBuffer {
 
 fn clamp_byte(v: i64) -> u8 {
     v.clamp(0, 255) as u8
+}
+
+/// Parse a single ANSI parameter field (plain ASCII digits, no allocation).
+/// Empty or non-digit input yields `None`, matching how `"".parse::<i64>()`
+/// and a malformed field would behave.
+fn parse_int_field(field: &[u8]) -> Option<i64> {
+    if field.is_empty() {
+        return None;
+    }
+    let mut v: i64 = 0;
+    for &b in field {
+        if !b.is_ascii_digit() {
+            return None;
+        }
+        v = v * 10 + (b - b'0') as i64;
+    }
+    Some(v)
+}
+
+fn parse_uint_field(field: &[u8]) -> Option<usize> {
+    parse_int_field(field).and_then(|v| usize::try_from(v).ok())
 }
 
 /// Find the index of a CSI final byte (`0x40..=0x7e`) at or after `start`.

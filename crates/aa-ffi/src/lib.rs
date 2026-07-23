@@ -14,11 +14,31 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_double};
 
+use aa_core::frame::Frame;
 use aa_core::scene::Scene;
 use aa_core::scenes::{self, BUILTIN_IDS};
 use aa_core::theme::Theme;
 
 const BYTES_PER_CELL: usize = 8;
+
+/// Encode `frame` into `out` using the shared 8-bytes-per-cell wire layout
+/// (see the module doc comment). `out` is resized in place and reused across
+/// calls by the caller to avoid per-frame allocation.
+fn encode_frame(frame: &Frame, out: &mut Vec<u8>) {
+    let num_cells = frame.width * frame.height;
+    out.resize(num_cells * BYTES_PER_CELL, 0);
+
+    for (i, cell) in frame.cells.iter().enumerate() {
+        let off = i * BYTES_PER_CELL;
+        out[off..off + 4].copy_from_slice(&(cell.ch as u32).to_le_bytes());
+        let (rgb, has_color) = match cell.color {
+            Some(c) => ([c.r, c.g, c.b], 1u8),
+            None => ([0, 0, 0], 0u8),
+        };
+        out[off + 4..off + 7].copy_from_slice(&rgb);
+        out[off + 7] = has_color;
+    }
+}
 
 pub struct AaEngine {
     scene: Box<dyn Scene + Send>,
@@ -150,32 +170,7 @@ pub extern "C" fn aa_engine_next_frame(
     }
 
     // Encode frame into the internal buffer (reused across calls).
-    let num_cells = frame.width * frame.height;
-    e.frame_buf.resize(num_cells * BYTES_PER_CELL, 0);
-
-    for (i, cell) in frame.cells.iter().enumerate() {
-        let off = i * BYTES_PER_CELL;
-        let ch = cell.ch as u32;
-        e.frame_buf[off] = (ch & 0xFF) as u8;
-        e.frame_buf[off + 1] = ((ch >> 8) & 0xFF) as u8;
-        e.frame_buf[off + 2] = ((ch >> 16) & 0xFF) as u8;
-        e.frame_buf[off + 3] = ((ch >> 24) & 0xFF) as u8;
-
-        match cell.color {
-            Some(c) => {
-                e.frame_buf[off + 4] = c.r;
-                e.frame_buf[off + 5] = c.g;
-                e.frame_buf[off + 6] = c.b;
-                e.frame_buf[off + 7] = 1;
-            }
-            None => {
-                e.frame_buf[off + 4] = 0;
-                e.frame_buf[off + 5] = 0;
-                e.frame_buf[off + 6] = 0;
-                e.frame_buf[off + 7] = 0;
-            }
-        }
-    }
+    encode_frame(&frame, &mut e.frame_buf);
 
     e.frame_buf.as_ptr()
 }
@@ -361,32 +356,7 @@ mod android {
                 }
                 let e = unsafe { &mut *(handle as *mut AaEngine) };
                 let frame = e.scene.frame(t);
-
-                let num_cells = frame.width * frame.height;
-                e.frame_buf.resize(num_cells * BYTES_PER_CELL, 0);
-
-                for (i, cell) in frame.cells.iter().enumerate() {
-                    let off = i * BYTES_PER_CELL;
-                    let ch = cell.ch as u32;
-                    e.frame_buf[off] = (ch & 0xFF) as u8;
-                    e.frame_buf[off + 1] = ((ch >> 8) & 0xFF) as u8;
-                    e.frame_buf[off + 2] = ((ch >> 16) & 0xFF) as u8;
-                    e.frame_buf[off + 3] = ((ch >> 24) & 0xFF) as u8;
-                    match cell.color {
-                        Some(c) => {
-                            e.frame_buf[off + 4] = c.r;
-                            e.frame_buf[off + 5] = c.g;
-                            e.frame_buf[off + 6] = c.b;
-                            e.frame_buf[off + 7] = 1;
-                        }
-                        None => {
-                            e.frame_buf[off + 4] = 0;
-                            e.frame_buf[off + 5] = 0;
-                            e.frame_buf[off + 6] = 0;
-                            e.frame_buf[off + 7] = 0;
-                        }
-                    }
-                }
+                encode_frame(&frame, &mut e.frame_buf);
 
                 // JNI byte[] is signed, but we pass raw bytes — the Kotlin
                 // side reads them as unsigned via `and(0xFF)`.

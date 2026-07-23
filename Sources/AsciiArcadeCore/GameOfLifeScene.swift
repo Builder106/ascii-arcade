@@ -14,6 +14,9 @@ public final class GameOfLifeScene: SteppedScene {
     private var age: [Int] = []
     private var prev1: [Bool] = []      // 1 generation ago
     private var prev2: [Bool] = []      // 2 generations ago (catches period-2 oscillators)
+    // Reused scratch buffers for `step()` so generations don't allocate.
+    private var scratchAlive: [Bool] = []
+    private var scratchAge: [Int] = []
     private var stableSteps = 0
     private var rng = SeededGenerator(seed: 0x11FE_C0DE)
 
@@ -58,8 +61,11 @@ public final class GameOfLifeScene: SteppedScene {
     public override func step() {
         let size = cols * rows
         guard size > 0, alive.count == size else { return }
-        var next = Array(repeating: false, count: size)
-        var nextAge = Array(repeating: 0, count: size)
+        if scratchAlive.count != size {
+            scratchAlive = Array(repeating: false, count: size)
+            scratchAge = Array(repeating: 0, count: size)
+        }
+        var population = 0
         for y in 0..<rows {
             let yUp = (y - 1 + rows) % rows
             let yDn = (y + 1) % rows
@@ -77,23 +83,25 @@ public final class GameOfLifeScene: SteppedScene {
                 if alive[yDn * cols + xR] { n += 1 }
                 let i = y * cols + x
                 let live = alive[i] ? (n == 2 || n == 3) : (n == 3)
-                next[i] = live
-                if live { nextAge[i] = alive[i] ? min(age[i] + 1, 999) : 0 }
+                scratchAlive[i] = live
+                scratchAge[i] = live ? (alive[i] ? min(age[i] + 1, 999) : 0) : 0
+                if live { population += 1 }
             }
         }
 
         // Reseed if the board emptied or settled into a fixed/period-2 pattern.
-        let population = next.reduce(0) { $0 + ($1 ? 1 : 0) }
         if population == 0 { seed(); return }
-        if next == prev1 || next == prev2 {
+        if scratchAlive == prev1 || scratchAlive == prev2 {
             stableSteps += 1
         } else {
             stableSteps = 0
         }
-        prev2 = prev1
-        prev1 = alive
-        alive = next
-        age = nextAge
+        // Rotate history buffers by swapping instead of allocating:
+        // alive -> prev1 -> prev2 -> (scratch, reused as next generation's buffer).
+        swap(&alive, &scratchAlive)
+        swap(&prev1, &scratchAlive)
+        swap(&prev2, &scratchAlive)
+        swap(&age, &scratchAge)
         if stableSteps > 8 { seed() }
     }
 

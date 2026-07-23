@@ -107,6 +107,13 @@ final class SceneView: NSView {
     /// Reusable per-colour glyph buckets, collected each frame then drawn in one
     /// `CTFontDrawGlyphs` call apiece.
     private final class GlyphBatch { var glyphs: [CGGlyph] = []; var positions: [CGPoint] = [] }
+    /// Persisted across frames so the per-colour bucketing dictionary and its
+    /// glyph/position arrays aren't reallocated every draw — just cleared
+    /// (keeping capacity) and refilled.
+    private var batchPool: [AsciiArcadeCore.RGBColor?: GlyphBatch] = [:]
+    /// Last grid size passed to `currentScene.setGrid`, so unchanged layouts
+    /// skip the redundant per-frame call.
+    private var lastGridSize: (w: Int, h: Int)?
 
     init(frame: CGRect, scenes: [any AsciiScene]) {
         self.scenes = scenes
@@ -144,6 +151,9 @@ final class SceneView: NSView {
         currentIndex = index
         startTime = CFAbsoluteTimeGetCurrent()
         scenes[currentIndex].start()
+        // Force the next draw to call setGrid even if the computed size matches
+        // the previous scene's — each scene tracks its own grid state.
+        lastGridSize = nil
         needsDisplay = true
     }
 
@@ -241,7 +251,10 @@ final class SceneView: NSView {
             charWidth: Double(charW),
             lineHeight: Double(lineH)
         )
-        currentScene.setGrid(width: w, height: h)
+        if lastGridSize?.w != w || lastGridSize?.h != h {
+            currentScene.setGrid(width: w, height: h)
+            lastGridSize = (w, h)
+        }
 
         let contentWidth = CGFloat(w) * charW
         let contentHeight = CGFloat(h) * lineH
@@ -252,15 +265,20 @@ final class SceneView: NSView {
         // Bucket every non-blank cell's glyph by colour. Adjacent cells that share
         // a colour (or a palette entry) collapse into the same bucket, so a
         // full-screen frame becomes a few dozen draw calls instead of thousands.
-        var batches: [AsciiArcadeCore.RGBColor?: GlyphBatch] = [:]
+        // `batchPool` persists across frames — cleared here (keeping the arrays'
+        // capacity) instead of rebuilding a fresh dictionary every draw.
+        for (_, batch) in batchPool {
+            batch.glyphs.removeAll(keepingCapacity: true)
+            batch.positions.removeAll(keepingCapacity: true)
+        }
         func emit(_ ch: Character, row: Int, col: Int, color: AsciiArcadeCore.RGBColor?) {
             guard ch != " ", let g = glyph(for: ch) else { return }
             let batch: GlyphBatch
-            if let existing = batches[color] {
+            if let existing = batchPool[color] {
                 batch = existing
             } else {
                 batch = GlyphBatch()
-                batches[color] = batch
+                batchPool[color] = batch
             }
             batch.glyphs.append(g)
             batch.positions.append(CGPoint(
@@ -292,7 +310,7 @@ final class SceneView: NSView {
         ctx.translateBy(x: 0, y: viewH)
         ctx.scaleBy(x: 1, y: -1)
         ctx.textMatrix = .identity
-        for (color, batch) in batches where !batch.glyphs.isEmpty {
+        for (color, batch) in batchPool where !batch.glyphs.isEmpty {
             ctx.setFillColor(color.map { cgColor(for: $0) } ?? themeTextColor.cgColor)
             CTFontDrawGlyphs(ctFont, batch.glyphs, batch.positions, batch.glyphs.count, ctx)
         }
@@ -300,7 +318,7 @@ final class SceneView: NSView {
 
         if instrument {
             recordInstrumentation(scene: currentScene, w: w, h: h,
-                                  batches: batches.count, start: drawStart)
+                                  batches: batchPool.count, start: drawStart)
         }
     }
 

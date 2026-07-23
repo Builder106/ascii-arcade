@@ -27,6 +27,9 @@ pub struct LifeScene {
     age: Vec<i32>,
     prev1: Vec<bool>, // 1 generation ago
     prev2: Vec<bool>, // 2 generations ago (catches period-2 oscillators)
+    // Reused scratch buffers for `step()` so generations don't allocate.
+    scratch_alive: Vec<bool>,
+    scratch_age: Vec<i32>,
     stable_steps: i32,
     rng: SeededRng,
     speed: f64,
@@ -46,6 +49,8 @@ impl LifeScene {
             age: Vec::new(),
             prev1: Vec::new(),
             prev2: Vec::new(),
+            scratch_alive: Vec::new(),
+            scratch_age: Vec::new(),
             stable_steps: 0,
             rng: SeededRng::new(0x11FE_C0DE),
             speed: 9.0,
@@ -135,9 +140,13 @@ impl LifeScene {
         if size == 0 || self.alive.len() != size {
             return;
         }
+        if self.scratch_alive.len() != size {
+            self.scratch_alive = vec![false; size];
+            self.scratch_age = vec![0; size];
+        }
         let (cols, rows) = (self.cols, self.rows);
-        let mut next = vec![false; size];
-        let mut next_age = vec![0i32; size];
+        // Reused every generation instead of allocating a fresh `next` buffer.
+        let mut population = 0usize;
         for y in 0..rows {
             let y_up = (y + rows - 1) % rows;
             let y_dn = (y + 1) % rows;
@@ -175,31 +184,38 @@ impl LifeScene {
                 } else {
                     n == 3
                 };
-                next[i] = live;
-                if live {
-                    next_age[i] = if self.alive[i] {
+                self.scratch_alive[i] = live;
+                self.scratch_age[i] = if live {
+                    if self.alive[i] {
                         (self.age[i] + 1).min(999)
                     } else {
                         0
-                    };
+                    }
+                } else {
+                    0
+                };
+                if live {
+                    population += 1;
                 }
             }
         }
 
         // Reseed if the board emptied or settled into a fixed/period-2 pattern.
-        let population = next.iter().filter(|&&b| b).count();
         if population == 0 {
             self.seed();
             return;
         }
-        if next == self.prev1 || next == self.prev2 {
+        if self.scratch_alive == self.prev1 || self.scratch_alive == self.prev2 {
             self.stable_steps += 1;
         } else {
             self.stable_steps = 0;
         }
-        self.prev2 = std::mem::take(&mut self.prev1);
-        self.prev1 = std::mem::replace(&mut self.alive, next);
-        self.age = next_age;
+        // Rotate history buffers by swapping instead of allocating:
+        // alive -> prev1 -> prev2 -> (scratch, reused as next generation's buffer).
+        std::mem::swap(&mut self.alive, &mut self.scratch_alive);
+        std::mem::swap(&mut self.prev1, &mut self.scratch_alive);
+        std::mem::swap(&mut self.prev2, &mut self.scratch_alive);
+        std::mem::swap(&mut self.age, &mut self.scratch_age);
         if self.stable_steps > 8 {
             self.seed();
         }
