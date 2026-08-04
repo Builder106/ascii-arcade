@@ -23,14 +23,14 @@ Ranked by fit with the project as a single-user desktop tool, not a hosted servi
 
 ### Plausible, needs a real trigger first
 
-3. **Embeddable widget.** The existing WebSocket + xterm.js pipeline is close to a drop-in live demo widget — a `<script>` embed or iframe pointed at a hosted instance so people can put a live donut/matrix-rain animation on a personal site or README.
-4. **Streaming overlay control.** An OBS browser source pointed at the web shell's WebSocket, with the API as the control channel — a Twitch bot could POST a scene change on a sub/cheer event.
+1. **Embeddable widget.** The existing WebSocket + xterm.js pipeline is close to a drop-in live demo widget — a `<script>` embed or iframe pointed at a hosted instance so people can put a live donut/matrix-rain animation on a personal site or README.
+2. **Streaming overlay control.** An OBS browser source pointed at the web shell's WebSocket, with the API as the control channel — a Twitch bot could POST a scene change on a sub/cheer event.
 
 ### Bigger lift, not worth pursuing first
 
-5. **Scene/theme marketplace.** User-submitted scenes discovered via API. Needs a submission/review pipeline before the API question even matters.
-6. **Multi-instance orchestration.** Push one scene/theme to several machines or monitors at once. Niche unless there's an actual multi-monitor/multi-machine setup driving it.
-7. **Programmatic asset export.** `POST /api/export?scene=donut&duration=3s` to trigger the same Live Photo/video-render pipeline the iOS exporter already has (`shells/ios/AsciiArcade/Export/`), for generating README GIFs/demo clips on demand instead of manually recording.
+1. **Scene/theme marketplace.** User-submitted scenes discovered via API. Needs a submission/review pipeline before the API question even matters.
+2. **Multi-instance orchestration.** Push one scene/theme to several machines or monitors at once. Niche unless there's an actual multi-monitor/multi-machine setup driving it.
+3. **Programmatic asset export.** `POST /api/export?scene=donut&duration=3s` to trigger the same Live Photo/video-render pipeline the iOS exporter already has (`shells/ios/AsciiArcade/Export/`), for generating README GIFs/demo clips on demand instead of manually recording.
 
 ## Recommendation
 

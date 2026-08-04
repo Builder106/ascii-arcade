@@ -28,7 +28,7 @@ can play it as your wallpaper.
 ## Scenes
 
 | Scene | What it is | Colour | Interactive |
-|-------|------------|--------|-------------|
+| ------- | ------------ | -------- | ------------- |
 | **Donut** | The classic rotating ASCII torus | theme | — |
 | **Helix** | A precessing double-helix variant | theme | — |
 | **Matrix** | Falling digital rain with bright heads + fading trails | theme-tinted | — |
@@ -66,7 +66,7 @@ Forwarded to `doom_ascii` while DOOM is the active wallpaper (toggle with
 *"Capture keys for DOOM"* in the menu):
 
 | Action | Key |
-|--------|-----|
+| -------- | ----- |
 | Move / turn | Arrow keys |
 | Strafe | `,` `.` |
 | Fire | Space |

@@ -13,6 +13,7 @@ npm run demo           # builds + boots the Swift Server, records, transcodes
 ```
 
 > **Environment notes**
+>
 > - The `webServer` command exports a `GIT_CONFIG_*` override for `safe.bareRepository`
 >   so SwiftPM's package cache works even if you've set that git option globally.
 > - SwiftPM's build database (`.build/build.db`) is a sqlite file and can throw
@@ -20,6 +21,7 @@ npm run demo           # builds + boots the Swift Server, records, transcodes
 >   If you hit that, clone the repo to a local-disk path before recording.
 
 `npm run demo` will:
+
 1. start the server via the `webServer` block in `playwright.demo.config.ts`
    (it runs `scripts/setup.sh` to ensure `bin/doom_ascii` exists, then `swift run --package-path Server Server`),
 2. run the demo scenarios with `DEMO=1` (slow-mo + dwell beats + a visible cursor),
@@ -29,7 +31,7 @@ npm run demo           # builds + boots the Swift Server, records, transcodes
 ## Tuning knobs
 
 | Var | Default | Purpose |
-|-----|---------|---------|
+| ----- | --------- | --------- |
 | `DEMO` | `0` | Master switch — dwell/cursor only fire when `1` |
 | `DEMO_SLOWMO` | `1000` | Per-action pause (ms) |
 | `DEMO_DWELL_MS` | `1500` | Default dwell after "thing appeared" beats |

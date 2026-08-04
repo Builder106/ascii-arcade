@@ -11,6 +11,7 @@ per-OS pseudo-terminal: **forkpty** on macOS/Linux, **ConPTY** on Windows. That
 single abstraction is why DOOM works on all three.
 
 ## Linux
+
 Trivial — same as macOS. `cc` + `make`:
 
 ```
@@ -24,6 +25,7 @@ stdout). `scripts/setup.sh` runs on Linux under bash (shebang
 where the `aa-doom` end-to-end spawn test then drives it over a forkpty PTY.
 
 ## Windows
+
 Needs a C toolchain and produces `doom_ascii.exe`. The upstream `Makefile` is
 gcc-oriented, so the path of least resistance is **MSYS2 / MinGW-w64**:
 
@@ -34,6 +36,7 @@ cd doom-ascii && make
 ```
 
 Notes:
+
 - **VT output:** `doom_ascii` emits ANSI/truecolor escapes. Under our ConPTY
   master those are delivered as-is to [`screen.rs`](src/screen.rs) — we parse
   the escapes ourselves, so the child doesn't need the Windows console's own VT
@@ -43,6 +46,7 @@ Notes:
   and the resulting exe runs fine under ConPTY.
 
 ## WADs
+
 Any supported IWAD in `wad/` (or `$DOOM_WAD_DIR`); the repo ships the
 redistributable Freedoom set. The launcher exports `DOOMWADDIR` so `doom_ascii`
 finds adjacent lumps.

@@ -21,6 +21,7 @@ works without a download.
 ## Packaging the app
 
 `scripts/make-app.sh` assembles `dist/ASCII Arcade.app` (release build + Info.plist
+
 + `.icns` from `assets/icon-512.png` + bundled Freedoom WADs, ad-hoc signed), and
 `scripts/make-dmg.sh` wraps it in a DMG with first-launch instructions. The build
 is intentionally **unsigned/un-notarized** (no Apple Developer account) — users
@@ -55,13 +56,13 @@ behind the runtime `--enable-doom` flag either way.
 
 ## Project layout
 
-- `Sources/AsciiArcadeCore` — frame generators, the `AsciiScene` protocol, and
++ `Sources/AsciiArcadeCore` — frame generators, the `AsciiScene` protocol, and
   the DOOM glue (`DoomScreenBuffer`, `DoomScene`, `DoomLauncher`).
-- `Sources/PTYBridge` — pseudo-terminal process wrapper.
-- `Sources/AsciiArcade` — the AppKit wallpaper host.
-- `Sources/Hotword`, `Sources/WatcherCLI` — the optional browser path's local
++ `Sources/PTYBridge` — pseudo-terminal process wrapper.
++ `Sources/AsciiArcade` — the AppKit wallpaper host.
++ `Sources/Hotword`, `Sources/WatcherCLI` — the optional browser path's local
   half (hotword watcher).
-- `Server/` — the Vapor-dependent browser server, split into its own SwiftPM
++ `Server/` — the Vapor-dependent browser server, split into its own SwiftPM
   package (`Server/Package.swift`) so building the wallpaper app itself never
   resolves Vapor. Build/run it with `swift run --package-path Server Server`.
 
@@ -69,14 +70,14 @@ behind the runtime `--enable-doom` flag either way.
 
 Pick the lightest base that fits:
 
-- **Pure, stateless math** (donut, helix): implement `ShapeFrameGenerator`
++ **Pure, stateless math** (donut, helix): implement `ShapeFrameGenerator`
   (`frame(atTime:) -> String` returning `height` rows of `width` columns) and add
   a `GeneratorScene` entry to `makeScenes()` in `Sources/AsciiArcade/main.swift`.
-- **Stateful simulation** (Matrix, Life, Pipes): subclass `SteppedScene` and
++ **Stateful simulation** (Matrix, Life, Pipes): subclass `SteppedScene` and
   override `reset()`, `step()`, `render()`, and `stepInterval`. The base turns the
   host's "frame at time `t`" pull into a fixed-timestep loop, and gives you grid
   sizing, base-colour, and settings plumbing for free.
-- **Externally driven / interactive** (DOOM): conform to `AsciiScene` directly,
++ **Externally driven / interactive** (DOOM): conform to `AsciiScene` directly,
   override `isInteractive` to return `true`, and manage your own backing work in
   `start()`/`stop()` (see `DoomScene`). `isInteractive` is also the opt-in gate:
   `AppDelegate` (`Sources/AsciiArcade/main.swift`) hides any scene with
@@ -95,27 +96,27 @@ the host renders them under *Scene Settings* automatically.
 
 ## Guardrails
 
-- **Don't block the main thread in `frame(atTime:)`.** It's called from the
++ **Don't block the main thread in `frame(atTime:)`.** It's called from the
   display link ~60fps. Heavy/async work belongs off-main (see `DoomScene` feeding
   `DoomScreenBuffer` from the PTY read queue).
-- **Keep generator math in `AsciiArcadeCore` and free of AppKit** so it stays
++ **Keep generator math in `AsciiArcadeCore` and free of AppKit** so it stays
   unit-testable.
-- **Every frame must be exactly `height` rows × `width` columns.** Tests assert
++ **Every frame must be exactly `height` rows × `width` columns.** Tests assert
   this; ragged frames break the centered text layout. A `ColoredFrame`'s `chars`
   and `colors` arrays must both be exactly `width * height` (the initializer
   precondition-checks this).
-- **Keep glyphs single-cell.** The colour renderer assumes one monospaced,
++ **Keep glyphs single-cell.** The colour renderer assumes one monospaced,
   single-UTF-16 glyph per cell when it maps colour runs onto the string; ASCII and
   box-drawing/block glyphs are safe, full-width CJK and emoji are not.
 
 ## Commit / PR
 
-- Conventional-ish commit subjects (`feat:`, `fix:`, `chore:`, `docs:`).
-- Run `swift build` and `swift test` before opening a PR.
-- Add a `JOURNAL.md` entry for any non-obvious decision or pivot.
++ Conventional-ish commit subjects (`feat:`, `fix:`, `chore:`, `docs:`).
++ Run `swift build` and `swift test` before opening a PR.
++ Add a `JOURNAL.md` entry for any non-obvious decision or pivot.
 
 ## Out of scope
 
-- Sound (the ASCII renderer is video-only).
-- Bundling `doom_ascii` binaries (license + portability); keep it fetched.
-- Non-macOS platforms — the host is AppKit + CoreVideo.
++ Sound (the ASCII renderer is video-only).
++ Bundling `doom_ascii` binaries (license + portability); keep it fetched.
++ Non-macOS platforms — the host is AppKit + CoreVideo.
