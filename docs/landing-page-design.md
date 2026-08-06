@@ -227,9 +227,24 @@ The site is no longer zero-build. Compiling `aa-core` adds a Rust and
 repository's working rules. Motion is vendored as a committed file rather than
 installed, so there's still no package manager and no `node_modules`.
 
-Fonts are the platform monospace stack (SF Mono, Menlo, Cascadia), so there are no
-font bytes to download, and the renderer measures cell metrics at runtime, so
-platform variation is already handled.
+The site ships one self-hosted typeface, IBM Plex Mono, subset to the glyphs it
+actually uses. That comes to printable ASCII plus exactly seven characters: `█`
+from Life and `─ │ ┌ ┐ └ ┘` from Pipes. Around 102 glyphs, which lands well
+under 10 kB as woff2. Subsetting follows the `font-workflow` process.
+
+The platform monospace stack was the obvious cheaper answer and it's the wrong
+one here, for a reason specific to Pipes. Box-drawing characters only look like
+pipes if `─` spans the full advance width and `│` spans the full line height, so
+that adjacent cells join. Whether they do is a decision the type designer made,
+and system monospace fonts disagree about it. Menlo joins cleanly, plenty of
+Linux fallbacks leave visible gaps, and a gap turns one of the six scenes into
+visible breakage on a page whose whole argument is that this is really running.
+Ten kilobytes buys the same grid on every machine, and it lets canvas cell
+metrics be tuned once against a known face instead of measured against whatever
+turned up.
+
+The same face sets the body copy, which keeps the page consistent with its own
+claim about being made of characters.
 
 HTML, CSS, JavaScript, and the WebAssembly module together stay under roughly
 150 kB. DOOM payloads sit outside that budget and load only on request.
@@ -303,3 +318,23 @@ obligations that brings.
 That reversal deserves its own design document and its own decision, not a
 side effect of a landing page. `RecordedDoom` ships first, `WasmDoom` swaps in
 behind the same interface when it's ready, and the page never blocks on it.
+
+## A bug found while specifying this
+
+Not a site issue, recorded here so it doesn't get lost.
+
+`crates/aa-render/src/font.rs` embeds an 8x16 bitmap font covering printable
+ASCII `0x20..=0x7E`, and `glyph_bitmap()` in `lib.rs` returns `None` for anything
+outside that range, which the caller skips. Life's `█` and all six of Pipes'
+box-drawing characters are outside it. On the native Rust wallpaper shells
+(`shells/linux`, `shells/windows`) both scenes should therefore render blank or
+close to it.
+
+The other paths hide this. The macOS shell uses
+`NSFont.monospacedSystemFont`, which has the glyphs. `aa play` and `aa-web` emit
+ANSI and let the terminal or xterm.js supply the font. Only the shells that
+rasterise through `aa-render` hit the missing-glyph path.
+
+This was read off the source, not reproduced on a Linux shell, so it wants
+confirming before anyone acts on it. The fix is seven more bitmaps in
+`gen_font.py` and a wider range check.
