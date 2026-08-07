@@ -11,10 +11,15 @@ export default defineConfig({
   testDir: "tests",
   fullyParallel: true,
   reporter: [["list"]],
+  // Serves the repo root because the page resolves ../assets/* as /assets/*.
+  // Bound to loopback deliberately: http.server defaults to 0.0.0.0, which on
+  // a VM with a public address would expose the whole working tree, .git and
+  // any untracked files included, for the length of a test run.
   webServer: {
-    command: "python3 -m http.server 8899 --directory ..",
+    command: "python3 -m http.server 8899 --bind 127.0.0.1 --directory ..",
     port: 8899,
     reuseExistingServer: true,
+    stdout: "ignore",
   },
   use: {
     baseURL: "http://127.0.0.1:8899",

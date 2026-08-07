@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="hacker">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASCII Arcade — live ASCII wallpapers for macOS</title>
+<meta name="description" content="A macOS live wallpaper that renders ASCII scenes onto your desktop, behind your windows. Donut, Matrix rain, Game of Life, pipes, and playable text-mode DOOM.">
+
+<meta property="og:title" content="ASCII Arcade — live ASCII wallpapers for macOS">
+<meta property="og:description" content="Renders ASCII scenes onto your desktop, behind your windows. Donut, Matrix rain, Game of Life, pipes, and playable text-mode DOOM.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="../assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<canvas id="grid" aria-hidden="true"></canvas>
+
+<nav class="rail" aria-label="Sections">
+  <a href="#stack"    data-mark="."><span class="vh">macOS can't screenshot this</span></a>
+  <a href="#layer"    data-mark="~"><span class="vh">It lives under everything</span></a>
+  <a href="#scenes"   data-mark=":"><span class="vh">DOOM was the sideshow</span></a>
+  <a href="#palette-section" data-mark="="><span class="vh">Every glyph keys off one colour</span></a>
+  <a href="#surfaces" data-mark="*"><span class="vh">It doesn't need a desktop</span></a>
+  <a href="#install"  data-mark="@"><span class="vh">Put it on yours</span></a>
+</nav>
+
+<section class="open" id="open">
+  <pre class="open__doom" id="doomFrame" aria-hidden="true"></pre>
+  <h1 class="open__claim">This is a desktop background.</h1>
+  <p class="open__sub">It is also DOOM, and you can play it.</p>
+  <div class="open__acts">
+    <button class="btn btn--go" id="playDoom" type="button">Play it</button>
+    <a class="btn" href="https://github.com/Builder106/ascii-arcade/releases">Download</a>
+  </div>
+  <p class="open__note">Recorded. Everything below this is running live in your browser.</p>
+</section>
+
+<main id="main">
+
+<section class="sec" id="stack" data-scene="matrix">
+  <h2>macOS can't screenshot this</h2>
+  <p>
+    ASCII Arcade draws into the desktop layer, underneath every window you have
+    open. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>3</kbd> samples the wallpaper compositor
+    and skips that window entirely, so the app carries its own capture path
+    built on <code>CGWindowListCreateImage</code>. Press
+    <kbd>⌘</kbd><kbd>⌥</kbd><kbd>S</kbd> and you get a PNG on the Desktop and a
+    copy on the clipboard.
+  </p>
+</section>
+
+<section class="sec" id="layer" data-scene="donut">
+  <h2>It lives under everything</h2>
+  <p>
+    Not a screensaver that takes over, and not a still image. A live process
+    painting characters behind your work. The torus behind this text is Andy
+    Sloane's original donut maths, the same Rust the app runs on your desktop,
+    compiled to WebAssembly and drawing in this page.
+  </p>
+  <a class="btn btn--go" href="https://github.com/Builder106/ascii-arcade/releases">Download the DMG</a>
+</section>
+
+<section class="sec" id="scenes" data-scene="life">
+  <h2>DOOM was the sideshow</h2>
+  <p>
+    There are six scenes and DOOM is the one that is off by default. The donut
+    and its precessing helix variant are pure projection maths. Matrix rain
+    keeps bright heads with trails fading behind them. Conway's Game of Life
+    reseeds itself whenever it stalls. Pipes is the old screensaver in
+    box-drawing glyphs.
+  </p>
+  <p>
+    A playable shooter is not what everyone wants greeting them on a shared or
+    school machine, so DOOM stays out of the scene list, out of
+    <kbd>⌘</kbd><kbd>⌥</kbd><kbd>C</kbd> cycling and out of the idle rotation
+    until you turn it on.
+  </p>
+  <a class="btn btn--go" href="https://github.com/Builder106/ascii-arcade/releases">Download the DMG</a>
+</section>
+
+<section class="sec" id="palette-section" data-scene="pipes">
+  <h2>Every glyph keys off one colour</h2>
+  <p>
+    Matrix, Life and the maths scenes take their colour from the theme's text
+    colour, so the rain turns amber under Amber. DOOM keeps its own palette.
+    Pick one and this page retints with it, grid included.
+  </p>
+  <div class="palette" id="palette" role="group" aria-label="Choose a palette"></div>
+</section>
+
+<section class="sec" id="surfaces" data-scene="helix">
+  <h2>It doesn't need a desktop</h2>
+  <p>
+    The scenes are a Rust core with more than one front end, which is handy for
+    sharing or for machines with no wallpaper to draw on.
+  </p>
+  <pre class="code"><code>cargo run -p aa -- play donut</code></pre>
+  <pre class="code"><code>cargo run -p aa-web</code></pre>
+  <p>
+    The first plays any scene straight into your terminal. The second streams
+    ANSI truecolor frames at 30 fps over a WebSocket into an xterm.js terminal
+    at <code>127.0.0.1:8788</code>.
+  </p>
+</section>
+
+<section class="sec" id="install" data-scene="matrix">
+  <h2>Put it on yours</h2>
+  <p>
+    Grab <code>ASCII-Arcade.dmg</code> from the releases page, open it, and drag
+    ASCII Arcade onto Applications. Look for the <code>◎</code> in your menu bar.
+  </p>
+  <p>
+    There is no paid Apple Developer account behind this, so the app is not
+    notarized and Gatekeeper blocks the first launch. Control-click it, choose
+    Open, then confirm. macOS remembers from then on.
+  </p>
+  <pre class="code"><code>xattr -dr com.apple.quarantine "/Applications/ASCII Arcade.app"</code></pre>
+  <a class="btn btn--go" href="https://github.com/Builder106/ascii-arcade/releases">Download the DMG</a>
+  <p class="fine">macOS 13 or newer. GPL-2.0. No account, no telemetry.</p>
+</section>
+
+</main>
+
+<footer class="foot">
+  <nav aria-label="Footer">
+    <a href="https://github.com/Builder106/ascii-arcade">GitHub</a>
+    <a href="https://github.com/Builder106/ascii-arcade/releases">Releases</a>
+    <a href="https://github.com/Builder106/ascii-arcade/blob/main/CONTRIBUTING.md">Contributing</a>
+    <a href="https://github.com/Builder106/ascii-arcade/blob/main/LICENSE">Licence</a>
+  </nav>
+  <p>Started as two projects, <code>donut</code> and <code>DOOM</code>, that turned out to want the same renderer.</p>
+</footer>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+/*
+ * Palettes are aa-core's Theme::ALL, kept here only as the initial paint;
+ * main.js rebuilds the swatches from the engine so the two cannot drift.
+ *
+ * Hacker's background is tinted fractionally toward the phosphor hue rather
+ * than sitting at #000000, which reads flat and synthetic.
+ */
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("fonts/IBMPlexMono-subset.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --fg: #30d158;
+  --bg: #040705;
+  --muted: color-mix(in oklab, var(--fg) 82%, var(--bg));
+  --dim: color-mix(in oklab, var(--fg) 68%, var(--bg));
+  --rule: color-mix(in oklab, var(--fg) 28%, var(--bg));
+}
+:root[data-theme="amber"] { --fg: #ffa600; --bg: #1a0800; }
+:root[data-theme="ice"]   { --fg: #00ffff; --bg: #000d1a; }
+:root[data-theme="ghost"] { --fg: #1c1c1e; --bg: #f5f5f5; }
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 1rem/1.65 "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+#grid {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+}
+.skip:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 10;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--fg);
+}
+
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The rail is the luminance ramp: the mark is the label, so there is no
+   eyebrow text stacked on top of it. Screen readers get the heading instead. */
+.rail {
+  position: fixed;
+  left: 1rem;
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 3;
+  display: grid;
+  gap: 0.85rem;
+}
+.rail a {
+  color: var(--dim);
+  text-decoration: none;
+  line-height: 1;
+  font-size: 1.1rem;
+}
+.rail a::before { content: attr(data-mark); }
+.rail a:hover,
+.rail a:focus-visible { color: var(--fg); }
+.rail a:focus-visible { outline: 2px solid var(--fg); outline-offset: 4px; }
+
+.open,
+.sec {
+  position: relative;
+  z-index: 1;
+  min-height: 100svh;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 1.1rem;
+  padding: 4rem clamp(3.5rem, 9vw, 11rem);
+  max-width: 68rem;
+}
+
+.open__doom {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.15;
+  white-space: pre;
+  overflow: hidden;
+}
+.open__claim {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4.2rem);
+  line-height: 1.03;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+.open__sub { color: var(--muted); font-size: 1.15rem; }
+.open__note { color: var(--dim); font-size: 0.85rem; }
+.open__acts { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+h2 {
+  font-size: clamp(1.6rem, 4vw, 2.7rem);
+  margin: 0;
+  line-height: 1.1;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+p { margin: 0; color: var(--muted); max-width: 58ch; }
+
+.btn {
+  display: inline-block;
+  border: 1px solid var(--fg);
+  color: var(--fg);
+  background: none;
+  padding: 0.6rem 1.15rem;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+.btn--go { background: var(--fg); color: var(--bg); }
+.btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+
+.code {
+  border: 1px solid var(--rule);
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  margin: 0;
+  max-width: 100%;
+  color: var(--fg);
+}
+kbd {
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 0 0.32rem;
+  font: inherit;
+  font-size: 0.9em;
+}
+code { color: var(--fg); }
+.fine { color: var(--dim); font-size: 0.85rem; }
+
+.palette { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.swatch {
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--rule);
+  background: var(--swatch-bg);
+  color: var(--swatch-fg);
+}
+.swatch[aria-pressed="true"] { border-color: var(--fg); }
+.swatch:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+
+.foot {
+  position: relative;
+  z-index: 1;
+  padding: 3rem clamp(3.5rem, 9vw, 11rem);
+  border-top: 1px solid var(--rule);
+  color: var(--dim);
+  background: var(--bg);
+}
+.foot nav { display: flex; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.foot a { color: var(--muted); }
+.foot a:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+
+/* Sections sit over a live canvas, so they carry their own backdrop rather
+   than relying on the grid staying quiet behind the text. */
+.open > *,
+.sec > *,
+.foot > * { position: relative; }
+.open::before,
+.sec::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    var(--bg) 0%,
+    color-mix(in oklab, var(--bg) 88%, transparent) 62%,
+    transparent 100%
+  );
+  z-index: -1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  html { scroll-behavior: auto; }
+}
