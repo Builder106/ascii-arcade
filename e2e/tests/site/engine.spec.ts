@@ -47,6 +47,7 @@ test("interactive scene picker switches active scene", async ({ page }) => {
   await expect(matrixBtn).toBeVisible();
   await expect(matrixBtn).toHaveAttribute("aria-pressed", "false");
 
+  await matrixBtn.scrollIntoViewIfNeeded();
   await matrixBtn.click();
   await expect(matrixBtn).toHaveAttribute("aria-pressed", "true");
 });
