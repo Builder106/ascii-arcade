@@ -7,6 +7,38 @@
  * is redistributed here. Only the characters it drew.
  */
 
+const HIGH_DENSITY = new Set(["@", "M", "W", "$", "%", "#", "0", "Q", "O", "X", "B", "R"]);
+const MID_DENSITY = new Set(["+", "*", "=", "-", "i", "l", "t", "r", "f", "u", "v", "j", "z"]);
+
+function escapeHtml(ch) {
+  if (ch === "&") return "&amp;";
+  if (ch === "<") return "&lt;";
+  if (ch === ">") return "&gt;";
+  return ch;
+}
+
+export function colorizeFrame(frameText) {
+  let html = "";
+  for (let i = 0; i < frameText.length; i++) {
+    const ch = frameText[i];
+    if (ch === "\n") {
+      html += "\n";
+    } else if (ch === " ") {
+      html += " ";
+    } else {
+      const safe = escapeHtml(ch);
+      if (HIGH_DENSITY.has(ch)) {
+        html += `<span class="d-hot">${safe}</span>`;
+      } else if (MID_DENSITY.has(ch)) {
+        html += `<span class="d-mid">${safe}</span>`;
+      } else {
+        html += `<span class="d-dim">${safe}</span>`;
+      }
+    }
+  }
+  return html;
+}
+
 export class RecordedDoom {
   constructor(data) {
     this.frames = data.frames ?? [];
@@ -49,7 +81,7 @@ export async function mountDoom(preEl, buttonEl) {
       if (document.visibilityState === "visible") {
         const f = source.frame();
         if (f !== null && f !== last) {
-          preEl.textContent = f;
+          preEl.innerHTML = colorizeFrame(f);
           last = f;
         }
       }
