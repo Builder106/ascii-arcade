@@ -16,8 +16,10 @@
 :root {
   --fg: #30d158;
   --bg: #040705;
-  --muted: color-mix(in oklab, var(--fg) 82%, var(--bg));
-  --dim: color-mix(in oklab, var(--fg) 68%, var(--bg));
+  /* Both carry body text, so both clear 4.5:1 on all four palettes. Kept off
+     the edge deliberately: --dim at 68% measured 4.49:1, which fails. */
+  --muted: color-mix(in oklab, var(--fg) 86%, var(--bg));
+  --dim: color-mix(in oklab, var(--fg) 76%, var(--bg));
   --rule: color-mix(in oklab, var(--fg) 28%, var(--bg));
 }
 :root[data-theme="amber"] { --fg: #ffa600; --bg: #1a0800; }
@@ -72,7 +74,7 @@ body {
   left: 1rem;
   top: 50%;
   translate: 0 -50%;
-  z-index: 3;
+  z-index: 4;
   display: grid;
   gap: 0.85rem;
 }
@@ -90,7 +92,7 @@ body {
 .open,
 .sec {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   min-height: 100svh;
   display: grid;
   align-content: center;
@@ -174,7 +176,7 @@ code { color: var(--fg); }
 
 .foot {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   padding: 3rem clamp(3.5rem, 9vw, 11rem);
   border-top: 1px solid var(--rule);
   color: var(--dim);
@@ -184,23 +186,29 @@ code { color: var(--fg); }
 .foot a { color: var(--muted); }
 .foot a:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
 
-/* Sections sit over a live canvas, so they carry their own backdrop rather
-   than relying on the grid staying quiet behind the text. */
-.open > *,
-.sec > *,
-.foot > * { position: relative; }
-.open::before,
-.sec::before {
+/* Text sits over a live canvas, so it needs a backdrop. One fixed scrim across
+   the whole viewport rather than one per section: the sections are capped at
+   68rem, so a per-section gradient ended mid-screen and left a visible seam.
+   axe cannot measure contrast against canvas pixels, so this is doing real
+   legibility work that the accessibility suite can't see. */
+body::before {
   content: "";
-  position: absolute;
+  position: fixed;
   inset: 0;
+  /* Above #grid, below content. Both are fixed children of body, so equal
+     z-index would let the canvas win on DOM order and paint over the scrim. */
+  z-index: 1;
+  pointer-events: none;
+  /* Solid across the text column (copy runs to ~40%, headings to ~63%), then
+     falls away so the grid is unobscured on the right. */
   background: linear-gradient(
     to right,
     var(--bg) 0%,
-    color-mix(in oklab, var(--bg) 88%, transparent) 62%,
+    var(--bg) 40%,
+    color-mix(in oklab, var(--bg) 88%, transparent) 64%,
+    color-mix(in oklab, var(--bg) 35%, transparent) 84%,
     transparent 100%
   );
-  z-index: -1;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -36,7 +36,15 @@ export class SceneDriver {
     const t = this.themes.find((x) => x.name === name);
     if (!t) return;
     this.theme = { r: t.text[0], g: t.text[1], b: t.text[2] };
-    this.renderer.background = `rgb(${t.background[0]},${t.background[1]},${t.background[2]})`;
+
+    // Background comes from the page, not from Theme::background. Hacker's is
+    // literally #000000, and painting that behind a tinted --bg leaves a seam
+    // where the two blacks meet as the scrim fades out.
+    const css = getComputedStyle(document.documentElement)
+      .getPropertyValue("--bg")
+      .trim();
+    this.renderer.background =
+      css || `rgb(${t.background[0]},${t.background[1]},${t.background[2]})`;
     for (const e of [this.current, this.next]) {
       if (e) e.apply_base_color(this.theme.r, this.theme.g, this.theme.b);
     }
