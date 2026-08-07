@@ -49,9 +49,13 @@ doom-ascii source (pinned upstream commit)
   +- src/doomgeneric_wasm.c (new platform backend: DG_Init, DG_SleepMs,
   |    DG_GetTicksMs, DG_SetWindowTitle, DG_ReadInput/DG_GetKey — the
   |    input side is a small ring buffer JS feeds via an exported function)
-  \- patched entry (src/i_main.c + src/d_main.c's D_DoomLoop) —
-       emscripten_set_main_loop() replaces the while(1), everything before
-       it (one-time engine init) runs first as it already does
+  \- patched src/d_main.c's D_DoomLoop — emscripten_set_main_loop()
+       replaces the while(1); everything before it (one-time engine init)
+       runs first as it already does. src/i_main.c is untouched:
+       emscripten_set_main_loop(fn, 0, 1)'s simulate_infinite_loop mode
+       throws a JS exception to unwind the C stack rather than returning,
+       so D_DoomMain()/main() keep behaving as if D_DoomLoop never
+       returns, exactly like the native build
             \- DG_ScreenBuffer (uint32_t*, one pixel per DOOMGENERIC_RESX x
                RESY cell — DOOM's own render resolution, not a character
                grid) exported via EMSCRIPTEN_KEEPALIVE
@@ -172,8 +176,9 @@ build in this repo:
    exact.
 2. Add `src/doomgeneric_wasm.c` (new file, not a patch — nothing upstream
    to diff against) and apply `patches/doom-wasm/main-loop.patch`, the
-   `emscripten_set_main_loop` restructuring of `src/d_main.c` and
-   `src/i_main.c`.
+   `emscripten_set_main_loop` restructuring of `src/d_main.c`'s
+   `D_DoomLoop` (guarded behind `#ifdef __EMSCRIPTEN__`, so the native
+   build this repo already ships is byte-for-byte unaffected).
 3. Compile with `emcc`, compiling the same 72-file `SRC` list the native
    Makefile already builds (`Makefile`'s `SRC` variable) plus the new file,
    swapped for `doomgeneric_ascii.c`. No SDL dependency exists anywhere in
