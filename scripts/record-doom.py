@@ -35,10 +35,16 @@ WAD = os.path.join(ROOT, "wad", "freedoom1.wad")
 
 SECONDS = float(sys.argv[1]) if len(sys.argv) > 1 else 15.0
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "site/assets/doom-attract.json")
+# -scaling 2 makes doom_ascii emit DOOMGENERIC_RESX=160, RESY=100 cells (see
+# dg_Create() in doomgeneric.c: RESX = 320/scaling). "-chars block" prints two
+# block characters per cell, so the terminal stream is 320 columns by 100
+# rows. MAX_COLS/MAX_ROWS must cover that or capture crops the frame instead
+# of showing all of it, which looks identical to "too zoomed in" but for a
+# different reason: not enough native detail vs. throwing detail away.
 FPS = 8
 LOOP_SECONDS = 3
-MAX_COLS = 160
-MAX_ROWS = 48
+MAX_COLS = 320
+MAX_ROWS = 100
 
 BOOT_MARKERS = ("Init", "W_Init", "Z_Init", "adding ", "saving config")
 
@@ -125,7 +131,7 @@ def main() -> int:
     if pid == 0:
         os.environ["TERM"] = "xterm-256color"
         os.environ["COLORTERM"] = "truecolor"
-        os.execv(BIN, [BIN, "-scaling", "4", "-chars", "block", "-fixgamma", "2", "-iwad", WAD])
+        os.execv(BIN, [BIN, "-scaling", "2", "-chars", "block", "-fixgamma", "2", "-iwad", WAD])
         os._exit(1)
 
     buf = ""
@@ -190,8 +196,26 @@ def main() -> int:
                 encoded_frame.append([c_idx, count])
         encoded_frames.append(encoded_frame)
 
+    # cols/rows travel with the data rather than being assumed client-side: a
+    # hardcoded column count the client trusts is exactly the kind of
+    # magic-number coupling that breaks silently the next time -scaling
+    # changes. Computed from the first frame's first row and total row count,
+    # which is representative since doom_ascii's grid is fixed for the run.
+    first_frame = encoded_frames[0]
+    first_row_end = next(
+        (i for i, (c, _) in enumerate(first_frame) if c == -1), len(first_frame)
+    )
+    cols = sum(n for c, n in first_frame[:first_row_end] if c != -1)
+    rows = sum(1 for c, _ in first_frame if c == -1) + 1
+
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    payload = {"fps": FPS, "palette": palette, "frames": encoded_frames}
+    payload = {
+        "fps": FPS,
+        "cols": cols,
+        "rows": rows,
+        "palette": palette,
+        "frames": encoded_frames,
+    }
     with open(OUT, "w") as fh:
         json.dump(payload, fh, separators=(",", ":"))
 
