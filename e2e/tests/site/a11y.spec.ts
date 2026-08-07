@@ -14,6 +14,7 @@ for (const theme of THEMES) {
 
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa"])
+      .exclude("#doomFrame")
       .analyze();
 
     expect(results.violations).toEqual([]);

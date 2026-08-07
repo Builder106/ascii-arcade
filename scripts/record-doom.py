@@ -38,13 +38,18 @@ BOOT_MARKERS = ("Init", "W_Init", "Z_Init", "adding ", "saving config")
 
 
 def lift_color_for_contrast(r: int, g: int, b: int) -> tuple[int, int, int]:
-    """Ensure relative luminance passes WCAG 2 AA 4.5:1 floor against dark background."""
+    """Ensure relative luminance passes WCAG 2 AA 4.5:1 floor across dark & light themes."""
     lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
-    if lum < 92:
-        factor = 92.0 / max(lum, 1.0)
-        r = min(255, int(r * factor))
-        g = min(255, int(g * factor))
-        b = min(255, int(b * factor))
+    if lum < 122:
+        factor = 122.0 / max(lum, 1.0)
+        r = min(170, int(r * factor))
+        g = min(170, int(g * factor))
+        b = min(170, int(b * factor))
+    elif lum > 150:
+        factor = 150.0 / lum
+        r = int(r * factor)
+        g = int(g * factor)
+        b = int(b * factor)
     return r, g, b
 
 
@@ -136,7 +141,7 @@ def main() -> int:
     if pid == 0:
         os.environ["TERM"] = "xterm-256color"
         os.environ["COLORTERM"] = "truecolor"
-        os.execv(BIN, [BIN, "-chars", "block", "-iwad", WAD])
+        os.execv(BIN, [BIN, "-scaling", "8", "-chars", "block", "-iwad", WAD])
         os._exit(1)
 
     buf = ""

@@ -18,9 +18,9 @@ test("the loop advances rather than holding one still", async ({ page }) => {
     .toBeGreaterThan(500);
 
   const first = await page.locator("#doomFrame").innerText();
-  await page.waitForTimeout(700);
-  const second = await page.locator("#doomFrame").innerText();
-  expect(second).not.toBe(first);
+  await expect
+    .poll(async () => await page.locator("#doomFrame").innerText(), { timeout: 4000 })
+    .not.toBe(first);
 });
 
 test("a missing recording fails loudly on click, not silently", async ({ page }) => {
