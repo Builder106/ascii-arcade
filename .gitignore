@@ -57,3 +57,8 @@ shells/android/app/src/main/jniLibs/
 # Regenerated from crates/aa-wasm; the Pages workflow builds it on deploy, so
 # the live site always has a fresh copy. Not carried in day-to-day history.
 site/pkg/
+
+# --- Built doom-wasm (produced by scripts/build-doom-wasm.sh)
+# Same pattern as site/pkg/ — regenerated from patches/doom-wasm/, not
+# carried in day-to-day history.
+site/doom-wasm/
