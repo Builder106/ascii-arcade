@@ -106,7 +106,7 @@ release declares Swift tools 6.0.
 ./scripts/setup.sh        # fetch + build the GPL doom_ascii binary into ./bin
 swift build               # build everything
 swift run AsciiArcade     # run the wallpaper app
-```
+```bash
 
 The Freedoom IWADs ship in `wad/`, so DOOM works out of the box. Quitting the app
 restores your original wallpaper.
@@ -116,7 +116,7 @@ restores your original wallpaper.
 ```bash
 ./scripts/make-app.sh     # assemble dist/ASCII Arcade.app (release build + icon + WADs)
 ./scripts/make-dmg.sh     # wrap it in dist/ASCII-Arcade.dmg
-```
+```bash
 
 `make-app.sh` ad-hoc signs the bundle and bundles the BSD Freedoom WADs. It does
 **not** bundle the GPL `doom_ascii` by default; set `INCLUDE_DOOM=1` to include
@@ -130,7 +130,7 @@ handy for sharing or for machines without a wallpaper target:
 
 ```bash
 cargo run -p aa-web   # http://127.0.0.1:8788
-```
+```bash
 
 Pick a scene from the dropdown; the server streams ANSI truecolor frames at
 30 fps over a WebSocket to an xterm.js terminal.
@@ -148,7 +148,7 @@ Linux and Windows:
 cargo run -p aa -- play donut     # render live in this terminal (q to quit)
 cargo run -p aa -- web            # same server as aa-web, via a subcommand
 cargo run -p aa -- scenes         # list built-in scene ids
-```
+```bash
 
 DOOM is opt-in here too, and more strictly than on macOS: it isn't even
 compiled in unless you build with `--features doom` (an optional dependency,
@@ -159,7 +159,7 @@ binary):
 
 ```bash
 cargo run -p aa --features doom -- play doom --enable-doom
-```
+```bash
 
 `aa run` (the actual desktop-wallpaper mode on Linux/Windows) doesn't offer
 DOOM at all — playing DOOM as your literal wallpaper needs fixed-grid bitmap
@@ -186,7 +186,7 @@ Recorded by the [playwright-bdd demo suite](e2e/) against the `aa-web` server:
 
 ```bash
 cd e2e && npm install && npm run demo   # writes e2e/recordings/*.mp4
-```
+```bash
 
 ## How it works
 
@@ -203,7 +203,7 @@ flowchart LR
     Doom -->|spawn + keys| PTY["PTYProcess<br/>doom_ascii"]
     PTY -->|ANSI stream| Buf["DoomScreenBuffer<br/>parse to char grid"]
     Buf -->|snapshot| Doom
-```
+```bash
 
 - **`AsciiArcadeCore`** — the frame generators, the `AsciiScene` protocol, and the
   DOOM glue (`DoomScreenBuffer` parses the ANSI stream into a char grid;
@@ -217,7 +217,7 @@ flowchart LR
 
 ## Layout
 
-```
+```bash
 Sources/AsciiArcadeCore   frame generators + scene/DOOM glue
 Sources/PTYBridge         pseudo-terminal wrapper
 Sources/AsciiArcade       wallpaper app (executable)
@@ -227,7 +227,7 @@ Server/                   Vapor browser server, its own SwiftPM package
                           (keeps Vapor out of the wallpaper app's build)
 wad/                      committed Freedoom IWADs
 bin/                      doom_ascii binary (built by setup.sh)
-```
+```bash
 
 ## License
 

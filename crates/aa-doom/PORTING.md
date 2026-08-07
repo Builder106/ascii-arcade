@@ -14,10 +14,10 @@ single abstraction is why DOOM works on all three.
 
 Trivial — same as macOS. `cc` + `make`:
 
-```
+```text
 git clone --depth 1 https://github.com/wojciech-graj/doom-ascii
 cd doom-ascii && make
-```
+```text
 
 No extra libraries: `doom_ascii` only does terminal I/O (ANSI escapes to
 stdout). `scripts/setup.sh` runs on Linux under bash (shebang
@@ -29,11 +29,11 @@ where the `aa-doom` end-to-end spawn test then drives it over a forkpty PTY.
 Needs a C toolchain and produces `doom_ascii.exe`. The upstream `Makefile` is
 gcc-oriented, so the path of least resistance is **MSYS2 / MinGW-w64**:
 
-```
+```text
 pacman -S --needed make mingw-w64-x86_64-gcc
 git clone --depth 1 https://github.com/wojciech-graj/doom-ascii
 cd doom-ascii && make
-```
+```text
 
 Notes:
 
