@@ -91,7 +91,16 @@ void DG_ReadInput(void)
 
 void DG_SetWindowTitle(const char *title)
 {
-    EM_ASM({ document.title = UTF8ToString($0); }, title);
+    /* I_SetWindowTitle() calls this from inside D_DoomLoop, before the main
+     * loop starts — including under the Node smoke test
+     * (scripts/smoke-test-doom-wasm.mjs), which has no DOM. Guarding
+     * document's existence keeps this module usable outside a browser
+     * without needing every caller to polyfill globals. */
+    EM_ASM({
+        if (typeof document !== "undefined") {
+            document.title = UTF8ToString($0);
+        }
+    }, title);
 }
 
 EMSCRIPTEN_KEEPALIVE

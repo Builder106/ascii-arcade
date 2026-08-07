@@ -1,0 +1,13 @@
+diff --git a/src/i_video.c b/src/i_video.c
+index ebdae4d..653144b 100644
+--- a/src/i_video.c
++++ b/src/i_video.c
+@@ -186,7 +186,7 @@ void I_InitGraphics (void)
+ 
+ 	screenvisible = true;
+ 
+-    extern int I_InitInput(void);
++    extern void I_InitInput(void);
+     I_InitInput();
+ }
+ 

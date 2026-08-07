@@ -39,6 +39,11 @@ git checkout "$PINNED_COMMIT"
 
 cp "$PATCH_DIR/doomgeneric_wasm.c" src/doomgeneric_wasm.c
 git apply "$PATCH_DIR/main-loop.patch"
+# i_video.c locally redeclares I_InitInput as returning int; the real
+# definition (i_input.c) returns void. Harmless on native ABIs (the return
+# value is never used), but WebAssembly strictly type-checks call
+# signatures and traps with "unreachable" at runtime on the mismatch.
+git apply "$PATCH_DIR/i-init-input-signature.patch"
 
 # Same 72-file list the native Makefile's SRC variable builds, with
 # doomgeneric_ascii.c swapped for the new WASM backend.
@@ -75,7 +80,7 @@ emcc $SRC_FILES \
 	-s EXPORT_ES6=1 \
 	-s EXPORT_NAME=DoomModule \
 	-s 'EXPORTED_FUNCTIONS=["_main","_wasm_push_key","_wasm_get_screen_buffer","_wasm_get_screen_width","_wasm_get_screen_height"]' \
-	-s 'EXPORTED_RUNTIME_METHODS=["cwrap"]' \
+	-s 'EXPORTED_RUNTIME_METHODS=["cwrap","HEAPU8"]' \
 	-s ALLOW_MEMORY_GROWTH=1 \
 	--preload-file "$WAD@/freedoom1.wad" \
 	-o "$OUT_DIR/doom.js"
