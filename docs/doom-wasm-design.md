@@ -7,29 +7,56 @@ decision rather than falling out of a landing page as a side effect. This
 document is that decision. It covers making the hero's "Play it" button
 start a genuine, interactive game, in place of the message it shows today.
 
+Implemented as two plans, not one. `doom-ascii` is a real, 72-file
+Chocolate-Doom-derived C codebase with no prior Emscripten port to copy —
+getting the toolchain, the patched entry point, and the WASM-to-canvas
+pixel pipeline working at all is genuinely exploratory in a way that
+picking a keyboard-mapping table or writing a licence footer is not.
+**Plan A** covers the toolchain, the patches, and a first successful
+compile that renders DOOM's boot screen through the canvas — no input yet.
+**Plan B** — input, touch controls, session lifecycle, licensing artifacts,
+tests — gets written once Plan A is verified working, grounded in what
+actually happened rather than more upfront guessing about a codebase this
+document's author had not yet compiled.
+
 ## Why the platform-backend approach
 
 `doom-ascii` — like every `doomgeneric`-based source port — isolates all
-platform I/O behind a small callback interface: `DG_Init`, `DG_DrawFrame`,
-`DG_GetKey`, `DG_SleepMs`, `DG_GetTicksMs`. `doomgeneric_ascii.c`, the file
-that makes the existing native build print ANSI to a terminal, is itself
-just one implementation of that interface. Nothing about DOOM's game logic,
-menu, or renderer is terminal-specific; only that one file is.
+platform I/O behind a small callback interface declared in
+`src/doomgeneric.h`: `DG_Init`, `DG_DrawFrame`, `DG_SleepMs`,
+`DG_GetTicksMs`, `DG_ReadInput`/`DG_GetKey` (this fork splits input into a
+queue-refill call and a one-event-at-a-time drain, not a single poll), and
+`DG_SetWindowTitle`. `src/doomgeneric_ascii.c` — the file that makes the
+existing native build print ANSI to a terminal — is one implementation of
+that interface, plus the ASCII/braille glyph-encoding logic specific to a
+terminal. Nothing about DOOM's game logic, menu, or 3D renderer is
+terminal-specific; only that file is, and even then only its `DG_*`
+implementations, not the engine it sits in front of.
 
-This design adds a sibling, `doomgeneric_wasm.c`, implementing the same
-interface for the browser: `DG_DrawFrame` writes into an exported
-glyph/colour buffer instead of printing escape codes, `DG_GetKey` reads from
-a small queue fed by JS keyboard and touch events instead of terminal
-`stdin`. The actual game — everything upstream of that interface — is
-untouched.
+The `DG_*` callbacks are invoked from a small number of fixed call sites
+deep in Chocolate-Doom-derived engine code (`I_FinishUpdate` in
+`src/i_video.c` calls `DG_DrawFrame`; `I_GetEvent` in `src/i_input.c` calls
+`DG_ReadInput`/`DG_GetKey`) — none of that call graph changes for a new
+backend. What's genuinely new: `src/i_main.c`'s `main()` calls
+`dg_Create()` (allocates the pixel buffer, calls `DG_Init` once) then
+`D_DoomMain()`, which never returns — it ends inside `D_DoomLoop()`
+(`src/d_main.c`), whose body is a literal `while (1)`. See "The blocking
+main loop" for what changes there.
 
 ```
 doom-ascii source (pinned upstream commit)
-  +- existing game/menu logic (untouched)
-  \- doomgeneric_wasm.c (new platform backend)
-       \- emscripten_set_main_loop() drives ticks cooperatively
-            \- exports glyph+colour buffer, EMSCRIPTEN_KEEPALIVE
-                 \- site/doom-play.js (new) feeds keys in, reads buffer out
+  +- existing game/menu/renderer logic (untouched)
+  +- src/doomgeneric_wasm.c (new platform backend: DG_Init, DG_SleepMs,
+  |    DG_GetTicksMs, DG_SetWindowTitle, DG_ReadInput/DG_GetKey — the
+  |    input side is a small ring buffer JS feeds via an exported function)
+  \- patched entry (src/i_main.c + src/d_main.c's D_DoomLoop) —
+       emscripten_set_main_loop() replaces the while(1), everything before
+       it (one-time engine init) runs first as it already does
+            \- DG_ScreenBuffer (uint32_t*, one pixel per DOOMGENERIC_RESX x
+               RESY cell — DOOM's own render resolution, not a character
+               grid) exported via EMSCRIPTEN_KEEPALIVE
+                 \- site/doom-play.js (new) feeds keys in, reads the pixel
+                    buffer out, converts pixel -> glyph (see "Rendering")
                       \- its own <canvas>, painted via the existing
                          site/renderer.js atlas Renderer (a second
                          instance — see "Rendering", below)
@@ -37,23 +64,60 @@ doom-ascii source (pinned upstream commit)
 
 ## The blocking main loop
 
-`doomgeneric`'s core loop is a native `while (1)` calling `DG_DrawFrame()`
-each iteration — that cannot run as-is in a browser without blocking the
-tab's main thread. Two ways to reconcile that exist: compile with
-Emscripten's `ASYNCIFY`, which transforms a blocking loop automatically at
-the cost of a larger binary and roughly half the execution speed, or
-restructure the loop by hand into a step function driven by
-`emscripten_set_main_loop()`.
+`D_DoomLoop()` (`src/d_main.c`) does one-time setup (`I_InitGraphics()` and
+friends), then enters:
 
-This design takes the manual route. It is more invasive — the split touches
-`doomgeneric.c` itself, which is shared by every platform backend, not just
-the new one — but it carries no runtime penalty, which matters for
-something meant to feel responsive under player input. The restructuring
-and the new platform file are both captured as patch files (see "Build
-pipeline"), so the exact, reviewable delta from upstream is never a mystery
-diff buried in a build script.
+```c
+while (1)
+{
+    I_StartFrame ();
+    TryRunTics ();
+    S_UpdateSounds (players[consoleplayer].mo);
+    if (screenvisible)
+        D_Display ();
+}
+```
+
+which cannot run as-is under Emscripten without blocking the tab's main
+thread. Two ways to reconcile that exist: compile with Emscripten's
+`ASYNCIFY`, which transforms a blocking loop automatically at the cost of a
+larger binary and roughly half the execution speed, or restructure by hand
+— the four lines above become the callback body passed to
+`emscripten_set_main_loop()`, dropping the `while (1)` itself since
+Emscripten's own `requestAnimationFrame`-driven loop replaces it.
+
+This design takes the manual route: no runtime penalty, which matters for
+something meant to feel responsive under player input. It's also less
+invasive than it first looks — the loop body doesn't change, only what
+drives it — but it does touch `d_main.c` and `i_main.c`, both shared engine
+files, not just the new platform file. One more consequence: `TryRunTics`
+can reach `I_Sleep`/`DG_SleepMs` on certain code paths (network-sync
+fallback), and an actual sleep would freeze the browser tab under a
+`requestAnimationFrame`-driven loop — `DG_SleepMs` becomes a no-op in the
+WASM backend, not a real sleep.
+
+The restructuring and the new platform file are both captured as patch
+files (see "Build pipeline"), so the exact, reviewable delta from upstream
+is never a mystery diff buried in a build script.
 
 ## Rendering
+
+`DG_ScreenBuffer` is a pixel buffer — `DOOMGENERIC_RESX * DOOMGENERIC_RESY`
+`uint32_t`s, DOOM's own internal render resolution (320x200 divided by a
+`-scaling` factor), each pixel already resolved to a colour via the
+engine's palette. It is not a character grid; the ASCII-art conversion in
+the native build is `doomgeneric_ascii.c`'s job, done in C, and none of
+that glyph-encoding logic is reused here.
+
+The conversion happens in JS instead, and it's simple: this mirrors the
+same block-mode look the recorded attract loop already uses (`-chars
+block`, captured via `scripts/record-doom.py`) — a dark pixel becomes a
+bare space (matching `Renderer.paint()`'s existing skip-on-space
+behaviour), everything else becomes a solid block glyph (`█`) in that
+pixel's own colour. No luminance ramp, no ANSI quantization to port; the
+buffer already carries full 24-bit colour per cell, which is strictly more
+than `Renderer.paint()` needs. This keeps the new C surface to exactly the
+`DG_*` callbacks — no glyph logic on the C side at all.
 
 Live gameplay does **not** share `#grid`, the canvas the page's ambient
 background scenes (Donut, Matrix, and so on) already paint to. `#grid` is
@@ -101,16 +165,30 @@ A new `scripts/build-doom-wasm.sh`, parallel to the existing
 build in this repo:
 
 1. Clone `doom-ascii` at a **pinned commit SHA** — not `--depth 1` off the
-   default branch the way today's `scripts/setup.sh` does. The pin is what
+   default branch the way today's `scripts/setup.sh` does. Pinned to
+   `b5188d7c9c4da6c81264a7803e8725ac3df2cfea` (`Release 0.3.1`, verified
+   current `HEAD` at the time of writing this document). The pin is what
    the GPL source-offer link (see "Licensing") points at; it has to stay
    exact.
-2. Apply `patches/doom-wasm/*.patch`: the new `doomgeneric_wasm.c` platform
-   backend and the `emscripten_set_main_loop` restructuring of
-   `doomgeneric.c`.
-3. Compile with `emcc`. Emscripten (`emsdk`) is a new toolchain dependency
-   on `ampere-dev`, installed alongside the existing Rust/`wasm-bindgen`
-   toolchain — the two don't interact.
-4. Output lands in `site/doom-wasm/`, gitignored like `site/pkg/` — the
+2. Add `src/doomgeneric_wasm.c` (new file, not a patch — nothing upstream
+   to diff against) and apply `patches/doom-wasm/main-loop.patch`, the
+   `emscripten_set_main_loop` restructuring of `src/d_main.c` and
+   `src/i_main.c`.
+3. Compile with `emcc`, compiling the same 72-file `SRC` list the native
+   Makefile already builds (`Makefile`'s `SRC` variable) plus the new file,
+   swapped for `doomgeneric_ascii.c`. No SDL dependency exists anywhere in
+   this codebase to route through Emscripten's SDL port — the only link
+   flag the native build uses is `-lm`. Emscripten (`emsdk`) is a new
+   toolchain dependency on `ampere-dev`, installed alongside the existing
+   Rust/`wasm-bindgen` toolchain — the two don't interact.
+4. Package `freedoom1.wad` into Emscripten's virtual filesystem so the
+   engine's ordinary `fopen`-based WAD loading (`D_FindIWAD` →
+   `D_FindWADByName` → `W_AddFile`, all generic Chocolate-Doom code with no
+   backend-specific branching) resolves it unmodified. **This boundary is
+   unverified** — confirming `-iwad`/`fopen` actually resolves through
+   Emscripten's `MEMFS` the way it does through a real filesystem is part
+   of Plan A's implementation work, not assumed here.
+5. Output lands in `site/doom-wasm/`, gitignored like `site/pkg/` — the
    same "commit only on release" strategy already planned for `aa-wasm`.
 
 ## WAD hosting and preload
