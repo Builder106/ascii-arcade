@@ -43,7 +43,7 @@ backend. What's genuinely new: `src/i_main.c`'s `main()` calls
 (`src/d_main.c`), whose body is a literal `while (1)`. See "The blocking
 main loop" for what changes there.
 
-```
+```text
 doom-ascii source (pinned upstream commit)
   +- existing game/menu/renderer logic (untouched)
   +- src/doomgeneric_wasm.c (new platform backend: DG_Init, DG_SleepMs,
