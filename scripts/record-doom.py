@@ -63,28 +63,16 @@ def ansi_to_row_runs(line: str) -> list[tuple[str | None, int]]:
     while pos < len(line) and col_count < MAX_COLS:
         match = SGR_RE.search(line, pos)
         if not match:
-            text = line[pos:]
-            take = min(len(text), MAX_COLS - col_count)
-            if not text[:take].strip():
-                if count_blocks > 0:
-                    runs.append((current_color, count_blocks))
-                    count_blocks = 0
-                runs.append((None, take))
-            else:
-                count_blocks += take
+            text_len = len(line) - pos
+            take = min(text_len, MAX_COLS - col_count)
+            count_blocks += take
             col_count += take
             break
 
-        text = line[pos : match.start()]
-        if text:
-            take = min(len(text), MAX_COLS - col_count)
-            if not text[:take].strip():
-                if count_blocks > 0:
-                    runs.append((current_color, count_blocks))
-                    count_blocks = 0
-                runs.append((None, take))
-            else:
-                count_blocks += take
+        text_len = match.start() - pos
+        if text_len > 0:
+            take = min(text_len, MAX_COLS - col_count)
+            count_blocks += take
             col_count += take
             if col_count >= MAX_COLS:
                 break
@@ -111,9 +99,6 @@ def ansi_to_row_runs(line: str) -> list[tuple[str | None, int]]:
 
     if count_blocks > 0:
         runs.append((current_color, count_blocks))
-
-    if col_count < MAX_COLS:
-        runs.append((None, MAX_COLS - col_count))
 
     return runs
 
