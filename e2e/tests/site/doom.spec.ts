@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("the cold open plays real DOOM frames", async ({ page }) => {
   await page.goto("/site/");
   await expect
-    .poll(async () => (await page.locator("#doomFrame").innerText()).length, {
+    .poll(async () => (await page.locator("#doomFrame").innerHTML()).length, {
       timeout: 10000,
     })
     .toBeGreaterThan(500);
@@ -12,14 +12,14 @@ test("the cold open plays real DOOM frames", async ({ page }) => {
 test("the loop advances rather than holding one still", async ({ page }) => {
   await page.goto("/site/");
   await expect
-    .poll(async () => (await page.locator("#doomFrame").innerText()).length, {
+    .poll(async () => (await page.locator("#doomFrame").innerHTML()).length, {
       timeout: 10000,
     })
     .toBeGreaterThan(500);
 
-  const first = await page.locator("#doomFrame").innerText();
+  const first = await page.locator("#doomFrame").innerHTML();
   await expect
-    .poll(async () => await page.locator("#doomFrame").innerText(), { timeout: 4000 })
+    .poll(async () => await page.locator("#doomFrame").innerHTML(), { timeout: 4000 })
     .not.toBe(first);
 });
 

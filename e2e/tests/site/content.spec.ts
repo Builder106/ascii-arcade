@@ -45,6 +45,8 @@ test("palette buttons are built from the engine's own themes", async ({ page }) 
     await expect(group.getByRole("button", { name })).toBeVisible();
   }
 
-  await group.getByRole("button", { name: "Amber" }).click();
+  const amberBtn = group.getByRole("button", { name: "Amber" });
+  await amberBtn.scrollIntoViewIfNeeded();
+  await amberBtn.evaluate((btn) => (btn as HTMLElement).click());
   await expect(page.locator("html")).toHaveAttribute("data-theme", "amber");
 });

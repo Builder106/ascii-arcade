@@ -29,8 +29,8 @@ WAD = os.path.join(ROOT, "wad", "freedoom1.wad")
 
 SECONDS = float(sys.argv[1]) if len(sys.argv) > 1 else 8.0
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "site/assets/doom-attract.json")
-FPS = 12
-LOOP_SECONDS = 4
+FPS = 8
+LOOP_SECONDS = 3
 MAX_COLS = 160
 MAX_ROWS = 48
 
@@ -53,73 +53,68 @@ def lift_color_for_contrast(r: int, g: int, b: int) -> tuple[int, int, int]:
     return r, g, b
 
 
-def ansi_to_html_row(line: str) -> str:
-    row_html = ""
+def ansi_to_row_runs(line: str) -> list[tuple[str | None, int]]:
+    runs: list[tuple[str | None, int]] = []
     current_color = None
-    current_text = ""
+    count_blocks = 0
     col_count = 0
 
     pos = 0
     while pos < len(line) and col_count < MAX_COLS:
         match = SGR_RE.search(line, pos)
         if not match:
-            text = line[pos:]
-            take = min(len(text), MAX_COLS - col_count)
-            current_text += text[:take]
+            text_len = len(line) - pos
+            take = min(text_len, MAX_COLS - col_count)
+            count_blocks += take
             col_count += take
             break
 
-        text = line[pos : match.start()]
-        if text:
-            take = min(len(text), MAX_COLS - col_count)
-            current_text += text[:take]
+        text_len = match.start() - pos
+        if text_len > 0:
+            take = min(text_len, MAX_COLS - col_count)
+            count_blocks += take
             col_count += take
             if col_count >= MAX_COLS:
                 break
 
         codes = match.group(1).split(";")
         if codes in ([""], ["0"]):
-            if current_text:
-                esc = html.escape(current_text)
-                row_html += f'<span style="color:{current_color}">{esc}</span>' if current_color else esc
-                current_text = ""
+            if count_blocks > 0:
+                runs.append((current_color, count_blocks))
+                count_blocks = 0
             current_color = None
         elif len(codes) >= 5 and codes[0] == "38" and codes[1] == "2":
             try:
                 r, g, b = int(codes[2]), int(codes[3]), int(codes[4])
                 r, g, b = lift_color_for_contrast(r, g, b)
-                # Convert to compact hex color (#rrggbb)
                 new_color = f"#{r:02x}{g:02x}{b:02x}"
                 if new_color != current_color:
-                    if current_text:
-                        esc = html.escape(current_text)
-                        row_html += f'<span style="color:{current_color}">{esc}</span>' if current_color else esc
-                        current_text = ""
+                    if count_blocks > 0:
+                        runs.append((current_color, count_blocks))
+                        count_blocks = 0
                     current_color = new_color
             except ValueError:
                 pass
         pos = match.end()
 
-    if current_text:
-        esc = html.escape(current_text)
-        row_html += f'<span style="color:{current_color}">{esc}</span>' if current_color else esc
+    if count_blocks > 0:
+        runs.append((current_color, count_blocks))
 
-    return row_html
+    return runs
 
 
-def clean(chunk: str) -> tuple[list[str], list[str]]:
-    """Returns (plain_rows, html_rows) for a frame chunk."""
+def clean(chunk: str) -> tuple[list[str], list[list[tuple[str | None, int]]]]:
     raw_lines = chunk.split("\n")
     plain_rows = []
-    html_rows = []
+    frame_runs = []
     for line in raw_lines:
         plain = ANSI_STRIP.sub("", line).rstrip()
         if plain.strip():
             plain_rows.append(plain[:MAX_COLS])
-            html_rows.append(ansi_to_html_row(line))
+            frame_runs.append(ansi_to_row_runs(line))
             if len(plain_rows) >= MAX_ROWS:
                 break
-    return plain_rows, html_rows
+    return plain_rows, frame_runs
 
 
 def is_gameplay(rows: list[str]) -> bool:
@@ -145,7 +140,7 @@ def main() -> int:
         os._exit(1)
 
     buf = ""
-    frames: list[tuple[list[str], list[str]]] = []
+    frames: list[tuple[list[str], list[list[tuple[str | None, int]]]]] = []
     deadline = time.time() + SECONDS
 
     try:
@@ -164,9 +159,9 @@ def main() -> int:
             parts = HOME.split(buf)
             buf = parts.pop()
             for part in parts:
-                plain_rows, html_rows = clean(part)
+                plain_rows, frame_runs = clean(part)
                 if is_gameplay(plain_rows):
-                    frames.append((plain_rows, html_rows))
+                    frames.append((plain_rows, frame_runs))
     finally:
         os.kill(pid, signal.SIGKILL)
         os.waitpid(pid, 0)
@@ -176,7 +171,6 @@ def main() -> int:
         print("captured no frames", file=sys.stderr)
         return 1
 
-    # Drop consecutive repeats
     moving = [f for i, f in enumerate(frames) if i == 0 or f[0] != frames[i - 1][0]]
     if len(moving) >= FPS:
         frames = moving
@@ -186,8 +180,30 @@ def main() -> int:
         step = len(frames) / want
         frames = [frames[int(i * step)] for i in range(want)]
 
+    palette: list[str] = []
+    palette_map: dict[str, int] = {}
+
+    def get_color_index(c: str | None) -> int:
+        if c is None:
+            return -1
+        if c not in palette_map:
+            palette_map[c] = len(palette)
+            palette.append(c)
+        return palette_map[c]
+
+    encoded_frames = []
+    for _, frame_runs in frames:
+        encoded_frame = []
+        for r_idx, row in enumerate(frame_runs):
+            if r_idx > 0:
+                encoded_frame.append([-1, 1])
+            for color, count in row:
+                c_idx = get_color_index(color)
+                encoded_frame.append([c_idx, count])
+        encoded_frames.append(encoded_frame)
+
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    payload = {"fps": FPS, "frames": ["\n".join(f[1]) for f in frames]}
+    payload = {"fps": FPS, "palette": palette, "frames": encoded_frames}
     with open(OUT, "w") as fh:
         json.dump(payload, fh, separators=(",", ":"))
 

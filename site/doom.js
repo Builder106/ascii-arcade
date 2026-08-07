@@ -17,26 +17,37 @@ function escapeHtml(ch) {
   return ch;
 }
 
-export function colorizeFrame(frameText) {
-  if (frameText.includes("<span")) {
-    return frameText;
-  }
-  let html = "";
-  for (let i = 0; i < frameText.length; i++) {
-    const ch = frameText[i];
-    if (ch === "\n") {
-      html += "\n";
-    } else if (ch === " ") {
-      html += " ";
-    } else {
-      const safe = escapeHtml(ch);
-      if (HIGH_DENSITY.has(ch)) {
-        html += `<span class="d-hot">${safe}</span>`;
-      } else if (MID_DENSITY.has(ch)) {
-        html += `<span class="d-mid">${safe}</span>`;
-      } else {
-        html += `<span class="d-dim">${safe}</span>`;
+export function colorizeFrame(frameData, palette = []) {
+  if (typeof frameData === "string") {
+    if (frameData.includes("<span")) return frameData;
+    let html = "";
+    for (let i = 0; i < frameData.length; i++) {
+      const ch = frameData[i];
+      if (ch === "\n") html += "\n";
+      else if (ch === " ") html += " ";
+      else {
+        const safe = escapeHtml(ch);
+        if (HIGH_DENSITY.has(ch)) html += `<span class="d-hot">${safe}</span>`;
+        else if (MID_DENSITY.has(ch)) html += `<span class="d-mid">${safe}</span>`;
+        else html += `<span class="d-dim">${safe}</span>`;
       }
+    }
+    return html;
+  }
+
+  if (!Array.isArray(frameData)) return "";
+
+  let html = "";
+  for (let i = 0; i < frameData.length; i++) {
+    const item = frameData[i];
+    if (!Array.isArray(item)) continue;
+    const [cIdx, count] = item;
+    if (cIdx === -1) {
+      html += "\n";
+    } else {
+      const color = palette[cIdx];
+      const blocks = "█".repeat(count);
+      html += color ? `<span style="color:${color}">${blocks}</span>` : blocks;
     }
   }
   return html;
@@ -45,7 +56,8 @@ export function colorizeFrame(frameText) {
 export class RecordedDoom {
   constructor(data) {
     this.frames = data.frames ?? [];
-    this.fps = data.fps ?? 12;
+    this.palette = data.palette ?? [];
+    this.fps = data.fps ?? 8;
     this.startedAt = 0;
     this.running = false;
   }
@@ -62,7 +74,8 @@ export class RecordedDoom {
   frame() {
     if (!this.running || this.frames.length === 0) return null;
     const elapsed = (performance.now() - this.startedAt) / 1000;
-    return this.frames[Math.floor(elapsed * this.fps) % this.frames.length];
+    const idx = Math.floor(elapsed * this.fps) % this.frames.length;
+    return { frame: this.frames[idx], palette: this.palette };
   }
 }
 
@@ -79,13 +92,13 @@ export async function mountDoom(preEl, buttonEl) {
   }
 
   if (source) {
-    let last = "";
+    let last = null;
     const draw = () => {
       if (document.visibilityState === "visible") {
-        const f = source.frame();
-        if (f !== null && f !== last) {
-          preEl.innerHTML = colorizeFrame(f);
-          last = f;
+        const item = source.frame();
+        if (item && item.frame !== last) {
+          preEl.innerHTML = colorizeFrame(item.frame, item.palette);
+          last = item.frame;
         }
       }
       requestAnimationFrame(draw);
