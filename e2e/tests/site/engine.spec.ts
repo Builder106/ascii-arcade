@@ -33,3 +33,21 @@ test("the page still renders when WebAssembly fails to load", async ({ page }) =
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Put it on yours" })).toBeAttached();
 });
+
+test("interactive scene picker switches active scene", async ({ page }) => {
+  await page.goto("/site/");
+  await page.waitForFunction(() => window.__aaReady === true, null, {
+    timeout: 15000,
+  });
+
+  const picker = page.getByRole("group", { name: "Select background scene" });
+  await expect(picker).toBeVisible();
+
+  const matrixBtn = picker.getByRole("button", { name: "Matrix" });
+  await expect(matrixBtn).toBeVisible();
+  await expect(matrixBtn).toHaveAttribute("aria-pressed", "false");
+
+  await matrixBtn.click();
+  await expect(matrixBtn).toHaveAttribute("aria-pressed", "true");
+});
+

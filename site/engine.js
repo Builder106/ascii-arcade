@@ -63,6 +63,9 @@ export class SceneDriver {
     }
     engine.apply_base_color(this.theme.r, this.theme.g, this.theme.b);
     this.currentId = id;
+    if (typeof this.onSceneChange === "function") {
+      this.onSceneChange(id);
+    }
 
     if (!this.current) {
       this.current = engine;

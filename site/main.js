@@ -39,6 +39,50 @@ function buildPalette(driver, mount) {
   }
 }
 
+/**
+ * Scene selection buttons for the hero section allowing interactive previewing
+ * of the WASM scenes.
+ */
+const SCENES = [
+  { id: "donut", label: "Donut" },
+  { id: "helix", label: "Helix" },
+  { id: "matrix", label: "Matrix" },
+  { id: "pipes", label: "Pipes" },
+  { id: "life", label: "Life" },
+];
+
+function buildScenePicker(driver, mount) {
+  if (!mount || !driver.wasm || driver.themes.length === 0) return;
+
+  const label = document.createElement("span");
+  label.className = "open__scenes-label";
+  label.textContent = "Live Scene:";
+  mount.append(label);
+
+  const updateActive = (activeId) => {
+    for (const btn of mount.querySelectorAll("button")) {
+      btn.setAttribute("aria-pressed", String(btn.dataset.sceneId === activeId));
+    }
+  };
+
+  for (const s of SCENES) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "scene-btn";
+    btn.textContent = s.label;
+    btn.dataset.sceneId = s.id;
+    btn.setAttribute("aria-pressed", String(s.id === (driver.currentId || "donut")));
+
+    btn.addEventListener("click", () => {
+      driver.setScene(s.id);
+    });
+
+    mount.append(btn);
+  }
+
+  driver.onSceneChange = (id) => updateActive(id);
+}
+
 async function boot() {
   const canvas = document.getElementById("grid");
   if (!canvas) return;
@@ -57,6 +101,7 @@ async function boot() {
   driver.setTheme("Hacker");
   driver.setScene("donut");
   buildPalette(driver, document.getElementById("palette"));
+  buildScenePicker(driver, document.getElementById("heroScenePicker"));
 
   // Sections declare which scene belongs to them. Half-visible wins, so the
   // scene changes once per section rather than fighting on boundaries.
