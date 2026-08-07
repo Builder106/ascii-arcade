@@ -27,7 +27,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BIN = os.path.join(ROOT, "bin", "doom_ascii")
 WAD = os.path.join(ROOT, "wad", "freedoom1.wad")
 
-SECONDS = float(sys.argv[1]) if len(sys.argv) > 1 else 8.0
+SECONDS = float(sys.argv[1]) if len(sys.argv) > 1 else 15.0
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "site/assets/doom-attract.json")
 FPS = 8
 LOOP_SECONDS = 3
@@ -136,7 +136,7 @@ def main() -> int:
     if pid == 0:
         os.environ["TERM"] = "xterm-256color"
         os.environ["COLORTERM"] = "truecolor"
-        os.execv(BIN, [BIN, "-scaling", "4", "-chars", "block", "-iwad", WAD])
+        os.execv(BIN, [BIN, "-scaling", "4", "-chars", "block", "-fixgamma", "2", "-iwad", WAD])
         os._exit(1)
 
     buf = ""
@@ -177,8 +177,7 @@ def main() -> int:
 
     want = int(LOOP_SECONDS * FPS)
     if len(frames) > want:
-        step = len(frames) / want
-        frames = [frames[int(i * step)] for i in range(want)]
+        frames = frames[-want:]
 
     palette: list[str] = []
     palette_map: dict[str, int] = {}
