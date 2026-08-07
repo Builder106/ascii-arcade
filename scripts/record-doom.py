@@ -53,96 +53,53 @@ def lift_color_for_contrast(r: int, g: int, b: int) -> tuple[int, int, int]:
     return r, g, b
 
 
-def ansi_to_row_runs(line: str) -> list[tuple[str | None, int]]:
-    runs: list[tuple[str | None, int]] = []
+def ansi_line_to_colors(line: str) -> list[str | None]:
+    colors: list[str | None] = [None] * MAX_COLS
     current_color = None
-    count_blocks = 0
     col_count = 0
-
     pos = 0
     while pos < len(line) and col_count < MAX_COLS:
         match = SGR_RE.search(line, pos)
         if not match:
             text = line[pos:]
             take = min(len(text), MAX_COLS - col_count)
-            if not text[:take].strip():
-                if count_blocks > 0:
-                    runs.append((current_color, count_blocks))
-                    count_blocks = 0
-                runs.append((None, take))
-            else:
-                count_blocks += take
+            for k in range(take):
+                if text[k] != " ":
+                    colors[col_count + k] = current_color
             col_count += take
             break
 
         text = line[pos : match.start()]
         if text:
             take = min(len(text), MAX_COLS - col_count)
-            if not text[:take].strip():
-                if count_blocks > 0:
-                    runs.append((current_color, count_blocks))
-                    count_blocks = 0
-                runs.append((None, take))
-            else:
-                count_blocks += take
+            for k in range(take):
+                if text[k] != " ":
+                    colors[col_count + k] = current_color
             col_count += take
             if col_count >= MAX_COLS:
                 break
 
         codes = match.group(1).split(";")
         if codes in ([""], ["0"]):
-            if count_blocks > 0:
-                runs.append((current_color, count_blocks))
-                count_blocks = 0
             current_color = None
         elif len(codes) >= 5 and codes[0] == "38" and codes[1] == "2":
             try:
                 r, g, b = int(codes[2]), int(codes[3]), int(codes[4])
                 r, g, b = lift_color_for_contrast(r, g, b)
-                new_color = f"#{r:02x}{g:02x}{b:02x}"
-                if new_color != current_color:
-                    if count_blocks > 0:
-                        runs.append((current_color, count_blocks))
-                        count_blocks = 0
-                    current_color = new_color
+                current_color = f"#{r:02x}{g:02x}{b:02x}"
             except ValueError:
                 pass
         pos = match.end()
 
-    if count_blocks > 0:
-        runs.append((current_color, count_blocks))
-
-    if col_count < MAX_COLS:
-        runs.append((None, MAX_COLS - col_count))
-
-    return runs
-
-
-def clean(chunk: str) -> tuple[list[str], list[list[tuple[str | None, int]]]]:
-    raw_lines = chunk.split("\n")
-    plain_rows = []
-    frame_runs = []
-    for line in raw_lines:
-        plain = ANSI_STRIP.sub("", line).rstrip()
-        if plain.strip():
-            plain_rows.append(plain[:MAX_COLS])
-            frame_runs.append(ansi_to_row_runs(line))
-            if len(plain_rows) >= MAX_ROWS:
-                break
-    return plain_rows, frame_runs
-
-
-def is_gameplay(rows: list[str]) -> bool:
-    if len(rows) < 15:
-        return False
-    head = "\n".join(rows[:6])
-    return not any(m in head for m in BOOT_MARKERS)
+    return colors
 
 
 def main() -> int:
+    import subprocess
     if not os.path.exists(BIN):
-        print(f"missing {BIN}; run scripts/setup.sh first", file=sys.stderr)
-        return 1
+        print(f"missing {BIN}; running setup.sh...", file=sys.stderr)
+        subprocess.run(["bash", os.path.join(ROOT, "scripts", "setup.sh")], check=True)
+
     if not os.path.exists(WAD):
         print(f"missing {WAD}", file=sys.stderr)
         return 1
@@ -151,12 +108,11 @@ def main() -> int:
     if pid == 0:
         os.environ["TERM"] = "xterm-256color"
         os.environ["COLORTERM"] = "truecolor"
-        os.execv(BIN, [BIN, "-scaling", "4", "-chars", "block", "-iwad", WAD])
+        os.execv(BIN, [BIN, "-scaling", "2", "-iwad", WAD])
         os._exit(1)
 
     buf = ""
-    frames: list[tuple[list[str], list[list[tuple[str | None, int]]]]] = []
-    deadline = time.time() + SECONDS
+    deadline = time.time() + max(SECONDS, 10.0)
 
     try:
         while time.time() < deadline:
@@ -170,30 +126,19 @@ def main() -> int:
             if not data:
                 break
             buf += data.decode("utf-8", "replace")
-
-            parts = HOME.split(buf)
-            buf = parts.pop()
-            for part in parts:
-                plain_rows, frame_runs = clean(part)
-                if is_gameplay(plain_rows):
-                    frames.append((plain_rows, frame_runs))
     finally:
         os.kill(pid, signal.SIGKILL)
         os.waitpid(pid, 0)
         os.close(fd)
 
-    if not frames:
-        print("captured no frames", file=sys.stderr)
+    parts = [p for p in HOME.split(buf) if len(p) > 2000]
+    if not parts:
+        print("captured no frame parts", file=sys.stderr)
         return 1
 
-    moving = [f for i, f in enumerate(frames) if i == 0 or f[0] != frames[i - 1][0]]
-    if len(moving) >= FPS:
-        frames = moving
-
     want = int(LOOP_SECONDS * FPS)
-    if len(frames) > want:
-        step = len(frames) / want
-        frames = [frames[int(i * step)] for i in range(want)]
+    # Take frames from gameplay phase
+    selected = parts[len(parts) // 2 : len(parts) // 2 + want] if len(parts) >= want else parts
 
     palette: list[str] = []
     palette_map: dict[str, int] = {}
@@ -207,15 +152,39 @@ def main() -> int:
         return palette_map[c]
 
     encoded_frames = []
-    for _, frame_runs in frames:
-        encoded_frame = []
-        for r_idx, row in enumerate(frame_runs):
-            if r_idx > 0:
-                encoded_frame.append([-1, 1])
-            for color, count in row:
-                c_idx = get_color_index(color)
-                encoded_frame.append([c_idx, count])
-        encoded_frames.append(encoded_frame)
+    for part in selected:
+        raw_lines = [l for l in part.split("\n") if "\x1b[38;2;" in l][:76]
+        if len(raw_lines) < 20:
+            continue
+        grid = [ansi_line_to_colors(l) for l in raw_lines]
+        num_rows = len(grid)
+        frame_runs = []
+
+        for y in range(0, num_rows, 2):
+            if y > 0:
+                frame_runs.append([-1, -1, 1])
+            row_top = grid[y]
+            row_bot = grid[y + 1] if y + 1 < num_rows else [None] * MAX_COLS
+
+            cur_pair = None
+            count = 0
+            for x in range(MAX_COLS):
+                pair = (row_top[x], row_bot[x])
+                if pair == cur_pair:
+                    count += 1
+                else:
+                    if cur_pair is not None:
+                        t_idx = get_color_index(cur_pair[0])
+                        b_idx = get_color_index(cur_pair[1])
+                        frame_runs.append([t_idx, b_idx, count])
+                    cur_pair = pair
+                    count = 1
+            if cur_pair is not None and count > 0:
+                t_idx = get_color_index(cur_pair[0])
+                b_idx = get_color_index(cur_pair[1])
+                frame_runs.append([t_idx, b_idx, count])
+
+        encoded_frames.append(frame_runs)
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     payload = {"fps": FPS, "palette": palette, "frames": encoded_frames}
@@ -223,7 +192,7 @@ def main() -> int:
         json.dump(payload, fh, separators=(",", ":"))
 
     size = os.path.getsize(OUT)
-    print(f"wrote {len(frames)} frames, {size // 1024} kB -> {OUT}")
+    print(f"wrote {len(encoded_frames)} frames, {size // 1024} kB -> {OUT}")
     return 0
 
 
