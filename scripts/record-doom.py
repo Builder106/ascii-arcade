@@ -6,6 +6,12 @@ is text with inline HTML color spans, so nothing GPL is redistributed:
 doom_ascii itself never leaves the build machine. Only the colored characters
 it drew do.
 
+Colors are captured as-is. #doomFrame is aria-hidden and excluded from the
+axe suite (it is decorative, and every fact it illustrates is also in page
+copy), so there is no per-glyph contrast floor to hit here — an earlier draft
+lifted every color's luminance into a narrow band to chase one anyway, which
+just flattened DOOM's actual palette into a wash of pastel midtones.
+
 Usage: python3 scripts/record-doom.py [seconds] [output]
 """
 
@@ -35,22 +41,6 @@ MAX_COLS = 160
 MAX_ROWS = 48
 
 BOOT_MARKERS = ("Init", "W_Init", "Z_Init", "adding ", "saving config")
-
-
-def lift_color_for_contrast(r: int, g: int, b: int) -> tuple[int, int, int]:
-    """Ensure relative luminance passes WCAG 2 AA 4.5:1 floor across dark & light themes."""
-    lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
-    if lum < 122:
-        factor = 122.0 / max(lum, 1.0)
-        r = min(170, int(r * factor))
-        g = min(170, int(g * factor))
-        b = min(170, int(b * factor))
-    elif lum > 150:
-        factor = 150.0 / lum
-        r = int(r * factor)
-        g = int(g * factor)
-        b = int(b * factor)
-    return r, g, b
 
 
 def ansi_to_row_runs(line: str) -> list[tuple[str | None, int]]:
@@ -86,7 +76,6 @@ def ansi_to_row_runs(line: str) -> list[tuple[str | None, int]]:
         elif len(codes) >= 5 and codes[0] == "38" and codes[1] == "2":
             try:
                 r, g, b = int(codes[2]), int(codes[3]), int(codes[4])
-                r, g, b = lift_color_for_contrast(r, g, b)
                 new_color = f"#{r:02x}{g:02x}{b:02x}"
                 if new_color != current_color:
                     if count_blocks > 0:
