@@ -5,6 +5,7 @@ import { Renderer } from "./renderer.js";
 import { loadEngine, SceneDriver } from "./engine.js";
 import { initMotion, updateScrollProgress } from "./motion.js";
 import { initEnhancements } from "./enhance.js";
+import { mountDoom } from "./doom.js";
 
 const FONT_PX = 13;
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -96,7 +97,11 @@ async function boot() {
     running = false;
   });
 
-  // Both are enhancements. A failure in either leaves the page as it was.
+  const doomFrame = document.getElementById("doomFrame");
+  const playDoom = document.getElementById("playDoom");
+  if (doomFrame && playDoom) mountDoom(doomFrame, playDoom);
+
+  // All three are enhancements. A failure in any leaves the page as it was.
   try {
     initMotion({ reduced });
   } catch (err) {
