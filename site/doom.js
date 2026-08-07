@@ -85,10 +85,16 @@ export function colorizeFrame(frameData, palette = []) {
     const item = frameData[i];
     if (!Array.isArray(item)) continue;
     const [cIdx, count] = item;
+    const safeCount = Number.isInteger(count) ? Math.max(0, Math.min(count, MAX_RUN)) : 0;
     if (cIdx === -1) {
       html += "\n";
+    } else if (cIdx === -2) {
+      // record-doom.py's NO_COLOR: doom_ascii drew this stretch as bare,
+      // uncoloured space (a dark region), not a colour-less block glyph.
+      // Rendering it as "█" would paint dark areas in the theme's default
+      // text colour, inventing detail that was never actually drawn.
+      html += " ".repeat(safeCount);
     } else {
-      const safeCount = Number.isInteger(count) ? Math.max(0, Math.min(count, MAX_RUN)) : 0;
       const blocks = "█".repeat(safeCount);
       const color = palette[cIdx];
       html += HEX_COLOR.test(color) ? `<span style="color:${color}">${blocks}</span>` : blocks;

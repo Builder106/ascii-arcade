@@ -174,12 +174,21 @@ def main() -> int:
     if len(frames) > want:
         frames = frames[-want:]
 
+    # -1 is reserved for the row separator below and must never collide with
+    # a real run. -chars block prints dark pixels as bare, uncoloured spaces
+    # (see doomgeneric_ascii.c's BLOCK case: idx == 0 -> BUF_PUTS(buf, " "),
+    # no SGR emitted), so ansi_to_row_runs legitimately produces runs with
+    # color=None wherever the screen is dark. Mapping None to -1 meant a dark
+    # run silently collapsed into a single stray newline, count and all,
+    # because the JS decoder treats any -1 as "\n" and ignores its count. -2
+    # is a run with no colour rather than "end of row".
+    NO_COLOR = -2
     palette: list[str] = []
     palette_map: dict[str, int] = {}
 
     def get_color_index(c: str | None) -> int:
         if c is None:
-            return -1
+            return NO_COLOR
         if c not in palette_map:
             palette_map[c] = len(palette)
             palette.append(c)
