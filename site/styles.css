@@ -93,7 +93,19 @@ body {
 .rail a:focus-visible { color: var(--fg); }
 .rail a:focus-visible { outline: 2px solid var(--fg); outline-offset: 4px; }
 
-.open,
+.open {
+  position: relative;
+  z-index: 2;
+  min-height: 100svh;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 1.1rem;
+  padding: 4rem clamp(1.5rem, 5vw, 5rem);
+  max-width: 96rem;
+  width: 100%;
+}
+
 .sec {
   position: relative;
   z-index: 2;
@@ -109,8 +121,8 @@ body {
 .open__doom {
   margin: 0;
   color: var(--muted);
-  font-size: clamp(0.65rem, 1.25vw, 1.1rem);
-  line-height: 1.1;
+  font-size: clamp(0.75rem, 1.4vw, 1.6rem);
+  line-height: 1.05;
   white-space: pre;
   overflow: hidden;
   max-width: 100%;
