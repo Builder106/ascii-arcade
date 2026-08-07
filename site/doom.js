@@ -18,6 +18,9 @@ function escapeHtml(ch) {
 }
 
 export function colorizeFrame(frameText) {
+  if (frameText.includes("<span")) {
+    return frameText;
+  }
   let html = "";
   for (let i = 0; i < frameText.length; i++) {
     const ch = frameText[i];

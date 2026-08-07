@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
-"""Record DOOM's attract-mode loop as plain character frames for the site.
+"""Record DOOM's attract-mode loop with full 24-bit RGB truecolor for the site.
 
-Runs on ampere-dev, after scripts/setup.sh has built bin/doom_ascii. The output
-is text: nothing GPL is redistributed, because doom_ascii itself never leaves
-the build machine. Only the characters it drew do.
-
-doom_ascii repaints by homing the cursor, so the stream splits into frames on
-the home sequence. Colour is dropped: the cold open renders into a <pre> in the
-theme's own colour, so per-cell colour would be thrown away anyway.
+Runs on ampere-dev, after scripts/setup.sh has built bin/doom_ascii. Output
+is text with inline HTML color spans, so nothing GPL is redistributed:
+doom_ascii itself never leaves the build machine. Only the colored characters
+it drew do.
 
 Usage: python3 scripts/record-doom.py [seconds] [output]
 """
 
 import json
+import html
 import os
 import pty
 import re
@@ -21,10 +19,8 @@ import signal
 import sys
 import time
 
-ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
-# doom_ascii homes the cursor with an empty first parameter, "\x1b[;H", rather
-# than the more usual "\x1b[H" or "\x1b[1;1H". Match the general form or the
-# stream never splits into frames at all.
+SGR_RE = re.compile(r"\x1b\[([0-9;]*)m")
+ANSI_STRIP = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 HOME = re.compile(r"\x1b\[[0-9;]*H|\x1b\[2J")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -34,26 +30,94 @@ WAD = os.path.join(ROOT, "wad", "freedoom1.wad")
 SECONDS = float(sys.argv[1]) if len(sys.argv) > 1 else 8.0
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "site/assets/doom-attract.json")
 FPS = 12
-# The cold open is a short loop behind a headline, not a video. Four seconds
-# reads as "this is running" and keeps the autoplaying payload small; the grid
-# is cropped for the same reason.
 LOOP_SECONDS = 4
 MAX_COLS = 80
 MAX_ROWS = 24
 
-
 BOOT_MARKERS = ("Init", "W_Init", "Z_Init", "adding ", "saving config")
 
 
-def clean(chunk: str) -> list[str]:
-    """One frame as a list of rows, ANSI stripped and clipped to the grid."""
-    rows = [ANSI.sub("", line).rstrip() for line in chunk.split("\n")]
-    rows = [r[:MAX_COLS] for r in rows if r.strip()]
-    return rows[:MAX_ROWS]
+def lift_color_for_contrast(r: int, g: int, b: int) -> tuple[int, int, int]:
+    """Ensure relative luminance passes WCAG 2 AA 4.5:1 floor against dark background."""
+    lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    if lum < 92:
+        factor = 92.0 / max(lum, 1.0)
+        r = min(255, int(r * factor))
+        g = min(255, int(g * factor))
+        b = min(255, int(b * factor))
+    return r, g, b
+
+
+def ansi_to_html_row(line: str) -> str:
+    row_html = ""
+    current_color = None
+    current_text = ""
+    col_count = 0
+
+    pos = 0
+    while pos < len(line) and col_count < MAX_COLS:
+        match = SGR_RE.search(line, pos)
+        if not match:
+            text = line[pos:]
+            take = min(len(text), MAX_COLS - col_count)
+            current_text += text[:take]
+            col_count += take
+            break
+
+        text = line[pos : match.start()]
+        if text:
+            take = min(len(text), MAX_COLS - col_count)
+            current_text += text[:take]
+            col_count += take
+            if col_count >= MAX_COLS:
+                break
+
+        codes = match.group(1).split(";")
+        if codes in ([""], ["0"]):
+            if current_text:
+                esc = html.escape(current_text)
+                row_html += f'<span style="color:{current_color}">{esc}</span>' if current_color else esc
+                current_text = ""
+            current_color = None
+        elif len(codes) >= 5 and codes[0] == "38" and codes[1] == "2":
+            try:
+                r, g, b = int(codes[2]), int(codes[3]), int(codes[4])
+                r, g, b = lift_color_for_contrast(r, g, b)
+                # Convert to compact hex color (#rrggbb)
+                new_color = f"#{r:02x}{g:02x}{b:02x}"
+                if new_color != current_color:
+                    if current_text:
+                        esc = html.escape(current_text)
+                        row_html += f'<span style="color:{current_color}">{esc}</span>' if current_color else esc
+                        current_text = ""
+                    current_color = new_color
+            except ValueError:
+                pass
+        pos = match.end()
+
+    if current_text:
+        esc = html.escape(current_text)
+        row_html += f'<span style="color:{current_color}">{esc}</span>' if current_color else esc
+
+    return row_html
+
+
+def clean(chunk: str) -> tuple[list[str], list[str]]:
+    """Returns (plain_rows, html_rows) for a frame chunk."""
+    raw_lines = chunk.split("\n")
+    plain_rows = []
+    html_rows = []
+    for line in raw_lines:
+        plain = ANSI_STRIP.sub("", line).rstrip()
+        if plain.strip():
+            plain_rows.append(plain[:MAX_COLS])
+            html_rows.append(ansi_to_html_row(line))
+            if len(plain_rows) >= MAX_ROWS:
+                break
+    return plain_rows, html_rows
 
 
 def is_gameplay(rows: list[str]) -> bool:
-    """True once DOOM is painting rather than logging its startup."""
     if len(rows) < 15:
         return False
     head = "\n".join(rows[:6])
@@ -71,11 +135,12 @@ def main() -> int:
     pid, fd = pty.fork()
     if pid == 0:
         os.environ["TERM"] = "xterm-256color"
-        os.execv(BIN, [BIN, "-iwad", WAD])
+        os.environ["COLORTERM"] = "truecolor"
+        os.execv(BIN, [BIN, "-chars", "block", "-iwad", WAD])
         os._exit(1)
 
     buf = ""
-    frames: list[list[str]] = []
+    frames: list[tuple[list[str], list[str]]] = []
     deadline = time.time() + SECONDS
 
     try:
@@ -94,11 +159,9 @@ def main() -> int:
             parts = HOME.split(buf)
             buf = parts.pop()
             for part in parts:
-                rows = clean(part)
-                # DOOM spends the first several seconds logging its startup.
-                # Nothing is kept until it is actually painting the screen.
-                if is_gameplay(rows):
-                    frames.append(rows)
+                plain_rows, html_rows = clean(part)
+                if is_gameplay(plain_rows):
+                    frames.append((plain_rows, html_rows))
     finally:
         os.kill(pid, signal.SIGKILL)
         os.waitpid(pid, 0)
@@ -108,21 +171,18 @@ def main() -> int:
         print("captured no frames", file=sys.stderr)
         return 1
 
-    # Drop consecutive repeats first. DOOM sits on its title screen for a
-    # while after boot, and a loop whose first quarter is a frozen image reads
-    # as a broken hero rather than a running one. Also compresses better.
-    moving = [f for i, f in enumerate(frames) if i == 0 or f != frames[i - 1]]
+    # Drop consecutive repeats
+    moving = [f for i, f in enumerate(frames) if i == 0 or f[0] != frames[i - 1][0]]
     if len(moving) >= FPS:
         frames = moving
 
-    # Keep a bounded, evenly sampled window rather than everything captured.
     want = int(LOOP_SECONDS * FPS)
     if len(frames) > want:
         step = len(frames) / want
         frames = [frames[int(i * step)] for i in range(want)]
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    payload = {"fps": FPS, "frames": ["\n".join(f) for f in frames]}
+    payload = {"fps": FPS, "frames": ["\n".join(f[1]) for f in frames]}
     with open(OUT, "w") as fh:
         json.dump(payload, fh, separators=(",", ":"))
 
