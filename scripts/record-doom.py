@@ -31,8 +31,8 @@ SECONDS = float(sys.argv[1]) if len(sys.argv) > 1 else 8.0
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "site/assets/doom-attract.json")
 FPS = 12
 LOOP_SECONDS = 4
-MAX_COLS = 80
-MAX_ROWS = 24
+MAX_COLS = 160
+MAX_ROWS = 48
 
 BOOT_MARKERS = ("Init", "W_Init", "Z_Init", "adding ", "saving config")
 
@@ -141,7 +141,7 @@ def main() -> int:
     if pid == 0:
         os.environ["TERM"] = "xterm-256color"
         os.environ["COLORTERM"] = "truecolor"
-        os.execv(BIN, [BIN, "-scaling", "8", "-chars", "block", "-iwad", WAD])
+        os.execv(BIN, [BIN, "-scaling", "4", "-chars", "block", "-iwad", WAD])
         os._exit(1)
 
     buf = ""
