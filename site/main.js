@@ -3,6 +3,8 @@
  */
 import { Renderer } from "./renderer.js";
 import { loadEngine, SceneDriver } from "./engine.js";
+import { initMotion, updateScrollProgress } from "./motion.js";
+import { initEnhancements } from "./enhance.js";
 
 const FONT_PX = 13;
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -77,6 +79,7 @@ async function boot() {
   const frame = () => {
     if (!running) return;
     if (document.visibilityState === "visible") {
+      updateScrollProgress();
       driver.tick((performance.now() - start) / 1000);
     }
     requestAnimationFrame(frame);
@@ -92,6 +95,18 @@ async function boot() {
   addEventListener("pagehide", () => {
     running = false;
   });
+
+  // Both are enhancements. A failure in either leaves the page as it was.
+  try {
+    initMotion({ reduced });
+  } catch (err) {
+    console.warn("motion unavailable; static layout stands", err);
+  }
+  try {
+    initEnhancements();
+  } catch (err) {
+    console.warn("enhancements unavailable; page still works", err);
+  }
 
   window.__aaReady = true;
 }

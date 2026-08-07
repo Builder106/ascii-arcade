@@ -220,3 +220,107 @@ body::before {
   }
   html { scroll-behavior: auto; }
 }
+
+/* ── Motion ─────────────────────────────────────────────────────────────────
+   Enhancement only. Nothing above this point depends on it, and a browser with
+   neither scroll timelines nor JavaScript gets the static page, which is the
+   same one prefers-reduced-motion produces. */
+
+/* The cold open recedes as the stack closes over it. Driven by --open, a
+   lerped value from the frame loop rather than a scroll timeline, so it has
+   inertia and works in browsers without animation-timeline. */
+@media (prefers-reduced-motion: no-preference) {
+  .open {
+    position: sticky;
+    top: 0;
+  }
+  .open__doom,
+  .open__claim,
+  .open__sub,
+  .open__acts,
+  .open__note {
+    scale: calc(1 - var(--open, 0) * 0.12);
+    opacity: calc(1 - var(--open, 0) * 1.15);
+    transform-origin: left center;
+  }
+}
+
+/* Reveals, where the browser can drive them from scroll position. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .sec > * {
+      animation: reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 8% entry 52%;
+    }
+    @keyframes reveal {
+      from {
+        opacity: 0;
+        translate: 0 1.4rem;
+      }
+      to {
+        opacity: 1;
+        translate: none;
+      }
+    }
+  }
+}
+
+/* Fallback for browsers without scroll timelines. The .js-reveal class is
+   added by motion.js, so the hidden state never applies unless something is
+   there to undo it. */
+@media (prefers-reduced-motion: no-preference) {
+  .js-reveal .sec > * {
+    opacity: 0;
+    translate: 0 1.4rem;
+    transition: opacity 480ms ease, translate 480ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .js-reveal .sec.is-in > * {
+    opacity: 1;
+    translate: none;
+  }
+}
+
+/* The persistent affordance: the current depth mark and a way out to the
+   download. A glyph and a link, no dot, no badge, no status indicator. */
+.dock {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  border: 1px solid var(--rule);
+  background: var(--bg);
+  padding: 0.5rem 0.9rem;
+}
+.dock__depth {
+  color: var(--fg);
+  font-size: 1.05rem;
+  line-height: 1;
+  width: 1ch;
+  text-align: center;
+}
+.dock__go {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.dock__go:hover,
+.dock__go:focus-visible { color: var(--fg); }
+.dock__go:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+
+.copy {
+  font: inherit;
+  font-size: 0.8rem;
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--muted);
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  justify-self: start;
+}
+.copy:hover,
+.copy:focus-visible { color: var(--fg); border-color: var(--fg); }
+.copy:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
