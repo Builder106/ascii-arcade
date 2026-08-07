@@ -8,6 +8,15 @@ import { makeThresholds, blend } from "./dissolve.js";
 
 const TRANSITION_MS = 900;
 
+// Cubic ease-in-out on the dissolve's progress, not just its duration. A
+// linear sweep crosses thresholds at a constant rate the whole 900ms, which
+// reads as a wipe with a random edge. Easing bunches the crossings toward
+// the middle of the transition, so it starts calm, dissolves fast, and
+// settles — the difference between "character dissolve" and "static".
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
 export async function loadEngine() {
   try {
     const mod = await import("./pkg/aa_wasm.js");
@@ -94,10 +103,11 @@ export class SceneDriver {
     }
 
     this.next.render(tSeconds);
-    const progress = Math.min(
+    const linear = Math.min(
       1,
       (performance.now() - this.transitionStart) / TRANSITION_MS,
     );
+    const progress = easeInOutCubic(linear);
     const mixed = blend(
       this.current.glyphs(),
       this.next.glyphs(),

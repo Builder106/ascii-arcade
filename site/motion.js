@@ -12,7 +12,15 @@
  * canvas is already running.
  */
 
-const LERP = 0.09;
+const PAGE_LERP = 0.09;
+
+// --open gates the hero's visible opacity (styles.css multiplies it by 1.15,
+// so it clamps to 0 well before reaching 1). At PAGE_LERP's rate that clamp
+// point trails the user's actual scroll position by ~450ms — the hero keeps
+// visibly fading after the scroll gesture has already stopped, which reads
+// as lag rather than inertia. A snappier constant here settles in ~150ms:
+// still smoothed, but the fade finishes close to when the scroll does.
+const OPEN_LERP = 0.22;
 
 let smoothedPage = 0;
 let smoothedOpen = 0;
@@ -53,8 +61,8 @@ export function updateScrollProgress() {
   const page = max > 0 ? Math.min(1, scrollY / max) : 0;
   const open = innerHeight > 0 ? Math.min(1, scrollY / innerHeight) : 0;
 
-  smoothedPage += (page - smoothedPage) * LERP;
-  smoothedOpen += (open - smoothedOpen) * LERP;
+  smoothedPage += (page - smoothedPage) * PAGE_LERP;
+  smoothedOpen += (open - smoothedOpen) * OPEN_LERP;
 
   const root = document.documentElement.style;
   root.setProperty("--scroll", smoothedPage.toFixed(4));

@@ -333,11 +333,14 @@ body::before {
   }
 }
 
-/* Reveals, where the browser can drive them from scroll position. */
+/* Reveals, where the browser can drive them from scroll position. Timing
+   function eased rather than linear so the scroll-to-opacity mapping has the
+   same settle-in shape as the IntersectionObserver fallback below, instead
+   of the two paths reading as different sites depending on browser support. */
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     .sec > * {
-      animation: reveal linear both;
+      animation: reveal cubic-bezier(0.22, 1, 0.36, 1) both;
       animation-timeline: view();
       animation-range: entry 8% entry 52%;
     }
