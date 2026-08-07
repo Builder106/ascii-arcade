@@ -52,3 +52,8 @@ shells/android/*.iml
 
 # --- Built Rust native library (produced by scripts/build-android.sh)
 shells/android/app/src/main/jniLibs/
+
+# --- Built browser engine (produced by scripts/build-wasm.sh)
+# Regenerated from crates/aa-wasm; the Pages workflow builds it on deploy, so
+# the live site always has a fresh copy. Not carried in day-to-day history.
+site/pkg/
