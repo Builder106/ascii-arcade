@@ -7,6 +7,7 @@
  * is redistributed here. Only the characters it drew.
  */
 import { measureCell } from "./renderer.js";
+import { loadDoomSkeleton } from "./doom-play.js";
 
 // Matches .open__doom's line-height in styles.css. Font-size is computed here
 // rather than left to a fixed CSS clamp: the capture's column count is tied
@@ -135,6 +136,25 @@ export class RecordedDoom {
 
 export async function mountDoom(preEl, buttonEl) {
   let source = null;
+  let attractRunning = true;
+
+  const startAttract = () => {
+    if (!source) return;
+    attractRunning = true;
+    let last = null;
+    const draw = () => {
+      if (!attractRunning) return;
+      if (document.visibilityState === "visible") {
+        const item = source.frame();
+        if (item && item.frame !== last) {
+          preEl.innerHTML = colorizeFrame(item.frame, item.palette);
+          last = item.frame;
+        }
+      }
+      requestAnimationFrame(draw);
+    };
+    requestAnimationFrame(draw);
+  };
 
   try {
     const res = await fetch("assets/doom-attract.json");
@@ -152,32 +172,61 @@ export async function mountDoom(preEl, buttonEl) {
     };
     applyFit();
     addEventListener("resize", applyFit);
-
-    let last = null;
-    const draw = () => {
-      if (document.visibilityState === "visible") {
-        const item = source.frame();
-        if (item && item.frame !== last) {
-          preEl.innerHTML = colorizeFrame(item.frame, item.palette);
-          last = item.frame;
-        }
-      }
-      requestAnimationFrame(draw);
-    };
-    requestAnimationFrame(draw);
+    startAttract();
   }
 
-  // Somebody clicked this on purpose, so silence is the wrong answer.
-  buttonEl.addEventListener("click", () => {
-    let status = document.getElementById("doomStatus");
-    if (!status) {
-      status = document.createElement("p");
-      status.id = "doomStatus";
-      status.className = "open__note";
-      status.setAttribute("role", "status");
-      buttonEl.closest(".open__acts").after(status);
+  function status(text) {
+    let el = document.getElementById("doomStatus");
+    if (!el) {
+      el = document.createElement("p");
+      el.id = "doomStatus";
+      el.className = "open__note";
+      el.setAttribute("role", "status");
+      buttonEl.closest(".open__acts").after(el);
     }
-    status.textContent =
-      "Not playable in the browser yet: DOOM needs a GPL binary and a real terminal. Clone the repo and run ./scripts/setup.sh && swift run AsciiArcade.";
-  });
+    el.textContent = text;
+    return el;
+  }
+
+  buttonEl.addEventListener(
+    "click",
+    async () => {
+      attractRunning = false;
+      buttonEl.disabled = true;
+      buttonEl.textContent = "Loading…";
+      // Nothing is preloaded yet, so this click fetches doom.wasm plus the
+      // ~27MB WAD packaged alongside it — worth saying so, since a silent
+      // 27MB fetch reads as a hang otherwise.
+      status("Loading DOOM (about 27MB — this only happens once)…");
+
+      const canvas = document.createElement("canvas");
+      canvas.id = "doomPlayCanvas";
+      canvas.className = "open__doom";
+      canvas.style.display = "block";
+      canvas.setAttribute("role", "img");
+      canvas.setAttribute(
+        "aria-label",
+        "DOOM running live in the browser. Keyboard controls are not wired up yet.",
+      );
+      preEl.replaceWith(canvas);
+
+      try {
+        await loadDoomSkeleton(canvas);
+        buttonEl.textContent = "Live";
+        status(
+          "That's real DOOM, compiled to WebAssembly and running live in your browser right now — not a recording. Keyboard controls aren't wired up yet, so it'll sit on the boot screen.",
+        );
+      } catch (err) {
+        console.warn("doom-wasm unavailable", err);
+        buttonEl.disabled = false;
+        buttonEl.textContent = "Play it";
+        canvas.replaceWith(preEl);
+        startAttract();
+        status(
+          "Couldn't load DOOM in this browser. Clone the repo and run ./scripts/setup.sh && swift run AsciiArcade instead.",
+        );
+      }
+    },
+    { once: true },
+  );
 }

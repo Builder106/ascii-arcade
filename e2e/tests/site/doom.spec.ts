@@ -24,8 +24,15 @@ test("the loop advances rather than holding one still", async ({ page }) => {
 });
 
 test("a missing recording fails loudly on click, not silently", async ({ page }) => {
-  await page.route("**/doom-attract.json", (r) => r.abort());
+  // Play it now depends on doom-wasm/, not the attract recording — the two
+  // are independent resources (mountDoom() falls back to a blank hero if
+  // the recording is missing, but Play it's own success/failure is
+  // governed entirely by whether doom-wasm/ loads). Abort the resource
+  // Play it actually needs to test its own failure path.
+  await page.route("**/doom-wasm/**", (r) => r.abort());
   await page.goto("/site/");
   await page.getByRole("button", { name: /play it/i }).click();
-  await expect(page.getByRole("status")).toContainText(/run \.\/scripts\/setup\.sh|clone the repo/i);
+  await expect(page.getByRole("status")).toContainText(/run \.\/scripts\/setup\.sh|clone the repo/i, {
+    timeout: 10000,
+  });
 });
