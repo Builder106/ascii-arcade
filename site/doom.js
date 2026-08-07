@@ -41,31 +41,13 @@ export function colorizeFrame(frameData, palette = []) {
   for (let i = 0; i < frameData.length; i++) {
     const item = frameData[i];
     if (!Array.isArray(item)) continue;
-    const [topIdx, botIdx, count] = item;
-
-    if (topIdx === -1 && botIdx === -1) {
+    const [cIdx, count] = item;
+    if (cIdx === -1) {
       html += "\n";
     } else {
-      const topColor = palette[topIdx];
-      const botColor = palette[botIdx];
-
-      if (topColor && botColor) {
-        if (topColor === botColor) {
-          const blocks = "█".repeat(count);
-          html += `<span style="color:${topColor}">${blocks}</span>`;
-        } else {
-          const blocks = "▀".repeat(count);
-          html += `<span style="color:${topColor};background:${botColor}">${blocks}</span>`;
-        }
-      } else if (topColor) {
-        const blocks = "▀".repeat(count);
-        html += `<span style="color:${topColor}">${blocks}</span>`;
-      } else if (botColor) {
-        const blocks = "▄".repeat(count);
-        html += `<span style="color:${botColor}">${blocks}</span>`;
-      } else {
-        html += " ".repeat(count);
-      }
+      const color = palette[cIdx];
+      const blocks = "█".repeat(count);
+      html += color ? `<span style="color:${color}">${blocks}</span>` : blocks;
     }
   }
   return html;
