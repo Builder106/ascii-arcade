@@ -20,12 +20,50 @@ import { Renderer, measureCell } from "./renderer.js";
  * is the playable box so small" symptom this replaced.
  */
 function fitDoomFont(box, cols, rows) {
-  const probe = document.createElement("canvas").getContext("2d");
-  probe.font = `100px "IBM Plex Mono", monospace`;
-  const cellAt100 = measureCell(probe, 100);
+  const cellAt100 = cellAspectAt100();
   const byWidth = box.width / cols / (cellAt100.w / 100);
   const byHeight = box.height / rows / (cellAt100.h / 100);
   return Math.max(1, Math.min(byWidth, byHeight));
+}
+
+// Cached: same probe context, same font, every call — no reason to
+// recreate the canvas each time fitDoomFont or gridColsForBox runs.
+let cellAt100Cache = null;
+function cellAspectAt100() {
+  if (!cellAt100Cache) {
+    const probe = document.createElement("canvas").getContext("2d");
+    probe.font = `100px "IBM Plex Mono", monospace`;
+    cellAt100Cache = measureCell(probe, 100);
+  }
+  return cellAt100Cache;
+}
+
+/**
+ * How many glyph columns the source buffer's `srcHeight` rows need to make
+ * the rendered grid's aspect ratio match `box`'s aspect ratio exactly, so
+ * fitDoomFont's width and height constraints bind at the same time instead
+ * of one of them leaving the box letterboxed.
+ *
+ * A fixed "double the source width" rule (matching doom_ascii's own
+ * "-chars block" convention) only cancels the glyph cell's own aspect
+ * ratio — it reproduces the source buffer's pixel aspect ratio, not
+ * whatever aspect ratio `.open__doom` happens to be. Those matched by
+ * coincidence for the recorded attract-mode capture (record-doom.py's
+ * cols/rows were hand-tuned against this box already); they don't for a
+ * canvas grid sized independently at runtime. Solving for cols directly
+ * from the box's own measured aspect ratio removes the coincidence.
+ *
+ * `cellAspect` (height:width of one glyph cell) is a parameter rather than
+ * measured internally: canvas text metrics don't scale linearly all the
+ * way down to the small font sizes DOOM's box ends up needing (hinting
+ * rounds glyph advances to whole device pixels, more aggressively at small
+ * sizes), so a ratio measured at a large reference size is only a first
+ * estimate. loadDoomSkeleton calls this twice — once with that estimate,
+ * once with the real ratio Renderer measures at the actual font size.
+ */
+function gridColsForBox(box, srcHeight, cellAspect) {
+  const boxAspect = box.width / box.height;
+  return Math.max(1, Math.round(boxAspect * cellAspect * srcHeight));
 }
 
 // DG_ScreenBuffer's pixel format, confirmed by direct source read and by
@@ -51,27 +89,23 @@ function unpackPixel(word) {
 // tune by eye once Task 7's test is passing and the output is visible.
 const DARK_THRESHOLD = 24;
 
-// Two glyph cells per source pixel, horizontally — matching doom_ascii's
-// own "-chars block" convention (what the recorded attract loop already
-// captures). A monospace character cell is roughly twice as tall as it is
-// wide, so mapping one square-ish pixel to one cell squashes the image
-// horizontally; two cells per pixel is what makes the result look
-// correctly proportioned rather than compressed.
-function pixelsToGlyphs(pixels, srcWidth, srcHeight) {
-  const outWidth = srcWidth * 2;
+// Nearest-neighbour horizontal resample from srcWidth source pixels to
+// outWidth glyph columns (rows stay one-to-one with source pixels).
+// outWidth is gridColsForBox's answer, not a fixed multiple of srcWidth —
+// this fills whatever box the canvas actually has (see gridColsForBox)
+// rather than reproducing the source buffer's own pixel aspect ratio.
+function pixelsToGlyphs(pixels, srcWidth, srcHeight, outWidth) {
   const glyphs = new Array(outWidth * srcHeight);
   const colors = new Uint32Array(outWidth * srcHeight);
   for (let y = 0; y < srcHeight; y++) {
-    for (let x = 0; x < srcWidth; x++) {
-      const { r, g, b } = unpackPixel(pixels[y * srcWidth + x]);
+    const rowBase = y * srcWidth;
+    const outBase = y * outWidth;
+    for (let x = 0; x < outWidth; x++) {
+      const srcX = Math.min(srcWidth - 1, Math.floor((x * srcWidth) / outWidth));
+      const { r, g, b } = unpackPixel(pixels[rowBase + srcX]);
       const dark = r < DARK_THRESHOLD && g < DARK_THRESHOLD && b < DARK_THRESHOLD;
-      const glyph = dark ? " " : "█";
-      const color = dark ? 0 : 0xff000000 | (r << 16) | (g << 8) | b;
-      const out = y * outWidth + x * 2;
-      glyphs[out] = glyph;
-      colors[out] = color;
-      glyphs[out + 1] = glyph;
-      colors[out + 1] = color;
+      glyphs[outBase + x] = dark ? " " : "█";
+      colors[outBase + x] = dark ? 0 : 0xff000000 | (r << 16) | (g << 8) | b;
     }
   }
   return { glyphs, colors };
@@ -98,16 +132,31 @@ export async function loadDoomSkeleton(canvas) {
 
   const width = getWidth();
   const height = getHeight();
-  const gridCols = width * 2; // two glyph cells per source pixel — see pixelsToGlyphs
   const renderer = new Renderer(canvas);
   const rect = canvas.getBoundingClientRect();
-  const fontPx = fitDoomFont(rect, gridCols, height);
+
+  // Solved from the box's own aspect ratio (see gridColsForBox), not a
+  // fixed multiple of `width` — that's what makes this fill the box on
+  // both axes instead of letterboxing on whichever one doesn't happen to
+  // match DOOM's native pixel aspect ratio. Two passes: the first uses a
+  // cell-aspect estimate measured at a large reference font size, then
+  // resize() gives a real measurement at the actual (much smaller) font
+  // size actually used — hinting means those don't quite agree, so the
+  // second pass corrects gridCols/fontPx against the real one.
+  const estimatedCell = cellAspectAt100();
+  let gridCols = gridColsForBox(rect, height, estimatedCell.h / estimatedCell.w);
+  let fontPx = fitDoomFont(rect, gridCols, height);
   renderer.resize(rect.width, rect.height, fontPx);
-  // Force the grid to exactly DOOM's own resolution (doubled) rather than
-  // whatever fell out of gridSize() inside resize() (which measures
-  // against the box's raw pixel dimensions, not the cols/rows this buffer
-  // actually has) — this is DOOM's pixel buffer, not prose text, and every
-  // pixel needs its own cell.
+
+  gridCols = gridColsForBox(rect, height, renderer.cell.h / renderer.cell.w);
+  fontPx = fitDoomFont(rect, gridCols, height);
+  renderer.resize(rect.width, rect.height, fontPx);
+
+  // Force the grid to exactly the resolution gridColsForBox solved for,
+  // rather than whatever fell out of gridSize() inside resize() (which
+  // measures against the box's raw pixel dimensions, not the cols/rows
+  // this buffer actually has) — this is DOOM's pixel buffer, not prose
+  // text, and every pixel needs its own cell.
   renderer.cols = gridCols;
   renderer.rows = height;
 
@@ -119,7 +168,7 @@ export async function loadDoomSkeleton(canvas) {
     const ptr = getBuffer();
     if (ptr !== 0) {
       const pixels = new Uint32Array(mod.HEAPU8.buffer, ptr, width * height);
-      const { glyphs, colors } = pixelsToGlyphs(pixels, width, height);
+      const { glyphs, colors } = pixelsToGlyphs(pixels, width, height, gridCols);
       renderer.paint(glyphs, colors, themeColor);
     }
     requestAnimationFrame(draw);
