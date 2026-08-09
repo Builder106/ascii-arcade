@@ -31,3 +31,17 @@ test("the page is reachable by keyboard from the skip link", async ({ page }) =>
   await page.keyboard.press("Tab");
   await expect(page.locator("a.skip")).toBeFocused();
 });
+
+test("the live DOOM canvas and its controls pass axe once a session is active", async ({ page }) => {
+  await page.goto("/site/");
+  await page.getByRole("button", { name: /play it/i }).click();
+  await expect(page.locator("#doomPlayCanvas")).toBeVisible({ timeout: 15000 });
+
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    .include("#doomPlayCanvas")
+    .include("#stopDoom")
+    .analyze();
+
+  expect(results.violations).toEqual([]);
+});
