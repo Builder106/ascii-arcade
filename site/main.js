@@ -232,14 +232,18 @@ async function boot() {
   const start = performance.now();
   let running = true;
 
+  let ambientPaused = false;
+
   const frame = () => {
     if (!running) return;
     if (document.visibilityState === "visible") {
       updateScrollProgress();
       const t = (performance.now() - start) / 1000;
-      driver.tick(t);
-      if (galleryVisible) {
-        for (const { driver: gd } of galleryDrivers) gd.tick(t);
+      if (!ambientPaused) {
+        driver.tick(t);
+        if (galleryVisible) {
+          for (const { driver: gd } of galleryDrivers) gd.tick(t);
+        }
       }
     }
     requestAnimationFrame(frame);
@@ -259,7 +263,17 @@ async function boot() {
 
   const doomFrame = document.getElementById("doomFrame");
   const playDoom = document.getElementById("playDoom");
-  if (doomFrame && playDoom) mountDoom(doomFrame, playDoom);
+  const stopDoom = document.getElementById("stopDoom");
+  if (doomFrame && playDoom) {
+    mountDoom(doomFrame, playDoom, stopDoom, {
+      pauseAmbient: () => {
+        ambientPaused = true;
+      },
+      resumeAmbient: () => {
+        ambientPaused = false;
+      },
+    });
+  }
 
   // All three are enhancements. A failure in any leaves the page as it was.
   try {

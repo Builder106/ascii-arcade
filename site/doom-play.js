@@ -218,7 +218,7 @@ function buildTouchControls(mount, push) {
  * and returns a handle with a `stop()` method to end the paint loop.
  * Plan A's own proof-of-life — not yet wired to any button.
  */
-export async function loadDoomSkeleton(canvas) {
+export async function loadDoomSkeleton(canvas, { onSessionEnd } = {}) {
   const mod = await (await import("./doom-wasm/doom.js")).default({
     arguments: ["-iwad", "/freedoom1.wad"],
     // doom.wasm/doom.data sit next to doom.js. Without this, the loader
@@ -264,6 +264,11 @@ export async function loadDoomSkeleton(canvas) {
   renderer.cols = gridCols;
   renderer.rows = height;
 
+  const previousOverflow = document.documentElement.style.overflow;
+  document.documentElement.style.overflow = "hidden";
+  canvas.tabIndex = 0;
+  canvas.focus();
+
   const onKeyDown = (e) => {
     const key = KEY_MAP[e.code];
     if (key === undefined) return;
@@ -303,6 +308,7 @@ export async function loadDoomSkeleton(canvas) {
       removeEventListener("keydown", onKeyDown);
       removeEventListener("keyup", onKeyUp);
       touchControls?.destroy();
+      document.documentElement.style.overflow = previousOverflow;
     },
   };
 }

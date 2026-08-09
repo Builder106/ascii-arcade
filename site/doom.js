@@ -134,9 +134,10 @@ export class RecordedDoom {
   }
 }
 
-export async function mountDoom(preEl, buttonEl) {
+export async function mountDoom(preEl, buttonEl, stopButtonEl, { pauseAmbient, resumeAmbient } = {}) {
   let source = null;
   let attractRunning = true;
+  let activeSession = null;
 
   const startAttract = () => {
     if (!source) return;
@@ -188,6 +189,18 @@ export async function mountDoom(preEl, buttonEl) {
     return el;
   }
 
+  function endSession() {
+    activeSession?.stop();
+    activeSession = null;
+    stopButtonEl.hidden = true;
+    resumeAmbient?.();
+    buttonEl.disabled = false;
+    buttonEl.textContent = "Play it";
+    buttonEl.focus();
+  }
+
+  stopButtonEl.addEventListener("click", endSession);
+
   buttonEl.addEventListener(
     "click",
     async () => {
@@ -204,21 +217,24 @@ export async function mountDoom(preEl, buttonEl) {
       canvas.className = "open__doom";
       canvas.style.display = "block";
       canvas.style.position = "relative";
-      canvas.setAttribute("role", "img");
+      canvas.setAttribute("role", "application");
       canvas.setAttribute(
         "aria-label",
-        "DOOM running live in the browser. Keyboard controls are not wired up yet.",
+        "DOOM, playable. Arrow keys or WASD to move, Control to fire, Space to use, Enter to confirm menu selections, Escape for the in-game menu.",
       );
       preEl.replaceWith(canvas);
 
       try {
-        await loadDoomSkeleton(canvas);
+        pauseAmbient?.();
+        activeSession = await loadDoomSkeleton(canvas, { onSessionEnd: endSession });
+        stopButtonEl.hidden = false;
         buttonEl.textContent = "Live";
         status(
-          "That's real DOOM, compiled to WebAssembly and running live in your browser right now — not a recording. Keyboard controls aren't wired up yet, so it'll sit on the boot screen.",
+          "That's real DOOM, compiled to WebAssembly and running live in your browser right now — not a recording. Arrow keys or WASD to move, Control to fire, Space to use.",
         );
       } catch (err) {
         console.warn("doom-wasm unavailable", err);
+        resumeAmbient?.();
         buttonEl.disabled = false;
         buttonEl.textContent = "Play it";
         canvas.replaceWith(preEl);

@@ -146,10 +146,15 @@ mutually exclusive, so a touchscreen laptop with a keyboard gets both:
 - **Keyboard.** A translation table from `KeyboardEvent.code` to
   doomgeneric's key constants, covering menu navigation (arrows, Enter,
   Escape) and in-game controls (arrows or WASD to move, a fire key).
-  Escape doubles as the exit path: it opens doomgeneric's own in-game menu,
-  whose "quit" already terminates the session. Every mapped key gets
-  `preventDefault()` while a session is active, so arrows and space stop
-  double-acting as page scroll.
+  Escape opens doomgeneric's own in-game menu, same as native DOOM — but
+  **correction, verified during Plan B**: selecting "Quit" inside that menu
+  does not terminate the session from the page's point of view. Plan B
+  checked this empirically (`Module.onExit` never fires; `EXIT_RUNTIME`
+  isn't set in `build-doom-wasm.sh`'s `emcc` flags, so `exit()` is close to
+  a no-op here) rather than assuming the claim originally written here. The
+  visible Stop button is the only authoritative way to end a session.
+  Every mapped key gets `preventDefault()` while a session is active, so
+  arrows and space stop double-acting as page scroll.
 - **Touch.** An on-screen overlay — d-pad, fire/use, enter/escape — shown
   only during an active session, feature-detected via
   `matchMedia("(pointer: coarse)")` or `"ontouchstart" in window`. Touch

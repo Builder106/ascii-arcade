@@ -99,3 +99,23 @@ test("touch controls do not appear on a non-touch device", async ({ page }) => {
   });
   expect(hasControls).toBe(false);
 });
+
+test("Stop button ends the session, restores scroll, and returns focus", async ({ page }) => {
+  await page.goto("/site/");
+  await page.getByRole("button", { name: /play it/i }).click();
+  await expect(page.getByRole("button", { name: "Stop" })).toBeVisible({ timeout: 15000 });
+
+  const overflowDuring = await page.evaluate(
+    () => document.documentElement.style.overflow,
+  );
+  expect(overflowDuring).toBe("hidden");
+
+  await page.getByRole("button", { name: "Stop" }).click();
+  await expect(page.getByRole("button", { name: "Stop" })).toBeHidden();
+  await expect(page.getByRole("button", { name: /play it/i })).toBeFocused();
+
+  const overflowAfter = await page.evaluate(
+    () => document.documentElement.style.overflow,
+  );
+  expect(overflowAfter).not.toBe("hidden");
+});

@@ -199,6 +199,11 @@ p { margin: 0; color: var(--muted); max-width: 58ch; }
 }
 .btn--go { background: var(--fg); color: var(--bg); }
 .btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+/* .btn's own display:inline-block ties the UA stylesheet's [hidden] rule on
+   specificity (both 0-1-0) and, being an author rule, wins the cascade —
+   so a hidden .btn without this stays visually rendered despite the
+   attribute. Higher specificity restores what `hidden` is supposed to do. */
+.btn[hidden] { display: none; }
 
 .code {
   border: 1px solid var(--rule);
