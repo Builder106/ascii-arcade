@@ -171,12 +171,21 @@ async function boot() {
   galleryUpdateActive?.(driver.currentId);
 
   // Sections declare which scene belongs to them. Half-visible wins, so the
-  // scene changes once per section rather than fighting on boundaries.
+  // scene changes once per section rather than fighting on boundaries. A fast
+  // scroll crosses several sections within one 900ms dissolve — without a
+  // settle delay, each crossing retargets SceneDriver.next and resets its
+  // transition clock, so the dissolve keeps restarting and never finishes
+  // until the scroll stops. Waiting for scrolling to settle means only the
+  // section the visitor actually lands on triggers a scene change.
+  const SCENE_SETTLE_MS = 150;
+  let sceneSettleTimer = null;
   const sceneWatcher = new IntersectionObserver(
     (entries) => {
       for (const e of entries) {
         if (e.isIntersecting && e.intersectionRatio > 0.5) {
-          driver.setScene(e.target.dataset.scene);
+          clearTimeout(sceneSettleTimer);
+          const sceneId = e.target.dataset.scene;
+          sceneSettleTimer = setTimeout(() => driver.setScene(sceneId), SCENE_SETTLE_MS);
         }
       }
     },

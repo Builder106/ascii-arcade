@@ -34,24 +34,6 @@ test("the page still renders when WebAssembly fails to load", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Put it on yours" })).toBeAttached();
 });
 
-test("interactive scene picker switches active scene", async ({ page }) => {
-  await page.goto("/site/");
-  await page.waitForFunction(() => window.__aaReady === true, null, {
-    timeout: 15000,
-  });
-
-  const picker = page.getByRole("group", { name: "Select background scene" });
-  await expect(picker).toBeVisible();
-
-  const matrixBtn = picker.getByRole("button", { name: "Matrix" });
-  await expect(matrixBtn).toBeVisible();
-  await expect(matrixBtn).toHaveAttribute("aria-pressed", "false");
-
-  await matrixBtn.scrollIntoViewIfNeeded();
-  await matrixBtn.evaluate((btn) => (btn as HTMLElement).click());
-  await expect(matrixBtn).toHaveAttribute("aria-pressed", "true");
-});
-
 test("the scene gallery previews are independently live and drive the shared background", async ({
   page,
 }) => {
@@ -84,13 +66,9 @@ test("the scene gallery previews are independently live and drive the shared bac
   });
   expect(painted).toBeGreaterThan(0);
 
-  // Clicking a tile sets the real page background (same driver the hero
-  // picker controls), not just its own local state.
+  // Clicking a tile sets the real page background (same SceneDriver the
+  // scroll-triggered watcher controls), not just its own local state.
   await pipesCard.evaluate((btn) => (btn as HTMLElement).click());
   await expect(pipesCard).toHaveAttribute("aria-pressed", "true");
-  const heroPipesBtn = page
-    .getByRole("group", { name: "Select background scene" })
-    .getByRole("button", { name: "Pipes" });
-  await expect(heroPipesBtn).toHaveAttribute("aria-pressed", "true");
 });
 
