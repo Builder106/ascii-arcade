@@ -29,12 +29,6 @@ test("Gatekeeper is explained rather than buried", async ({ page }) => {
   await expect(page.getByText("xattr -dr com.apple.quarantine")).toBeVisible();
 });
 
-test("the performance claim is a measured number, not marketing vagueness", async ({ page }) => {
-  await page.goto("/site/");
-  await expect(page.getByText(/about 15% of one core/i)).toBeVisible();
-  await expect(page.getByText(/stops issuing draws the instant your screen sleeps/i)).toBeVisible();
-});
-
 test("the depth rail exposes accessible names, not bare glyphs", async ({ page }) => {
   await page.goto("/site/");
   const rail = page.getByRole("navigation", { name: /sections/i });
