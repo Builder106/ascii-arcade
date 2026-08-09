@@ -329,9 +329,9 @@ body::before {
     to right,
     var(--bg) 0%,
     var(--bg) 40%,
-    color-mix(in oklab, var(--bg) 88%, transparent) 64%,
-    color-mix(in oklab, var(--bg) 35%, transparent) 84%,
-    transparent 100%
+    color-mix(in oklab, var(--bg) 70%, transparent) 55%,
+    color-mix(in oklab, var(--bg) 20%, transparent) 68%,
+    transparent 85%
   );
 }
 
