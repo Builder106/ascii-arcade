@@ -8,6 +8,38 @@
  */
 import { Renderer, measureCell } from "./renderer.js";
 
+// doomgeneric's own key constants, verified against the pinned commit's
+// src/doomkeys.h directly (not recalled from memory or another source
+// port's conventions — vanilla Doom's byte values are not ASCII for the
+// non-printable ones).
+const KEY_UPARROW = 0xad;
+const KEY_DOWNARROW = 0xaf;
+const KEY_LEFTARROW = 0xac;
+const KEY_RIGHTARROW = 0xae;
+const KEY_USE = 0xa2;
+const KEY_FIRE = 0xa3;
+const KEY_ESCAPE = 27;
+const KEY_ENTER = 13;
+
+// Multiple JS codes map to the same doomgeneric constant (WASD alongside
+// arrows): doomgeneric only understands its own fixed key space, not which
+// physical key produced an event.
+const KEY_MAP = {
+  ArrowUp: KEY_UPARROW,
+  ArrowDown: KEY_DOWNARROW,
+  ArrowLeft: KEY_LEFTARROW,
+  ArrowRight: KEY_RIGHTARROW,
+  KeyW: KEY_UPARROW,
+  KeyS: KEY_DOWNARROW,
+  KeyA: KEY_LEFTARROW,
+  KeyD: KEY_RIGHTARROW,
+  ControlLeft: KEY_FIRE,
+  ControlRight: KEY_FIRE,
+  Space: KEY_USE,
+  Enter: KEY_ENTER,
+  Escape: KEY_ESCAPE,
+};
+
 /**
  * Largest font size that fits `cols` columns by `rows` rows into `box`
  * without overflowing either axis, using Renderer's own cell-sizing
@@ -126,6 +158,8 @@ export async function loadDoomSkeleton(canvas) {
     locateFile: (path) => new URL(`./doom-wasm/${path}`, import.meta.url).pathname,
   });
 
+  const push = mod.cwrap("wasm_push_key", null, ["number", "number"]);
+
   const getBuffer = mod.cwrap("wasm_get_screen_buffer", "number", []);
   const getWidth = mod.cwrap("wasm_get_screen_width", "number", []);
   const getHeight = mod.cwrap("wasm_get_screen_height", "number", []);
@@ -160,6 +194,21 @@ export async function loadDoomSkeleton(canvas) {
   renderer.cols = gridCols;
   renderer.rows = height;
 
+  const onKeyDown = (e) => {
+    const key = KEY_MAP[e.code];
+    if (key === undefined) return;
+    e.preventDefault();
+    push(1, key);
+  };
+  const onKeyUp = (e) => {
+    const key = KEY_MAP[e.code];
+    if (key === undefined) return;
+    e.preventDefault();
+    push(0, key);
+  };
+  addEventListener("keydown", onKeyDown);
+  addEventListener("keyup", onKeyUp);
+
   let running = true;
   const themeColor = { r: 200, g: 200, b: 200 };
 
@@ -176,8 +225,11 @@ export async function loadDoomSkeleton(canvas) {
   requestAnimationFrame(draw);
 
   return {
+    push,
     stop() {
       running = false;
+      removeEventListener("keydown", onKeyDown);
+      removeEventListener("keyup", onKeyUp);
     },
   };
 }
