@@ -220,7 +220,14 @@ function buildTouchControls(mount, push) {
  */
 export async function loadDoomSkeleton(canvas, { onSessionEnd } = {}) {
   const mod = await (await import("./doom-wasm/doom.js")).default({
-    arguments: ["-iwad", "/freedoom1.wad"],
+    // doom-ascii's dg_Create() sets DOOMGENERIC_RESX/RESY to 320/scaling
+    // (see scripts/record-doom.py's own comment on this same flag). With
+    // no -scaling argument that defaults to 80x50, and pixelsToGlyphs
+    // paints one glyph per source pixel — at 80x50 stretched to fill the
+    // play box, each glyph is a huge solid-color square with no
+    // recognizable detail. -scaling 2 matches what the recorded
+    // attract-mode capture already uses (160x100), which is legible.
+    arguments: ["-iwad", "/freedoom1.wad", "-scaling", "2"],
     // doom.wasm/doom.data sit next to doom.js. Without this, the loader
     // resolves them relative to the page URL, which is normally correct
     // in a browser — set explicitly anyway so this matches exactly what
