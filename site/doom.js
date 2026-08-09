@@ -203,6 +203,7 @@ export async function mountDoom(preEl, buttonEl) {
       canvas.id = "doomPlayCanvas";
       canvas.className = "open__doom";
       canvas.style.display = "block";
+      canvas.style.position = "relative";
       canvas.setAttribute("role", "img");
       canvas.setAttribute(
         "aria-label",

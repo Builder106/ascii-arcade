@@ -306,6 +306,31 @@ code { color: var(--fg); }
 }
 .gallery__card[aria-pressed="true"] .gallery__label { color: var(--fg); }
 
+.doom-controls {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  padding: 0.6rem;
+  background: color-mix(in oklab, var(--bg) 80%, transparent);
+}
+.doom-controls__btn {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.6rem 0;
+  border: 1px solid var(--rule);
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+  /* Touch targets, not mouse targets: 44px is the standard minimum. */
+  min-height: 44px;
+}
+.doom-controls__btn:active {
+  border-color: var(--fg);
+  background: color-mix(in oklab, var(--fg) 12%, transparent);
+}
+
 .foot {
   position: relative;
   z-index: 2;

@@ -143,6 +143,76 @@ function pixelsToGlyphs(pixels, srcWidth, srcHeight, outWidth) {
   return { glyphs, colors };
 }
 
+// Shown only during an active session, and only on a touch-capable device
+// — a mouse/keyboard visitor never sees this. Feature-detected rather than
+// UA-sniffed: matchMedia("(pointer: coarse)") covers touchscreen laptops
+// too, not just phones, matching the design's "never mutually exclusive
+// with keyboard" intent (a touchscreen laptop with a keyboard gets both).
+function touchCapable() {
+  return matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+}
+
+const TOUCH_BUTTONS = [
+  { label: "↑", key: KEY_UPARROW, className: "doom-controls__up" },
+  { label: "↓", key: KEY_DOWNARROW, className: "doom-controls__down" },
+  { label: "←", key: KEY_LEFTARROW, className: "doom-controls__left" },
+  { label: "→", key: KEY_RIGHTARROW, className: "doom-controls__right" },
+  { label: "Fire", key: KEY_FIRE, className: "doom-controls__fire" },
+  { label: "Use", key: KEY_USE, className: "doom-controls__use" },
+  { label: "Enter", key: KEY_ENTER, className: "doom-controls__enter" },
+  { label: "Esc", key: KEY_ESCAPE, className: "doom-controls__esc" },
+];
+
+function buildTouchControls(mount, push) {
+  const el = document.createElement("div");
+  el.className = "doom-controls";
+  el.setAttribute("role", "group");
+  el.setAttribute("aria-label", "Touch controls");
+
+  const cleanups = [];
+  for (const spec of TOUCH_BUTTONS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `doom-controls__btn ${spec.className}`;
+    btn.textContent = spec.label;
+
+    // touchstart/touchend, not click: click fires after a delay on touch
+    // devices and doesn't give a press/release pair at all, which is what
+    // a game button needs (holding "fire" must keep firing, not act like
+    // a single click). preventDefault on touchstart stops the synthetic
+    // mouse events + scroll gesture Safari/Chrome would otherwise generate
+    // from the touch.
+    const onStart = (e) => {
+      e.preventDefault();
+      push(1, spec.key);
+    };
+    const onEnd = (e) => {
+      e.preventDefault();
+      push(0, spec.key);
+    };
+    btn.addEventListener("touchstart", onStart, { passive: false });
+    btn.addEventListener("touchend", onEnd, { passive: false });
+    btn.addEventListener("touchcancel", onEnd, { passive: false });
+    cleanups.push(() => {
+      btn.removeEventListener("touchstart", onStart);
+      btn.removeEventListener("touchend", onEnd);
+      btn.removeEventListener("touchcancel", onEnd);
+    });
+
+    el.append(btn);
+  }
+
+  mount.append(el);
+
+  return {
+    el,
+    destroy() {
+      for (const fn of cleanups) fn();
+      el.remove();
+    },
+  };
+}
+
 /**
  * Loads doom-wasm, paints its output to `canvas` on every animation frame,
  * and returns a handle with a `stop()` method to end the paint loop.
@@ -209,6 +279,8 @@ export async function loadDoomSkeleton(canvas) {
   addEventListener("keydown", onKeyDown);
   addEventListener("keyup", onKeyUp);
 
+  const touchControls = touchCapable() ? buildTouchControls(canvas.parentElement, push) : null;
+
   let running = true;
   const themeColor = { r: 200, g: 200, b: 200 };
 
@@ -230,6 +302,7 @@ export async function loadDoomSkeleton(canvas) {
       running = false;
       removeEventListener("keydown", onKeyDown);
       removeEventListener("keyup", onKeyUp);
+      touchControls?.destroy();
     },
   };
 }

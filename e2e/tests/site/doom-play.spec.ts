@@ -47,3 +47,55 @@ test("keyboard input reaches doom-wasm's key queue", async ({ page }) => {
   expect(result.mappedPrevented).toBe(true);
   expect(result.unmappedPrevented).toBe(false);
 });
+
+test("touch controls appear only on touch-capable devices and feed the same key queue", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  await page.goto("/site/");
+
+  const found = await page.evaluate(async () => {
+    const { loadDoomSkeleton } = await import("/site/doom-play.js");
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 400;
+    canvas.style.width = "640px";
+    canvas.style.height = "400px";
+    const wrap = document.createElement("div");
+    wrap.appendChild(canvas);
+    document.body.appendChild(wrap);
+
+    const handle = await loadDoomSkeleton(canvas);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const hasControls = !!document.querySelector(".doom-controls");
+    handle.stop();
+    const removedAfterStop = !document.querySelector(".doom-controls");
+    wrap.remove();
+    return { hasControls, removedAfterStop };
+  });
+
+  expect(found.hasControls).toBe(true);
+  expect(found.removedAfterStop).toBe(true);
+  await context.close();
+});
+
+test("touch controls do not appear on a non-touch device", async ({ page }) => {
+  await page.goto("/site/");
+  const hasControls = await page.evaluate(async () => {
+    const { loadDoomSkeleton } = await import("/site/doom-play.js");
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 400;
+    canvas.style.width = "640px";
+    canvas.style.height = "400px";
+    document.body.appendChild(canvas);
+    const handle = await loadDoomSkeleton(canvas);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const result = !!document.querySelector(".doom-controls");
+    handle.stop();
+    canvas.remove();
+    return result;
+  });
+  expect(hasControls).toBe(false);
+});
