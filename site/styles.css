@@ -176,6 +176,16 @@ body {
 }
 .open__sub { color: var(--muted); font-size: 1.15rem; }
 .open__note { color: var(--dim); font-size: 0.85rem; }
+/* The only visible controls legend a sighted visitor gets once DOOM is
+   live — needs to read as information, not as the same dim aside used
+   for "Recorded..." captions elsewhere in this section. */
+.doom-status--live {
+  color: var(--fg);
+  font-size: 0.95rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--rule);
+}
+.doom-status--live kbd { margin: 0 0.05em; }
 .open__acts { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
 h2 {

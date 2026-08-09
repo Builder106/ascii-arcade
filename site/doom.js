@@ -176,7 +176,10 @@ export async function mountDoom(preEl, buttonEl, stopButtonEl, { pauseAmbient, r
     startAttract();
   }
 
-  function status(text) {
+  // innerHTML, not textContent: the "Live" state's message below embeds
+  // <kbd> tags for the controls legend. Every caller passes a static
+  // string literal from this file, never anything derived from user input.
+  function status(html) {
     let el = document.getElementById("doomStatus");
     if (!el) {
       el = document.createElement("p");
@@ -185,7 +188,7 @@ export async function mountDoom(preEl, buttonEl, stopButtonEl, { pauseAmbient, r
       el.setAttribute("role", "status");
       buttonEl.closest(".open__acts").after(el);
     }
-    el.textContent = text;
+    el.innerHTML = html;
     return el;
   }
 
@@ -229,9 +232,12 @@ export async function mountDoom(preEl, buttonEl, stopButtonEl, { pauseAmbient, r
         activeSession = await loadDoomSkeleton(canvas, { onSessionEnd: endSession });
         stopButtonEl.hidden = false;
         buttonEl.textContent = "Live";
+        // Dim "note" styling is right for the pre-play caption but wrong
+        // for this — it's the only visible controls legend a sighted
+        // visitor gets, so it needs contrast, not decoration.
         status(
-          "That's real DOOM, compiled to WebAssembly and running live in your browser right now — not a recording. Arrow keys or WASD to move, Control to fire, Space to use.",
-        );
+          `<kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>WASD</kbd> move | <kbd>Ctrl</kbd> fire | <kbd>Space</kbd> use | <kbd>Esc</kbd> menu`,
+        ).classList.add("doom-status--live");
       } catch (err) {
         console.warn("doom-wasm unavailable", err);
         resumeAmbient?.();

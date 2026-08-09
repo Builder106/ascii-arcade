@@ -225,9 +225,11 @@ export async function loadDoomSkeleton(canvas, { onSessionEnd } = {}) {
     // no -scaling argument that defaults to 80x50, and pixelsToGlyphs
     // paints one glyph per source pixel — at 80x50 stretched to fill the
     // play box, each glyph is a huge solid-color square with no
-    // recognizable detail. -scaling 2 matches what the recorded
-    // attract-mode capture already uses (160x100), which is legible.
-    arguments: ["-iwad", "/freedoom1.wad", "-scaling", "2"],
+    // recognizable detail. -scaling 1 is the fork's native resolution
+    // (320x200, vanilla DOOM's own internal resolution) — the most detail
+    // this pipeline can show; menu text in particular needs every pixel it
+    // can get since it's rendered as blocky glyphs, not anti-aliased.
+    arguments: ["-iwad", "/freedoom1.wad", "-scaling", "1"],
     // doom.wasm/doom.data sit next to doom.js. Without this, the loader
     // resolves them relative to the page URL, which is normally correct
     // in a browser — set explicitly anyway so this matches exactly what
