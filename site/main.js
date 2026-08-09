@@ -52,38 +52,6 @@ const SCENES = [
   { id: "life", label: "Life" },
 ];
 
-function buildScenePicker(driver, mount) {
-  if (!mount || !driver.wasm || driver.themes.length === 0) return null;
-
-  const label = document.createElement("span");
-  label.className = "open__scenes-label";
-  label.textContent = "Live Scene:";
-  mount.append(label);
-
-  const updateActive = (activeId) => {
-    for (const btn of mount.querySelectorAll("button")) {
-      btn.setAttribute("aria-pressed", String(btn.dataset.sceneId === activeId));
-    }
-  };
-
-  for (const s of SCENES) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "scene-btn";
-    btn.textContent = s.label;
-    btn.dataset.sceneId = s.id;
-    btn.setAttribute("aria-pressed", String(s.id === (driver.currentId || "donut")));
-
-    btn.addEventListener("click", () => {
-      driver.setScene(s.id);
-    });
-
-    mount.append(btn);
-  }
-
-  return updateActive;
-}
-
 /**
  * Five independent SceneDriver/Renderer pairs sharing the one loaded WASM
  * module, so every tile in the gallery is a genuinely live scene rather than
@@ -197,9 +165,7 @@ async function boot() {
     document.getElementById("palette"),
     galleryDrivers.map((g) => g.driver),
   );
-  const heroUpdateActive = buildScenePicker(driver, document.getElementById("heroScenePicker"));
   driver.onSceneChange = (id) => {
-    heroUpdateActive?.(id);
     galleryUpdateActive?.(id);
   };
   galleryUpdateActive?.(driver.currentId);

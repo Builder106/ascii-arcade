@@ -236,44 +236,6 @@ code { color: var(--fg); }
 .swatch[aria-pressed="true"] { border-color: var(--fg); }
 .swatch:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
 
-.open__scenes {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-top: 1rem;
-}
-.open__scenes-label {
-  font-size: 0.8rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-right: 0.2rem;
-}
-.scene-btn {
-  font: inherit;
-  font-size: 0.8rem;
-  cursor: pointer;
-  padding: 0.35rem 0.75rem;
-  border: 1px solid var(--rule);
-  background: transparent;
-  color: var(--muted);
-  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
-}
-.scene-btn:hover {
-  color: var(--fg);
-  border-color: var(--muted);
-}
-.scene-btn[aria-pressed="true"] {
-  border-color: var(--fg);
-  color: var(--fg);
-  background: color-mix(in oklab, var(--fg) 12%, transparent);
-}
-.scene-btn:focus-visible {
-  outline: 2px solid var(--fg);
-  outline-offset: 2px;
-}
-
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
