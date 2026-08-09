@@ -26,6 +26,7 @@
   <a href="#stack"    data-mark="."><span class="vh">macOS can't screenshot this</span></a>
   <a href="#layer"    data-mark="~"><span class="vh">It lives under everything</span></a>
   <a href="#scenes"   data-mark=":"><span class="vh">DOOM was the sideshow</span></a>
+  <a href="#gallery"  data-mark="+"><span class="vh">Five scenes, running at once</span></a>
   <a href="#palette-section" data-mark="="><span class="vh">Every glyph keys off one colour</span></a>
   <a href="#surfaces" data-mark="*"><span class="vh">It doesn't need a desktop</span></a>
   <a href="#install"  data-mark="@"><span class="vh">Put it on yours</span></a>
@@ -70,6 +71,12 @@
     Sloane's original donut maths, the same Rust the app runs on your desktop,
     compiled to WebAssembly and drawing in this page.
   </p>
+  <p class="fine">
+    In practice: about 15% of one core on an Apple M1, continuously, measured
+    with <code>top</code> while it was running. It renders on a display link
+    capped at 30fps on purpose — animation doesn't need your display's full
+    refresh rate — and stops issuing draws the instant your screen sleeps.
+  </p>
   <a class="btn btn--go" href="https://github.com/Builder106/ascii-arcade/releases">Download the DMG</a>
 </section>
 
@@ -89,6 +96,16 @@
     until you turn it on.
   </p>
   <a class="btn btn--go" href="https://github.com/Builder106/ascii-arcade/releases">Download the DMG</a>
+</section>
+
+<section class="sec" id="gallery" data-scene="helix">
+  <h2>Five scenes, running at once</h2>
+  <p>
+    Every tile below is live, not a screenshot — the same WebAssembly build
+    running five times over. Click one to make it the background here, and
+    on your desktop it is one menu-bar click away.
+  </p>
+  <div class="gallery" id="sceneGallery" role="group" aria-label="Preview and choose a scene"></div>
 </section>
 
 <section class="sec" id="palette-section" data-scene="pipes">

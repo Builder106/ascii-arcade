@@ -4,6 +4,7 @@ const HEADINGS = [
   "macOS can't screenshot this",
   "It lives under everything",
   "DOOM was the sideshow",
+  "Five scenes, running at once",
   "Every glyph keys off one colour",
   "It doesn't need a desktop",
   "Put it on yours",
@@ -26,6 +27,12 @@ test("Gatekeeper is explained rather than buried", async ({ page }) => {
   await page.goto("/site/");
   await expect(page.getByText(/gatekeeper/i)).toBeVisible();
   await expect(page.getByText("xattr -dr com.apple.quarantine")).toBeVisible();
+});
+
+test("the performance claim is a measured number, not marketing vagueness", async ({ page }) => {
+  await page.goto("/site/");
+  await expect(page.getByText(/about 15% of one core/i)).toBeVisible();
+  await expect(page.getByText(/stops issuing draws the instant your screen sleeps/i)).toBeVisible();
 });
 
 test("the depth rail exposes accessible names, not bare glyphs", async ({ page }) => {

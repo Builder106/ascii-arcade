@@ -269,6 +269,43 @@ code { color: var(--fg); }
   outline-offset: 2px;
 }
 
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 1rem;
+  width: 100%;
+  max-width: 56rem;
+}
+.gallery__card {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border: 1px solid var(--rule);
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.gallery__card:hover { border-color: var(--muted); }
+.gallery__card[aria-pressed="true"] {
+  border-color: var(--fg);
+  background: color-mix(in oklab, var(--fg) 12%, transparent);
+}
+.gallery__card:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+.gallery__canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 8 / 5;
+}
+.gallery__label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.gallery__card[aria-pressed="true"] .gallery__label { color: var(--fg); }
+
 .foot {
   position: relative;
   z-index: 2;
