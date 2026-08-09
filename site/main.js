@@ -287,6 +287,21 @@ async function boot() {
     console.warn("enhancements unavailable; page still works", err);
   }
 
+  // Preload courtesy: fetch the ~27MB doom-wasm bundle in the background
+  // once the page has settled, so a later click on "Play it" is a near-
+  // instant start rather than the visitor's first-ever wait on it. Skipped
+  // on a metered connection — costing every visitor this weight regardless
+  // of whether they ever press play would be the wrong tradeoff there.
+  const saveData =
+    navigator.connection?.saveData || matchMedia("(prefers-reduced-data: reduce)").matches;
+  if (!saveData && "requestIdleCallback" in window) {
+    requestIdleCallback(() => {
+      import("./doom-wasm/doom.js").catch((err) => {
+        console.warn("doom-wasm preload failed; will retry on Play click", err);
+      });
+    });
+  }
+
   window.__aaReady = true;
 }
 
