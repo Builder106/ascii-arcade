@@ -133,39 +133,27 @@ body {
 
 .open__doom {
   margin: 0;
-  color: var(--muted);
+  /* canvas defaults to display:inline (like img), which leaves stray
+     baseline-alignment gap under it — .open__doom is a canvas in both
+     its attract-preview and live-play states now. */
+  display: block;
   /* .open sets justify-items:start, which makes grid children shrink to fit
-     their own content by default. This pre is empty until doom.js populates
+     their own content by default. This canvas is empty until doom.js paints
      it, and fitTextToBox measures its box on mount, before that happens — an
      unstretched box would measure ~0 wide and compute a ~0 font-size. */
   width: 100%;
   /* No font-size here: doom.js's fitTextToBox measures this box and the
-     capture's actual cols/rows (carried in the payload, not assumed) and sets
-     it precisely on mount and on resize. A guessed clamp() either wastes the
-     box or overflows it — and overflow means real content gets clipped by
-     overflow:hidden below, not just displayed small. */
-  line-height: 0.82;
-  letter-spacing: -0.02em;
-  white-space: pre;
+     capture's actual cols/rows (carried in the payload, not assumed) and
+     sizes the canvas's own glyph grid to match precisely, on mount and on
+     resize. A guessed size either wastes the box or overflows it — and
+     overflow means real content gets clipped by overflow:hidden below,
+     not just displayed small. */
   overflow: hidden;
   max-width: 100%;
   /* Was 48vh, then 68vh so the 2x-resolution capture had room to show its
      detail. Trimmed to 62vh — still large — to help the CTA buttons below
      fit on-screen without scrolling; see the .open comment above. */
   height: 62vh;
-}
-.open__doom .d-dim {
-  color: var(--dim);
-  opacity: 0.55;
-}
-.open__doom .d-mid {
-  color: var(--muted);
-  opacity: 0.85;
-}
-.open__doom .d-hot {
-  color: var(--fg);
-  font-weight: 700;
-  text-shadow: 0 0 6px color-mix(in oklab, var(--fg) 70%, transparent);
 }
 .open__claim {
   margin: 0;
