@@ -232,6 +232,11 @@ export async function mountDoom(preEl, buttonEl, stopButtonEl, { pauseAmbient, r
         activeSession = await loadDoomSkeleton(canvas, { onSessionEnd: endSession });
         stopButtonEl.hidden = false;
         buttonEl.textContent = "Live";
+        // Added only now, not at canvas creation: the canvas sits in the
+        // DOM (empty) for the whole ~27MB load, and animating that empty
+        // box would finish long before there's anything to reveal. This
+        // way the "grow" plays exactly when gameplay actually appears.
+        canvas.classList.add("doom-live-enter");
         // Dim "note" styling is right for the pre-play caption but wrong
         // for this — it's the only visible controls legend a sighted
         // visitor gets, so it needs contrast, not decoration.

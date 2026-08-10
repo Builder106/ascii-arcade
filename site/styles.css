@@ -186,6 +186,23 @@ body {
   border-top: 1px solid var(--rule);
 }
 .doom-status--live kbd { margin: 0 0.05em; }
+
+/* The preview and the playable canvas occupy the exact same box (both are
+   .open__doom), so there's no size jump to animate — this is purely the
+   "it just came alive" beat, not a layout fix. */
+/* transform: scale(), not the standalone `scale` property — .open__doom
+   already animates standalone `scale` via open-recede (below), and using
+   the same property here would mean whichever of the two animations is
+   listed later in that compound rule silently wins for the whole
+   duration, instead of the two composing. transform composes with
+   standalone scale/rotate/translate cleanly, so this coexists instead. */
+.doom-live-enter {
+  animation: doom-grow-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes doom-grow-in {
+  from { transform: scale(0.94); }
+  to { transform: scale(1); }
+}
 .open__acts { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
 h2 {
@@ -410,6 +427,23 @@ body::before {
       to {
         opacity: 1;
       }
+    }
+
+    /* .open__doom already has its own animation (open-recede, above) in
+       this browser tier — the `animation` shorthand only holds one
+       animation per element, so .doom-live-enter's plain `animation:
+       doom-grow-in` rule below gets entirely overwritten here rather
+       than composing with it. Comma-listing both names (and every
+       longhand animation-* the shorthand controls) runs them together;
+       the second position in each list repeats open-recede's own
+       values exactly so its scroll-linked behavior is untouched. */
+    .open__doom.doom-live-enter {
+      animation-name: doom-grow-in, open-recede;
+      animation-duration: 520ms, 0s;
+      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), linear;
+      animation-fill-mode: both, both;
+      animation-timeline: auto, scroll(root block);
+      animation-range: normal, 0 100vh;
     }
   }
 }
