@@ -164,6 +164,15 @@ body {
 }
 .open__sub { color: var(--muted); font-size: 1.15rem; }
 .open__note { color: var(--dim); font-size: 0.85rem; }
+/* .open__note is shared with doom.js's dynamic #doomStatus line (the
+   loading and error messages), which are longer and need to keep
+   wrapping — :not() excludes it so only the static "Recorded..."
+   caption gets the one-line override, the same generic
+   p { max-width: 58ch } fix as .doom-status--live below. */
+.open__note:not(#doomStatus) {
+  max-width: none;
+  white-space: nowrap;
+}
 /* The only visible controls legend a sighted visitor gets once DOOM is
    live — needs to read as information, not as the same dim aside used
    for "Recorded..." captions elsewhere in this section. */
