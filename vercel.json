@@ -7,6 +7,6 @@
       "*": false
     }
   },
-  "buildCommand": "rustup target add wasm32-unknown-unknown && bash scripts/build-wasm.sh",
+  "buildCommand": "bash scripts/vercel-build.sh",
   "outputDirectory": "site"
 }
