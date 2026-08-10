@@ -331,11 +331,79 @@ function buildTouchControls(mount, push) {
 }
 
 /**
+ * Canvas-native loading screen for the ~27MB first-time doom-wasm fetch —
+ * replaces what used to be a plain blank canvas for however many seconds
+ * that takes. Plain 2D canvas text, not the glyph-atlas Renderer: this
+ * runs before the module (and therefore doom's own resolution) is known
+ * at all, so there's no grid to paint into yet — just a few lines of
+ * text over the box's real pixel size, which is already knowable.
+ *
+ * Passed as the `setStatus` constructor option below: Emscripten's own
+ * --preload-file data loader (this build's ~27MB WAD) calls it with real
+ * download-progress text ("Downloading data... (n/total)") when it's
+ * defined, regardless of whether anything is displayed with it — so
+ * wiring it up costs nothing even on a build/runtime where it never
+ * fires, and this falls back to its own animated message either way.
+ */
+function paintLoadingScreen(canvas) {
+  const ctx = canvas.getContext("2d");
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.floor(rect.width * dpr);
+  canvas.height = Math.floor(rect.height * dpr);
+  canvas.style.width = `${rect.width}px`;
+  canvas.style.height = `${rect.height}px`;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  let running = true;
+  let statusText = "";
+  const start = performance.now();
+
+  const draw = () => {
+    if (!running) return;
+    const t = (performance.now() - start) / 1000;
+
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, rect.width, rect.height);
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const titleSize = Math.max(14, rect.width * 0.03);
+    ctx.font = `700 ${titleSize}px "IBM Plex Mono", monospace`;
+    // A slow breathe rather than a blink — matches the soft glow the
+    // site's other "hot" DOOM-red accents use elsewhere, not a harsh flash.
+    const pulse = 0.55 + 0.45 * Math.sin(t * 3);
+    ctx.fillStyle = `rgba(255, 59, 48, ${pulse.toFixed(2)})`;
+    const dots = ".".repeat(1 + (Math.floor(t * 2.5) % 3));
+    ctx.fillText(`LOADING DOOM${dots}`, rect.width / 2, rect.height / 2 - titleSize * 0.6);
+
+    if (statusText) {
+      ctx.font = `${titleSize * 0.5}px "IBM Plex Mono", monospace`;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+      ctx.fillText(statusText, rect.width / 2, rect.height / 2 + titleSize * 0.7);
+    }
+
+    requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
+
+  return {
+    setStatus(text) {
+      statusText = text || "";
+    },
+    stop() {
+      running = false;
+    },
+  };
+}
+
+/**
  * Loads doom-wasm, paints its output to `canvas` on every animation frame,
  * and returns a handle with a `stop()` method to end the paint loop.
  * Plan A's own proof-of-life — not yet wired to any button.
  */
 export async function loadDoomSkeleton(canvas, { onSessionEnd } = {}) {
+  const loadingScreen = paintLoadingScreen(canvas);
   const mod = await (await import("./doom-wasm/doom.js")).default({
     // doom-ascii's dg_Create() sets DOOMGENERIC_RESX/RESY to 320/scaling
     // (see scripts/record-doom.py's own comment on this same flag). With
@@ -352,7 +420,9 @@ export async function loadDoomSkeleton(canvas, { onSessionEnd } = {}) {
     // in a browser — set explicitly anyway so this matches exactly what
     // scripts/smoke-test-doom-wasm.mjs verified working in Node.
     locateFile: (path) => new URL(`./doom-wasm/${path}`, import.meta.url).pathname,
+    setStatus: (text) => loadingScreen.setStatus(text),
   });
+  loadingScreen.stop();
 
   const push = mod.cwrap("wasm_push_key", null, ["number", "number"]);
 
