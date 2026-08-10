@@ -184,6 +184,12 @@ body {
   font-size: 0.95rem;
   padding-top: 0.6rem;
   border-top: 1px solid var(--rule);
+  /* The generic `p { max-width: 58ch }` rule (sized for prose line length)
+     was wrapping this short legend onto two lines well before it ran out
+     of actual horizontal room. */
+  max-width: none;
+  white-space: nowrap;
+  overflow-x: auto;
 }
 .doom-status--live kbd { margin: 0 0.05em; }
 
