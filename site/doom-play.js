@@ -143,6 +143,123 @@ function pixelsToGlyphs(pixels, srcWidth, srcHeight, outWidth) {
   return { glyphs, colors };
 }
 
+// A faithful port of vanilla DOOM's own screen-melt (src/f_wipe.c's
+// wipe_initMelt/wipe_doMelt, read directly from the pinned doom-ascii
+// commit). That C code is compiled into this build
+// (f_wipe.c is in build-doom-wasm.sh's SRC_FILES) and does run for real
+// in-game transitions via D_Display(), but it operates on i_video.c's
+// 8-bit paletted framebuffer — a completely different representation
+// from the RGB pixel buffer DG_ScreenBuffer exposes to JS, so reusing it
+// directly here isn't practical. This reimplements the same column-fall
+// algorithm at glyph-cell granularity instead of raw pixels, which suits
+// this site's glyph-based rendering better than the pixel version would
+// anyway. Column seeding, the dy acceleration formula (including its
+// well-known cap-at-8 quirk), and the reveal/clear order are copied
+// as-is from the original for authenticity, not reinvented.
+const MELT_TIC_MS = 1000 / 35; // vanilla DOOM's own tic rate
+
+function seedMeltColumns(cols) {
+  const y = new Int32Array(cols);
+  y[0] = -Math.floor(Math.random() * 16);
+  for (let i = 1; i < cols; i++) {
+    const r = Math.floor(Math.random() * 3) - 1;
+    y[i] = y[i - 1] + r;
+    if (y[i] > 0) y[i] = 0;
+    else if (y[i] === -16) y[i] = -15;
+  }
+  return y;
+}
+
+// Mutates `scratch` and `y` in place. Each falling column overwrites only
+// the rows it reveals this tick with the *current* live frame — once
+// written, a row is never touched again, so a column freezes whatever
+// gameplay was live at the instant its falling edge passed that row. That
+// asymmetry (revealed rows are frozen, the "start" screen redraws fresh
+// every tick) is the original algorithm, not a shortcut: wipe_doMelt does
+// the same thing, since the whole point is a live game rendering under a
+// wipe of a screen that's actually static.
+function meltStep(scratch, endFrame, y, cols, rows) {
+  let done = true;
+  for (let i = 0; i < cols; i++) {
+    if (y[i] < 0) {
+      y[i]++;
+      done = false;
+      continue;
+    }
+    if (y[i] >= rows) continue;
+    done = false;
+
+    let dy = y[i] < 16 ? y[i] + 1 : 8;
+    if (y[i] + dy >= rows) dy = rows - y[i];
+    for (let j = 0; j < dy; j++) {
+      const idx = (y[i] + j) * cols + i;
+      scratch.glyphs[idx] = endFrame.glyphs[idx];
+      scratch.colors[idx] = endFrame.colors[idx];
+    }
+    y[i] += dy;
+
+    // Below the falling edge is still the ("start") screen — blank here,
+    // since there's no captured frame to melt from (see loadDoomSkeleton).
+    for (let row = y[i]; row < rows; row++) {
+      const idx = row * cols + i;
+      scratch.glyphs[idx] = " ";
+      scratch.colors[idx] = 0;
+    }
+  }
+  return done;
+}
+
+// readFrame reads doom's *live* buffer, not a fixed "after" image — same
+// as real DOOM, where the game keeps simulating and rendering underneath
+// the wipe the whole time it plays.
+function meltReveal(renderer, cols, rows, readFrame, themeColor) {
+  return new Promise((resolve) => {
+    const y = seedMeltColumns(cols);
+    const scratch = {
+      glyphs: new Array(cols * rows).fill(" "),
+      colors: new Uint32Array(cols * rows),
+    };
+    let acc = 0;
+    let last = null;
+
+    const step = (now) => {
+      // The gap between meltReveal() being called and this callback's
+      // first real firing spans the tail of WASM instantiation — anchor
+      // the clock here instead of at call time, or that whole gap reads
+      // as elapsed animation time and the catch-up loop below burns
+      // through most columns in one frame instead of animating them.
+      if (last === null) {
+        last = now;
+        requestAnimationFrame(step);
+        return;
+      }
+
+      // Caps how many tics one frame can catch up on a stall (a slow
+      // frame, a backgrounded tab) — without this, a long gap plays the
+      // same way the bug above did: a burst of ticks collapsed into a
+      // single paint instead of a visible animation.
+      acc = Math.min(acc + (now - last), MELT_TIC_MS * 8);
+      last = now;
+
+      let done = false;
+      let ticked = false;
+      while (acc >= MELT_TIC_MS) {
+        const frame = readFrame();
+        if (!frame) break; // engine hasn't rendered its first frame yet
+        acc -= MELT_TIC_MS;
+        ticked = true;
+        done = meltStep(scratch, frame, y, cols, rows);
+        if (done) break;
+      }
+      if (ticked) renderer.paint(scratch.glyphs, scratch.colors, themeColor);
+
+      if (done) resolve();
+      else requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
+
 // Shown only during an active session, and only on a touch-capable device
 // — a mouse/keyboard visitor never sees this. Feature-detected rather than
 // UA-sniffed: matchMedia("(pointer: coarse)") covers touchscreen laptops
@@ -298,17 +415,31 @@ export async function loadDoomSkeleton(canvas, { onSessionEnd } = {}) {
   let running = true;
   const themeColor = { r: 200, g: 200, b: 200 };
 
+  // Shared by the melt (as its live "end" frame, read once per melt tic)
+  // and the ongoing draw loop below — same extraction either way, just
+  // called on a different clock.
+  const readFrame = () => {
+    const ptr = getBuffer();
+    if (ptr === 0) return null;
+    const pixels = new Uint32Array(mod.HEAPU8.buffer, ptr, width * height);
+    return pixelsToGlyphs(pixels, width, height, gridCols);
+  };
+
   const draw = () => {
     if (!running) return;
-    const ptr = getBuffer();
-    if (ptr !== 0) {
-      const pixels = new Uint32Array(mod.HEAPU8.buffer, ptr, width * height);
-      const { glyphs, colors } = pixelsToGlyphs(pixels, width, height, gridCols);
-      renderer.paint(glyphs, colors, themeColor);
-    }
+    const frame = readFrame();
+    if (frame) renderer.paint(frame.glyphs, frame.colors, themeColor);
     requestAnimationFrame(draw);
   };
-  requestAnimationFrame(draw);
+
+  // The screen-melt reveal (see meltReveal above) plays once, right as
+  // the engine's first real frames become available, then the normal
+  // continuous draw loop takes over. `running` can go false during the
+  // melt itself only via a bug — stop() isn't reachable until this
+  // promise resolves and the caller gets its handle back — but the guard
+  // costs nothing and keeps that invariant from being silently assumed.
+  await meltReveal(renderer, gridCols, height, readFrame, themeColor);
+  if (running) requestAnimationFrame(draw);
 
   return {
     push,
