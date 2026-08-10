@@ -62,3 +62,5 @@ site/pkg/
 # Same pattern as site/pkg/ — regenerated from patches/doom-wasm/, not
 # carried in day-to-day history.
 site/doom-wasm/
+.vercel
+.env*

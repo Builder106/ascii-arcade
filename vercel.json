@@ -6,5 +6,7 @@
       "staging": true,
       "*": false
     }
-  }
+  },
+  "buildCommand": "rustup target add wasm32-unknown-unknown && bash scripts/build-wasm.sh",
+  "outputDirectory": "site"
 }
