@@ -5,6 +5,7 @@ members = [
     "crates/aa-render",
     "crates/aa-doom",
     "crates/aa-ffi",
+    "crates/aa-wasm",
     "shells/windows",
     "shells/linux",
     "shells/web",

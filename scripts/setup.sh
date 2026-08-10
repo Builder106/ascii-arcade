@@ -16,7 +16,7 @@ if [ ! -d doom-ascii ]; then
 	git clone --depth 1 https://github.com/wojciech-graj/doom-ascii.git
 fi
 cd doom-ascii
-make
+make CFLAGS="-O2 -w"
 
 # Find the built binary regardless of name or target subdir
 BIN_PATH="$(find . -type f -name 'doom-ascii' -o -name 'doom_ascii' | head -n 1)"

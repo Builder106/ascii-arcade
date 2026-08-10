@@ -131,12 +131,18 @@ jobs:
           lipo -create -output aa \
             target/x86_64-apple-darwin/release/aa \
             target/aarch64-apple-darwin/release/aa
+      # Also published under a stable, unversioned filename so the site's
+      # Download button can link straight to the DMG via GitHub's
+      # /releases/latest/download/<name> redirect instead of the releases
+      # page — a versioned-only filename would break that link every
+      # release.
       - name: Stage release assets
         env:
           VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
           mkdir -p dist-release
-          mv "dist/ASCII-Arcade.dmg" "dist-release/ASCII-Arcade-v${VERSION}.dmg"
+          cp "dist/ASCII-Arcade.dmg" "dist-release/ASCII-Arcade-v${VERSION}.dmg"
+          cp "dist/ASCII-Arcade.dmg" "dist-release/ASCII-Arcade.dmg"
           tar -czf "dist-release/aa-v${VERSION}-macos.tar.gz" aa
       - uses: actions/upload-artifact@v7
         with:

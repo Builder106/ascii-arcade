@@ -1,0 +1,49 @@
+diff --git a/src/d_main.c b/src/d_main.c
+index f067297..d92a467 100644
+--- a/src/d_main.c
++++ b/src/d_main.c
+@@ -405,6 +405,26 @@ bool D_GrabMouseCallback(void)
+ //
+ //  D_DoomLoop
+ //
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++
++static void D_DoomLoopStep(void)
++{
++		// frame syncronous IO operations
++		I_StartFrame ();
++
++		TryRunTics (); // will run at least one tic
++
++		S_UpdateSounds (players[consoleplayer].mo);// move positional sounds
++
++		// Update display, next frame, with current state.
++		if (screenvisible)
++		{
++			D_Display ();
++		}
++}
++#endif
++
+ void D_DoomLoop (void)
+ {
+     if (bfgedition &&
+@@ -439,6 +459,9 @@ void D_DoomLoop (void)
+         wipegamestate = gamestate;
+     }
+ 
++#ifdef __EMSCRIPTEN__
++    emscripten_set_main_loop(D_DoomLoopStep, 0, 1);
++#else
+     while (1)
+     {
+ 		// frame syncronous IO operations
+@@ -454,6 +477,7 @@ void D_DoomLoop (void)
+ 			D_Display ();
+ 		}
+     }
++#endif
+ }
+ 
+ 

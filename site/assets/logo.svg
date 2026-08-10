@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ASCII Arcade">
+  <defs>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="lit" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#d0ffdf"/>
+      <stop offset="35%"  stop-color="#2eff60"/>
+      <stop offset="100%" stop-color="#165e2b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="#060c06"/>
+
+  <g font-family="'SFMono-Regular','Menlo','Consolas',monospace"
+     font-size="7"
+     fill="url(#lit)"
+     filter="url(#glow)"
+     text-anchor="middle"
+     xml:space="preserve">
+    <text x="32" y="11">  .=#@@@#=.  </text>
+    <text x="32" y="19">=#$;;:--:;;$#=</text>
+    <text x="32" y="27">$;:-.    .-:;$</text>
+    <text x="32" y="35">;:-.      .-:;</text>
+    <text x="32" y="43">$;:-.    .-:;$</text>
+    <text x="32" y="51">=#$;;:--:;;$#=</text>
+    <text x="32" y="59">  .=#@@@#=.  </text>
+  </g>
+</svg>
