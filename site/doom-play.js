@@ -333,17 +333,19 @@ function buildTouchControls(mount, push) {
 /**
  * Canvas-native loading screen for the ~27MB first-time doom-wasm fetch —
  * replaces what used to be a plain blank canvas for however many seconds
- * that takes. Plain 2D canvas text, not the glyph-atlas Renderer: this
- * runs before the module (and therefore doom's own resolution) is known
- * at all, so there's no grid to paint into yet — just a few lines of
- * text over the box's real pixel size, which is already knowable.
+ * that takes. Not an invented progress UI: vanilla DOOM never had one —
+ * what played on-screen while it loaded was its own init log scrolling
+ * up a text console (Z_Init, W_Init, "adding IWAD.WAD", ...) before it
+ * ever switched into graphics mode. doomgeneric/doom-ascii's WASM port
+ * still prints that exact log to stdout/stderr; this replays it as a
+ * real DOS-style scrolling console with a blinking cursor, fed by the
+ * `print`/`printErr` constructor options below — not a fabrication of
+ * what a "loading screen" should look like, doom's own boot text.
  *
- * Passed as the `setStatus` constructor option below: Emscripten's own
- * --preload-file data loader (this build's ~27MB WAD) calls it with real
- * download-progress text ("Downloading data... (n/total)") when it's
- * defined, regardless of whether anything is displayed with it — so
- * wiring it up costs nothing even on a build/runtime where it never
- * fires, and this falls back to its own animated message either way.
+ * Plain 2D canvas text, not the glyph-atlas Renderer: this runs before
+ * the module (and therefore doom's own resolution) is known at all, so
+ * there's no grid to paint into yet — just a console over the box's
+ * real pixel size, which is already knowable.
  */
 function paintLoadingScreen(canvas) {
   const ctx = canvas.getContext("2d");
@@ -355,32 +357,40 @@ function paintLoadingScreen(canvas) {
   canvas.style.height = `${rect.height}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+  const fontSize = Math.max(11, rect.width * 0.014);
+  const lineHeight = fontSize * 1.35;
+  const maxLines = Math.max(1, Math.floor(rect.height / lineHeight));
+
   let running = true;
-  let statusText = "";
+  const lines = [];
   const start = performance.now();
 
   const draw = () => {
     if (!running) return;
-    const t = (performance.now() - start) / 1000;
 
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.font = `${fontSize}px "IBM Plex Mono", monospace`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    // DOS text-mode grey, not this site's own theme colour — this is
+    // doom's own boot console standing in verbatim, not a themed UI.
+    ctx.fillStyle = "#bfbfbf";
 
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    const titleSize = Math.max(14, rect.width * 0.03);
-    ctx.font = `700 ${titleSize}px "IBM Plex Mono", monospace`;
-    // A slow breathe rather than a blink — matches the soft glow the
-    // site's other "hot" DOOM-red accents use elsewhere, not a harsh flash.
-    const pulse = 0.55 + 0.45 * Math.sin(t * 3);
-    ctx.fillStyle = `rgba(255, 59, 48, ${pulse.toFixed(2)})`;
-    const dots = ".".repeat(1 + (Math.floor(t * 2.5) % 3));
-    ctx.fillText(`LOADING DOOM${dots}`, rect.width / 2, rect.height / 2 - titleSize * 0.6);
+    const visible = lines.slice(-maxLines);
+    let y = 8;
+    let lastLineWidth = 0;
+    for (const line of visible) {
+      ctx.fillText(line, 8, y);
+      lastLineWidth = ctx.measureText(line).width;
+      y += lineHeight;
+    }
 
-    if (statusText) {
-      ctx.font = `${titleSize * 0.5}px "IBM Plex Mono", monospace`;
-      ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
-      ctx.fillText(statusText, rect.width / 2, rect.height / 2 + titleSize * 0.7);
+    // Same blinking block cursor as the real console this is standing in
+    // for — visible half the time, tied to elapsed time rather than a
+    // separate timer since this already redraws every frame regardless.
+    if (visible.length && Math.floor((performance.now() - start) / 500) % 2 === 0) {
+      ctx.fillRect(8 + lastLineWidth + 2, y - lineHeight, fontSize * 0.55, fontSize);
     }
 
     requestAnimationFrame(draw);
@@ -388,8 +398,10 @@ function paintLoadingScreen(canvas) {
   requestAnimationFrame(draw);
 
   return {
-    setStatus(text) {
-      statusText = text || "";
+    addLine(text) {
+      // Engine prints sometimes arrive as one call containing several
+      // newline-joined lines, not strictly one call per line.
+      for (const l of String(text).split("\n")) lines.push(l);
     },
     stop() {
       running = false;
@@ -420,7 +432,10 @@ export async function loadDoomSkeleton(canvas, { onSessionEnd } = {}) {
     // in a browser — set explicitly anyway so this matches exactly what
     // scripts/smoke-test-doom-wasm.mjs verified working in Node.
     locateFile: (path) => new URL(`./doom-wasm/${path}`, import.meta.url).pathname,
-    setStatus: (text) => loadingScreen.setStatus(text),
+    // doomgeneric/doom-ascii's own boot log (Z_Init, W_Init, "adding
+    // IWAD.WAD", ...) — this is what the loading screen above replays.
+    print: (text) => loadingScreen.addLine(text),
+    printErr: (text) => loadingScreen.addLine(text),
   });
   loadingScreen.stop();
 
