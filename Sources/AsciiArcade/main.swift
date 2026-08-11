@@ -79,6 +79,8 @@ final class SceneView: NSView {
     private var startTime: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()
     private var displayLink: CVDisplayLink?
     private var themeTextColor: NSColor = availableThemes[0].textColor
+    private var currentTheme: Theme = availableThemes[0]
+    private var opaqueBackgroundEnabled = true
     private let font: NSFont
     private let ctFont: CTFont
     private let cellCharWidth: CGFloat
@@ -188,10 +190,27 @@ final class SceneView: NSView {
     }
 
     func applyTheme(_ theme: Theme) {
+        currentTheme = theme
         themeTextColor = theme.textColor
-        layer?.backgroundColor = theme.backgroundColor?.cgColor ?? NSColor.clear.cgColor
+        layer?.backgroundColor = effectiveBackgroundColor
         let rgb = SceneView.rgbColor(from: theme.textColor)
         for scene in scenes { scene.applyBaseColor(rgb) }
+        needsDisplay = true
+    }
+
+    /// The "Opaque Background" menu toggle overrides every theme's own
+    /// `backgroundColor` to `nil` when off, so turning it off restores the
+    /// classic "real desktop shows through the glyphs" look uniformly —
+    /// including for Ghost, not just the newly-opaque Hacker/Amber/Ice.
+    private var effectiveBackgroundColor: CGColor {
+        (opaqueBackgroundEnabled ? currentTheme.backgroundColor : nil)?.cgColor ?? NSColor.clear.cgColor
+    }
+
+    /// Flip the opaque/transparent backing without touching the active scene
+    /// or text color — called from the menu toggle in `AppDelegate`.
+    func setOpaqueBackgroundEnabled(_ enabled: Bool) {
+        opaqueBackgroundEnabled = enabled
+        layer?.backgroundColor = effectiveBackgroundColor
         needsDisplay = true
     }
 
