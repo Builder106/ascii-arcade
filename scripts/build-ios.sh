@@ -35,28 +35,38 @@ rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
 # cargo-ndk build needs); `cargo rustc -- --crate-type staticlib` overrides
 # that for this invocation only, producing the .a iOS links against without
 # also building a cdylib nobody on this platform uses.
+#
+# Each target gets its own --target-dir. On an Apple Silicon runner,
+# aarch64-apple-ios-sim shares a CPU arch with the host, and Cargo's unit
+# fingerprint doesn't account for the --crate-type override — reusing one
+# target/ directory across these invocations can silently skip emitting the
+# .a lipo expects. Isolated target dirs sidestep the collision.
+DEVICE_TARGET_DIR="$REPO_ROOT/target/ios-device"
+SIM_ARM_TARGET_DIR="$REPO_ROOT/target/ios-sim-arm64"
+SIM_X86_TARGET_DIR="$REPO_ROOT/target/ios-sim-x86_64"
+
 echo "── Building for aarch64-apple-ios (device) ──────────────────────"
-cargo rustc -p "$CRATE" --target aarch64-apple-ios --release -- --crate-type staticlib
+cargo rustc -p "$CRATE" --target aarch64-apple-ios --target-dir "$DEVICE_TARGET_DIR" --release -- --crate-type staticlib
 
 echo "── Building for aarch64-apple-ios-sim (Apple Silicon sim) ──────"
-cargo rustc -p "$CRATE" --target aarch64-apple-ios-sim --release -- --crate-type staticlib
+cargo rustc -p "$CRATE" --target aarch64-apple-ios-sim --target-dir "$SIM_ARM_TARGET_DIR" --release -- --crate-type staticlib
 
 echo "── Building for x86_64-apple-ios (Intel sim) ───────────────────"
-cargo rustc -p "$CRATE" --target x86_64-apple-ios --release -- --crate-type staticlib
+cargo rustc -p "$CRATE" --target x86_64-apple-ios --target-dir "$SIM_X86_TARGET_DIR" --release -- --crate-type staticlib
 
 echo "── Lipo-ing simulator slices ────────────────────────────────────"
 LIPO_SIM_DIR="$REPO_ROOT/target/lipo-ios-sim/release"
 mkdir -p "$LIPO_SIM_DIR"
 lipo -create \
-  "$REPO_ROOT/target/aarch64-apple-ios-sim/release/$LIB_NAME" \
-  "$REPO_ROOT/target/x86_64-apple-ios/release/$LIB_NAME" \
+  "$SIM_ARM_TARGET_DIR/aarch64-apple-ios-sim/release/$LIB_NAME" \
+  "$SIM_X86_TARGET_DIR/x86_64-apple-ios/release/$LIB_NAME" \
   -output "$LIPO_SIM_DIR/$LIB_NAME"
 
 echo "── Assembling XCFramework ───────────────────────────────────────"
 mkdir -p "$OUT_DIR"
 rm -rf "$XCFRAMEWORK"
 xcodebuild -create-xcframework \
-  -library "$REPO_ROOT/target/aarch64-apple-ios/release/$LIB_NAME" \
+  -library "$DEVICE_TARGET_DIR/aarch64-apple-ios/release/$LIB_NAME" \
   -headers "$HEADERS_DIR" \
   -library "$LIPO_SIM_DIR/$LIB_NAME" \
   -headers "$HEADERS_DIR" \
