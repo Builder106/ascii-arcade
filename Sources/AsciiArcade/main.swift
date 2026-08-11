@@ -504,22 +504,26 @@ struct PersistedState: Codable {
     var captureKeysForDoom: Bool
     var idleAutoCycle: Bool
     var doomEnabled: Bool
+    var opaqueBackground: Bool
     /// scene index (as String for JSON) → (settingId → chosen option index).
     var sceneSettings: [String: [String: Int]]
 
     init(sceneIndex: Int, themeIndex: Int, captureKeysForDoom: Bool, idleAutoCycle: Bool,
-         doomEnabled: Bool, sceneSettings: [String: [String: Int]]) {
+         doomEnabled: Bool, opaqueBackground: Bool, sceneSettings: [String: [String: Int]]) {
         self.sceneIndex = sceneIndex
         self.themeIndex = themeIndex
         self.captureKeysForDoom = captureKeysForDoom
         self.idleAutoCycle = idleAutoCycle
         self.doomEnabled = doomEnabled
+        self.opaqueBackground = opaqueBackground
         self.sceneSettings = sceneSettings
     }
 
-    /// Custom decode so state saved before `doomEnabled` existed still loads —
-    /// missing key defaults to `false` (opt-in stays off) instead of discarding
-    /// the whole saved state (scene/theme/settings) on every returning user.
+    /// Custom decode so state saved before `doomEnabled`/`opaqueBackground`
+    /// existed still loads — missing keys default to their pre-feature
+    /// behavior (`doomEnabled` off, `opaqueBackground` on, since opaque is
+    /// the new default) instead of discarding the whole saved state on every
+    /// returning user.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         sceneIndex = try c.decode(Int.self, forKey: .sceneIndex)
@@ -527,6 +531,7 @@ struct PersistedState: Codable {
         captureKeysForDoom = try c.decode(Bool.self, forKey: .captureKeysForDoom)
         idleAutoCycle = try c.decode(Bool.self, forKey: .idleAutoCycle)
         doomEnabled = try c.decodeIfPresent(Bool.self, forKey: .doomEnabled) ?? false
+        opaqueBackground = try c.decodeIfPresent(Bool.self, forKey: .opaqueBackground) ?? true
         sceneSettings = try c.decode([String: [String: Int]].self, forKey: .sceneSettings)
     }
 }
@@ -709,6 +714,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var preIdleSceneIndex = 0
     var lastAutoCycle: CFTimeInterval = 0
     var isAsleep = false
+    var opaqueBackground = true
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Save original wallpapers before we touch anything
@@ -726,6 +732,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             captureKeysForDoom = s.captureKeysForDoom
             idleAutoCycle = s.idleAutoCycle
             doomEnabled = s.doomEnabled
+            opaqueBackground = s.opaqueBackground
             sceneSettingSelections = Dictionary(uniqueKeysWithValues:
                 s.sceneSettings.compactMap { key, val in Int(key).map { ($0, val) } })
         }
@@ -748,6 +755,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Apply remembered per-scene settings before the scene starts.
             view.applyPersistedSettings(sceneSettingSelections)
             view.applyTheme(availableThemes[currentThemeIndex])
+            view.setOpaqueBackgroundEnabled(opaqueBackground)
             view.selectScene(currentSceneIndex)
         }
 
@@ -1099,6 +1107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             captureKeysForDoom: captureKeysForDoom,
             idleAutoCycle: idleAutoCycle,
             doomEnabled: doomEnabled,
+            opaqueBackground: opaqueBackground,
             sceneSettings: sceneSettings)
         if let data = try? JSONEncoder().encode(state) {
             UserDefaults.standard.set(data, forKey: stateKey)
