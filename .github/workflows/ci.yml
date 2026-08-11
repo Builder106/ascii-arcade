@@ -63,3 +63,108 @@ jobs:
           targets: wasm32-unknown-unknown
       - run: cargo build -p aa-wasm --release --target wasm32-unknown-unknown
 
+  android:
+    name: Android build + emulator smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Install Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
+
+      - name: Build aa-ffi native library (arm64-v8a)
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: ./scripts/build-android.sh
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Assemble debug APK
+        working-directory: shells/android
+        run: ./gradlew assembleDebug
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # arm64-v8a system images can't run on the emulator's x86_64 host CPU
+      # without hardware-accelerated ARM translation, which isn't available
+      # on GitHub-hosted runners; use a google_apis x86_64 image for the
+      # smoke test and skip installing the (arm64-only) libaa_ffi.so on it.
+      - name: Boot emulator and smoke-test app install/launch
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          script: |
+            adb install shells/android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n com.builder106.asciiarcade/.PreviewActivity
+            sleep 5
+            adb shell dumpsys activity activities | grep -q "com.builder106.asciiarcade" || (echo "App did not stay foregrounded" && exit 1)
+
+  ios:
+    name: iOS build + simulator smoke test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cbindgen
+        run: cargo install cbindgen --locked
+
+      - name: Build AaEngine.xcframework
+        run: ./scripts/build-ios.sh
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: shells/ios
+        run: xcodegen generate
+
+      - name: Boot iOS Simulator
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for rt in d.values() for x in rt if x['name']=='iPhone 16'))")
+          echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$DEVICE_ID"
+
+      - name: Build for simulator
+        working-directory: shells/ios
+        run: |
+          xcodebuild build \
+            -project AsciiArcade.xcodeproj \
+            -scheme AsciiArcade \
+            -destination "id=$DEVICE_ID" \
+            -derivedDataPath build
+
+      - name: Install and launch on simulator
+        working-directory: shells/ios
+        run: |
+          APP_PATH=$(find build/Build/Products -maxdepth 1 -iname "*.app" | head -1)
+          xcrun simctl install "$DEVICE_ID" "$APP_PATH"
+          xcrun simctl launch "$DEVICE_ID" com.builder106.asciiarcade
+
