@@ -993,6 +993,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(loginItem)
 
+        let opaqueItem = NSMenuItem(title: "Opaque Background", action: #selector(toggleOpaqueBackground(_:)), keyEquivalent: "")
+        opaqueItem.target = self
+        opaqueItem.state = opaqueBackground ? .on : .off
+        menu.addItem(opaqueItem)
+
         menu.addItem(.separator())
         let captureHeader = NSMenuItem(title: "Capture", action: nil, keyEquivalent: "")
         captureHeader.isEnabled = false
@@ -1073,6 +1078,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             wasIdle = false
             selectScene(preIdleSceneIndex)
         }
+        saveState()
+    }
+
+    @objc func toggleOpaqueBackground(_ sender: NSMenuItem) {
+        opaqueBackground.toggle()
+        sender.state = opaqueBackground ? .on : .off
+        for view in views { view.setOpaqueBackgroundEnabled(opaqueBackground) }
         saveState()
     }
 
