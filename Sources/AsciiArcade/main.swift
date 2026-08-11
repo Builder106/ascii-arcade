@@ -14,9 +14,9 @@ struct Theme {
 }
 
 let availableThemes: [Theme] = [
-    Theme(name: "Hacker", textColor: .systemGreen, backgroundColor: nil),
-    Theme(name: "Amber", textColor: NSColor(calibratedRed: 1.0, green: 0.65, blue: 0.0, alpha: 1.0), backgroundColor: nil),
-    Theme(name: "Ice", textColor: .cyan, backgroundColor: nil),
+    Theme(name: "Hacker", textColor: .systemGreen, backgroundColor: .black),
+    Theme(name: "Amber", textColor: NSColor(calibratedRed: 1.0, green: 0.65, blue: 0.0, alpha: 1.0), backgroundColor: .black),
+    Theme(name: "Ice", textColor: .cyan, backgroundColor: .black),
     Theme(name: "Ghost", textColor: NSColor(calibratedRed: 0.11, green: 0.11, blue: 0.118, alpha: 1.0),
           backgroundColor: NSColor(calibratedRed: 0.961, green: 0.961, blue: 0.961, alpha: 1.0)),
 ]
