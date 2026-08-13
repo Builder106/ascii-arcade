@@ -41,9 +41,16 @@ rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
 # fingerprint doesn't account for the --crate-type override — reusing one
 # target/ directory across these invocations can silently skip emitting the
 # .a lipo expects. Isolated target dirs sidestep the collision.
+#
+# CI's rust-cache@v2 caches the entire target/ directory. Since Cargo's
+# fingerprint doesn't track --crate-type overrides, a cached build can
+# silently provide a cdylib when staticlib is needed. Clean the isolated
+# target dirs first to force a fresh build with the correct crate-type.
 DEVICE_TARGET_DIR="$REPO_ROOT/target/ios-device"
 SIM_ARM_TARGET_DIR="$REPO_ROOT/target/ios-sim-arm64"
 SIM_X86_TARGET_DIR="$REPO_ROOT/target/ios-sim-x86_64"
+
+rm -rf "$DEVICE_TARGET_DIR" "$SIM_ARM_TARGET_DIR" "$SIM_X86_TARGET_DIR"
 
 echo "── Building for aarch64-apple-ios (device) ──────────────────────"
 cargo rustc -p "$CRATE" --target aarch64-apple-ios --target-dir "$DEVICE_TARGET_DIR" --release -- --crate-type staticlib
