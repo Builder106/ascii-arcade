@@ -38,28 +38,42 @@ let availableThemes: [Theme] = [
 ### 2. New menu toggle: "Opaque Background"
 
 - A checkable item in the `◎` status menu, alongside the existing
+
   Scene/Theme/Settings items. On by default.
+
 - When off, the effective background for *any* theme (including Ghost) is
+
   forced to `nil`/transparent regardless of what `availableThemes` specifies
   — so a user who wants the classic "real desktop through the glyphs" look
   gets it uniformly, not just for the three new themes.
+
 - Persisted the same way other prefs are: add `opaqueBackground: Bool`
+
   (default `true`) to the saved-state struct that `loadState()` /
   `sceneSettingSelections` already populate, restored on launch.
+
 - Toggling routes through the existing `view.applyTheme(...)` call path (line
+
   ~1139) so it takes effect immediately on all screens without restarting the
   active scene.
 
 ## Data flow
 
-1. Launch: `loadState()` restores `opaqueBackground` (default `true` if no
+1. Launch: `loadState()`restores`opaqueBackground`(default`true` if no
+
    saved state).
+
 2. `applyTheme(availableThemes[currentThemeIndex])` is called per-view at
+
    startup; the effective background it applies is
    `opaqueBackground ? theme.backgroundColor : nil`.
+
 3. Menu toggle flips `opaqueBackground`, persists it, and re-invokes
+
    `applyTheme` on all views with the same effective-background logic.
+
 4. Theme switching (existing `cycleScenes`/theme picker path) continues to
+
    call `applyTheme` as it does today; the toggle's effect composes with it
    automatically since both funnel through the same effective-background
    computation.
@@ -67,7 +81,11 @@ let availableThemes: [Theme] = [
 ## Out of scope
 
 - Any change to `setWallpaper`/`originalWallpapers`/`NSWorkspace` — the real
+
   macOS desktop picture is never read or written by this feature.
+
 - Per-theme custom colors beyond "opaque theme color vs. transparent" (e.g. no
+
   color picker).
+
 - Cross-platform work (Windows/Linux/iOS/Android) — this app is macOS-only.

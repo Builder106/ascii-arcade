@@ -4,7 +4,7 @@
 
 ## Current state
 
-`shells/web/src/main.rs` already exposes a small HTTP surface for its own bundled `xterm.js` frontend:
+`shells/web/src/main.rs`already exposes a small HTTP surface for its own bundled`xterm.js` frontend:
 
 - `GET /` — static host page
 - `GET /api/scenes` — list of available scene ids
@@ -19,7 +19,7 @@ Ranked by fit with the project as a single-user desktop tool, not a hosted servi
 ### Strong fits
 
 1. **Remote control companion app.** iOS (and the planned Android shell) currently render their own copy of the scenes locally. A control API (`POST /api/scene`, `/api/theme`, `/api/speed`) would let the phone act as a remote for the *desktop* wallpaper instance instead of duplicating rendering — flip scenes/themes on the Mac/PC from the phone.
-2. **Local automation/scripting hook.** The `aa` CLI already exposes `play`/`run`/`web`/`autostart`/`scenes`/`themes`. Exposing the same verbs over a local HTTP API lets external tools trigger them: a Raycast/Alfred command, a Stream Deck button, a cron job that swaps to the Ghost theme at sunset, a Home Assistant webhook tied to time-of-day or focus mode.
+2. **Local automation/scripting hook.** The `aa`CLI already exposes`play`/`run`/`web`/`autostart`/`scenes`/`themes`. Exposing the same verbs over a local HTTP API lets external tools trigger them: a Raycast/Alfred command, a Stream Deck button, a cron job that swaps to the Ghost theme at sunset, a Home Assistant webhook tied to time-of-day or focus mode.
 
 ### Plausible, needs a real trigger first
 

@@ -21,7 +21,7 @@ document's author had not yet compiled.
 
 ## Why the platform-backend approach
 
-`doom-ascii` — like every `doomgeneric`-based source port — isolates all
+`doom-ascii`— like every`doomgeneric`-based source port — isolates all
 platform I/O behind a small callback interface declared in
 `src/doomgeneric.h`: `DG_Init`, `DG_DrawFrame`, `DG_SleepMs`,
 `DG_GetTicksMs`, `DG_ReadInput`/`DG_GetKey` (this fork splits input into a
@@ -35,10 +35,10 @@ implementations, not the engine it sits in front of.
 
 The `DG_*` callbacks are invoked from a small number of fixed call sites
 deep in Chocolate-Doom-derived engine code (`I_FinishUpdate` in
-`src/i_video.c` calls `DG_DrawFrame`; `I_GetEvent` in `src/i_input.c` calls
+`src/i_video.c`calls`DG_DrawFrame`; `I_GetEvent`in`src/i_input.c` calls
 `DG_ReadInput`/`DG_GetKey`) — none of that call graph changes for a new
 backend. What's genuinely new: `src/i_main.c`'s `main()` calls
-`dg_Create()` (allocates the pixel buffer, calls `DG_Init` once) then
+`dg_Create()`(allocates the pixel buffer, calls`DG_Init` once) then
 `D_DoomMain()`, which never returns — it ends inside `D_DoomLoop()`
 (`src/d_main.c`), whose body is a literal `while (1)`. See "The blocking
 main loop" for what changes there.
@@ -93,7 +93,7 @@ Emscripten's own `requestAnimationFrame`-driven loop replaces it.
 This design takes the manual route: no runtime penalty, which matters for
 something meant to feel responsive under player input. It's also less
 invasive than it first looks — the loop body doesn't change, only what
-drives it — but it does touch `d_main.c` and `i_main.c`, both shared engine
+drives it — but it does touch `d_main.c`and`i_main.c`, both shared engine
 files, not just the new platform file. One more consequence: `TryRunTics`
 can reach `I_Sleep`/`DG_SleepMs` on certain code paths (network-sync
 fallback), and an actual sleep would freeze the browser tab under a
@@ -106,7 +106,7 @@ is never a mystery diff buried in a build script.
 
 ## Rendering
 
-`DG_ScreenBuffer` is a pixel buffer — `DOOMGENERIC_RESX * DOOMGENERIC_RESY`
+`DG_ScreenBuffer`is a pixel buffer —`DOOMGENERIC_RESX * DOOMGENERIC_RESY`
 `uint32_t`s, DOOM's own internal render resolution (320x200 divided by a
 `-scaling` factor), each pixel already resolved to a colour via the
 engine's palette. It is not a character grid; the ASCII-art conversion in
@@ -130,8 +130,8 @@ and indifferent to whether a DOOM session is active — painting a second,
 unrelated animation into the same canvas would mean two independent loops
 racing to draw the same pixels.
 
-Instead, `doom-play.js` owns a second `<canvas>`, positioned over the hero
-box, with its own `Renderer` instance from `site/renderer.js` — the same
+Instead, `doom-play.js`owns a second`<canvas>`, positioned over the hero
+box, with its own `Renderer`instance from`site/renderer.js` — the same
 glyph-atlas code, a different element and a different backing buffer. The
 ambient background `SceneDriver` loop is paused for the duration of a
 session (resumed on exit): with the visitor's attention and the page's
@@ -144,23 +144,28 @@ off-focus background scene is wasted GPU/main-thread work, not a feature.
 mutually exclusive, so a touchscreen laptop with a keyboard gets both:
 
 - **Keyboard.** A translation table from `KeyboardEvent.code` to
+
   doomgeneric's key constants, covering menu navigation (arrows, Enter,
   Escape) and in-game controls (arrows or WASD to move, a fire key).
   Escape opens doomgeneric's own in-game menu, same as native DOOM — but
   **correction, verified during Plan B**: selecting "Quit" inside that menu
   does not terminate the session from the page's point of view. Plan B
-  checked this empirically (`Module.onExit` never fires; `EXIT_RUNTIME`
-  isn't set in `build-doom-wasm.sh`'s `emcc` flags, so `exit()` is close to
+  checked this empirically (`Module.onExit`never fires;`EXIT_RUNTIME`
+  isn't set in `build-doom-wasm.sh`'s `emcc`flags, so`exit()` is close to
   a no-op here) rather than assuming the claim originally written here. The
   visible Stop button is the only authoritative way to end a session.
   Every mapped key gets `preventDefault()` while a session is active, so
   arrows and space stop double-acting as page scroll.
+
 - **Touch.** An on-screen overlay — d-pad, fire/use, enter/escape — shown
+
   only during an active session, feature-detected via
-  `matchMedia("(pointer: coarse)")` or `"ontouchstart" in window`. Touch
+  `matchMedia("(pointer: coarse)")`or`"ontouchstart" in window`. Touch
   buttons feed the same `DG_GetKey` queue as keyboard input; from the C
   side there is only one input source.
+
 - **Focus and scroll.** On start, focus moves into the game canvas and the
+
   document's scroll is locked for the duration — arrow keys and Space are
   already claimed as game input, so leaving scroll live would mean the
   page silently moving under an active game. Stop (button, always visible)
@@ -170,35 +175,44 @@ mutually exclusive, so a touchscreen laptop with a keyboard gets both:
 ## Build pipeline
 
 A new `scripts/build-doom-wasm.sh`, parallel to the existing
-`scripts/build-wasm.sh` for `aa-wasm`, run on `ampere-dev` like every other
+`scripts/build-wasm.sh`for`aa-wasm`, run on `ampere-dev` like every other
 build in this repo:
 
-1. Clone `doom-ascii` at a **pinned commit SHA** — not `--depth 1` off the
+1. Clone `doom-ascii`at a **pinned commit SHA** — not`--depth 1` off the
+
    default branch the way today's `scripts/setup.sh` does. Pinned to
    `b5188d7c9c4da6c81264a7803e8725ac3df2cfea` (`Release 0.3.1`, verified
    current `HEAD` at the time of writing this document). The pin is what
    the GPL source-offer link (see "Licensing") points at; it has to stay
    exact.
+
 2. Add `src/doomgeneric_wasm.c` (new file, not a patch — nothing upstream
+
    to diff against) and apply `patches/doom-wasm/main-loop.patch`, the
-   `emscripten_set_main_loop` restructuring of `src/d_main.c`'s
-   `D_DoomLoop` (guarded behind `#ifdef __EMSCRIPTEN__`, so the native
+   `emscripten_set_main_loop`restructuring of`src/d_main.c`'s
+   `D_DoomLoop`(guarded behind`#ifdef __EMSCRIPTEN__`, so the native
    build this repo already ships is byte-for-byte unaffected).
+
 3. Compile with `emcc`, compiling the same 72-file `SRC` list the native
+
    Makefile already builds (`Makefile`'s `SRC` variable) plus the new file,
    swapped for `doomgeneric_ascii.c`. No SDL dependency exists anywhere in
    this codebase to route through Emscripten's SDL port — the only link
    flag the native build uses is `-lm`. Emscripten (`emsdk`) is a new
    toolchain dependency on `ampere-dev`, installed alongside the existing
    Rust/`wasm-bindgen` toolchain — the two don't interact.
+
 4. Package `freedoom1.wad` into Emscripten's virtual filesystem so the
+
    engine's ordinary `fopen`-based WAD loading (`D_FindIWAD` →
-   `D_FindWADByName` → `W_AddFile`, all generic Chocolate-Doom code with no
+   `D_FindWADByName`→`W_AddFile`, all generic Chocolate-Doom code with no
    backend-specific branching) resolves it unmodified. **This boundary is
    unverified** — confirming `-iwad`/`fopen` actually resolves through
    Emscripten's `MEMFS` the way it does through a real filesystem is part
    of Plan A's implementation work, not assumed here.
+
 5. Output lands in `site/doom-wasm/`, gitignored like `site/pkg/` — the
+
    same "commit only on release" strategy already planned for `aa-wasm`.
 
 ## WAD hosting and preload
@@ -210,10 +224,10 @@ this; it's the same WAD `scripts/setup.sh` and the attract-mode recording
 already use, so this opens no new licensing question, just a new place it's
 served from.
 
-After `boot()` settles, a `requestIdleCallback`-scheduled fetch pulls the
+After `boot()`settles, a`requestIdleCallback`-scheduled fetch pulls the
 WAD and the `doom-wasm` runtime together, in the background, so a click on
 "Play it" is a near-instant start rather than a wait. That preload is
-skipped when `navigator.connection?.saveData` or `prefers-reduced-data` is
+skipped when `navigator.connection?.saveData`or`prefers-reduced-data` is
 set — on a metered connection, "Play it" instead fetches on click, with a
 visible loading state, rather than costing every visitor ~27 MB regardless
 of whether they ever press play.
@@ -223,12 +237,17 @@ of whether they ever press play.
 Three concrete artifacts, not aspirational language:
 
 - `patches/doom-wasm/*.patch` — the exact, reviewable diff from the pinned
+
   upstream commit; this plus the pin *is* the corresponding source, in the
   sense that anyone can reproduce the exact binary from them.
+
 - A visible line near the feature (dock or footer, not buried) linking the
+
   pinned commit on `wojciech-graj/doom-ascii` and naming the GPL-2.0
   licence — a durable, specific reference rather than "see upstream."
+
 - `LICENSES/doom-ascii.GPL-2.0` — the licence text itself, vendored, so the
+
   offer doesn't depend on any external site staying up.
 
 Keeping the new platform backend in its own file, communicating with the
@@ -243,17 +262,22 @@ Matches the rest of the site: every enhancement here degrades, nothing
 hard-fails silently.
 
 - WAD or WASM fetch fails → "Play it" shows a visible error state, not a
+
   silent no-op.
+
 - WASM instantiation or `emscripten_set_main_loop` throws during startup →
+
   caught, and the button falls back to today's static message ("not
   playable here — clone the repo and run it locally") rather than leaving
   a half-started session on screen.
+
 - Emscripten/WebAssembly unsupported at all → same static fallback message
+
   the button already shows, unchanged.
 
 ## Accessibility
 
-The attract-mode `<pre id="doomFrame">` stays `aria-hidden` — it's still
+The attract-mode `<pre id="doomFrame">`stays`aria-hidden` — it's still
 decorative, unchanged by this feature. The new game canvas is a real
 interactive feature and gets a `role`/`aria-label` identifying it as a game
 with keyboard instructions, plus the focus management described under
@@ -277,7 +301,7 @@ it doesn't read as an oversight later; the whole point of the preload
 strategy is that this weight never blocks or counts against the page's own
 load.
 
-`a11y.spec.ts` currently excludes `#doomFrame` from axe entirely
+`a11y.spec.ts`currently excludes`#doomFrame` from axe entirely
 (`aria-hidden`, decorative). That blanket exclusion needs to be narrowed:
 the attract-mode `<pre>` keeps its exclusion, but the new game canvas gets
 its own scoped check for the minimal `role`/`aria-label` requirement above,
@@ -286,14 +310,21 @@ rather than inheriting a skip that no longer describes it.
 ## Out of scope
 
 - **Audio.** Confirmed, not assumed: `doom-ascii`'s sound backend is
+
   guarded behind an `ORIGCODE` build flag that its Makefile never defines,
-  so `sound_module` stays `NULL` and every audio call is already a no-op in
+  so `sound_module`stays`NULL` and every audio call is already a no-op in
   the existing native build. There is nothing to port.
+
 - **Save games, multiplayer, IWAD selection.** Boots straight into
+
   Freedoom via doomgeneric's own menu; no save/load UI, no network play, no
   choice of WAD.
+
 - **Older-browser fallback beyond the existing message.** No WebAssembly,
+
   no Emscripten support, no `emscripten_set_main_loop` — same static
   fallback the button shows today, not a degraded-but-playable mode.
+
 - **Offline play / caching the WAD beyond normal HTTP cache behaviour.** No
+
   service worker, no explicit cache management.

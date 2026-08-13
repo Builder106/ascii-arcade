@@ -7,10 +7,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://swift.org"><img alt="Swift" src="https://img.shields.io/badge/Swift-5.10%2B-orange.svg"></a>
-  <img alt="Platform" src="https://img.shields.io/badge/macOS-13%2B-black.svg">
-  <a href="#license"><img alt="License" src="https://img.shields.io/badge/license-GPL--2.0-blue.svg"></a>
+  <a href="<https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml>"><img alt="CI" src="<https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml/badge.svg>"></a>
+  <a href="<https://swift.org>"><img alt="Swift" src="<https://img.shields.io/badge/Swift-5.10%2B-orange.svg>"></a>
+  <img alt="Platform" src="<https://img.shields.io/badge/macOS-13%2B-black.svg>">
+  <a href="#license"><img alt="License" src="<https://img.shields.io/badge/license-GPL--2.0-blue.svg>"></a>
 </p>
 
 A macOS live-wallpaper customizer that renders ASCII scenes as your desktop
@@ -43,7 +43,7 @@ on a shared or school machine, so DOOM stays out of the Scene list, ⌘⌥C
 cycling, and idle auto-cycle until you turn on *"Enable DOOM Scene"* in the
 menu. Once enabled, it behaves like any other scene.
 
-**Capture.** macOS's native ⌘⇧3/⌘⇧4 skips the wallpaper layer — use the in-app shortcuts instead: **⌘⌥S** saves a PNG to ~/Desktop and copies it to the clipboard; **⌘⌥R** records a 3-second MP4 clip and opens it in Finder when done. Both commands are also in the `◎` menu under *Capture*.
+**Capture.**macOS's native ⌘⇧3/⌘⇧4 skips the wallpaper layer — use the in-app shortcuts instead:**⌘⌥S**saves a PNG to ~/Desktop and copies it to the clipboard;**⌘⌥R** records a 3-second MP4 clip and opens it in Finder when done. Both commands are also in the `◎` menu under *Capture*.
 
 **Colour.** Scenes can paint each glyph individually: DOOM uses its own native
 palette, while Matrix, Life, and the math scenes key off the theme's text colour
@@ -86,12 +86,15 @@ icon), remembers your scene/theme/settings between launches, and can start at
 login. Grab `ASCII-Arcade.dmg` from the [releases page](https://github.com/Builder106/ascii-arcade/releases),
 then:
 
-1. Open the DMG and drag **ASCII Arcade** onto **Applications**.
+1. Open the DMG and drag **ASCII Arcade**onto**Applications**.
 2. Because it isn't notarized (no paid Apple Developer account), Gatekeeper
+
    blocks the first launch — **right-click (Control-click) the app → Open**,
    then click **Open** in the dialog. macOS remembers it from then on.
-   - Terminal equivalent: `xattr -dr com.apple.quarantine "/Applications/ASCII Arcade.app"`
-3. Look for the `◎` icon in your menu bar to pick a scene/theme.
+
+- Terminal equivalent: `xattr -dr com.apple.quarantine "/Applications/ASCII Arcade.app"`
+
+1. Look for the `◎` icon in your menu bar to pick a scene/theme.
 
 The donut and the other math/colour scenes work immediately. **DOOM** is the one
 piece that isn't bundled — `doom_ascii` is GPL-2.0, so it's fetched and built
@@ -119,9 +122,9 @@ restores your original wallpaper.
 ```bash
 
 `make-app.sh` ad-hoc signs the bundle and bundles the BSD Freedoom WADs. It does
-**not** bundle the GPL `doom_ascii` by default; set `INCLUDE_DOOM=1` to include
+**not** bundle the GPL `doom_ascii`by default; set`INCLUDE_DOOM=1` to include
 it (you then must also redistribute its source). On a cloud-synced checkout, set
-`SCRATCH_PATH=/tmp/aa-build` so SwiftPM's `build.db` doesn't choke.
+`SCRATCH_PATH=/tmp/aa-build`so SwiftPM's`build.db` doesn't choke.
 
 ## Browser
 
@@ -154,7 +157,7 @@ DOOM is opt-in here too, and more strictly than on macOS: it isn't even
 compiled in unless you build with `--features doom` (an optional dependency,
 so a normal build doesn't pull in the PTY-spawning GPL code at all), and even
 then `aa scenes`/`aa play`/`aa web` won't reveal or accept it without
-`--enable-doom` (or `AA_WEB_ENABLE_DOOM=1` for the standalone `aa-web`
+`--enable-doom`(or`AA_WEB_ENABLE_DOOM=1`for the standalone`aa-web`
 binary):
 
 ```bash
@@ -206,14 +209,16 @@ flowchart LR
 ```bash
 
 - **`AsciiArcadeCore`** — the frame generators, the `AsciiScene` protocol, and the
+
   DOOM glue (`DoomScreenBuffer` parses the ANSI stream into a char grid;
-  `DoomScene` owns the PTY; `DoomLauncher` resolves the binary + IWAD). Colour
+  `DoomScene`owns the PTY;`DoomLauncher` resolves the binary + IWAD). Colour
   scenes return a `ColoredFrame` (a glyph grid plus a parallel grid of optional
   per-cell `RGBColor`); the stateful ones (Matrix, Life, Pipes) share a
   `SteppedScene` base that runs a fixed-timestep simulation off the render clock.
+
 - **`PTYBridge`** — spawns `doom_ascii` in a pseudo-terminal and pipes its output.
 - **`AsciiArcade`** — the AppKit wallpaper host (scene picker, themes, key forwarding).
-- **`Server`** / **`Hotword`** / **`WatcherCLI`** — the optional browser path.
+- **`Server`**/**`Hotword`**/**`WatcherCLI`** — the optional browser path.
 
 ## Layout
 

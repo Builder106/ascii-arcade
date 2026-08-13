@@ -95,7 +95,7 @@ pixels.
 ### The engine is `aa-core`, compiled to WebAssembly
 
 `crates/aa-core` has zero dependencies, calls itself platform-neutral, and ships
-its own `rng.rs` so it doesn't even pull in `rand`. All five maths scenes already
+its own `rng.rs`so it doesn't even pull in`rand`. All five maths scenes already
 live in `crates/aa-core/src/scenes/`. It compiles to `wasm32-unknown-unknown`
 without a fight.
 
@@ -167,7 +167,7 @@ out of that loop gives the inertia native scroll timelines can't, since those ar
 strictly one-to-one with scroll position.
 
 CSS keeps everything it can hold. Scroll position drives the renderer through an
-`IntersectionObserver` that reads each section's `data-scene` and sets a target,
+`IntersectionObserver`that reads each section's`data-scene` and sets a target,
 and the `rAF` loop interpolates toward it. Decoupling transitions from scroll
 velocity means scrubbing back and forth doesn't thrash, and there are no scroll
 event listeners anywhere.
@@ -223,7 +223,7 @@ with the reader.
 ## Build, budget, deployment
 
 The site is no longer zero-build. Compiling `aa-core` adds a Rust and
-`wasm-bindgen` step, which runs on `ampere-dev` and never on the Mac, per the
+`wasm-bindgen`step, which runs on`ampere-dev` and never on the Mac, per the
 repository's working rules. Motion is vendored as a committed file rather than
 installed, so there's still no package manager and no `node_modules`.
 
@@ -234,7 +234,7 @@ under 10 kB as woff2. Subsetting follows the `font-workflow` process.
 
 The platform monospace stack was the obvious cheaper answer and it's the wrong
 one here, for a reason specific to Pipes. Box-drawing characters only look like
-pipes if `─` spans the full advance width and `│` spans the full line height, so
+pipes if `─`spans the full advance width and`│` spans the full line height, so
 that adjacent cells join. Whether they do is a decision the type designer made,
 and system monospace fonts disagree about it. Menlo joins cleanly, plenty of
 Linux fallbacks leave visible gaps, and a gap turns one of the six scenes into
@@ -275,7 +275,7 @@ build didn't load and points at running it locally.
 
 ## Testing and CI tier
 
-`crates/aa-core` already carries Rust unit tests across `donut.rs`, `helix.rs`,
+`crates/aa-core`already carries Rust unit tests across`donut.rs`, `helix.rs`,
 `life.rs`, `matrix.rs`, `mod.rs`, `frame.rs`, `color.rs`, `ansi.rs`, and
 `rng.rs`. Compiling that crate to WebAssembly means the site runs code the test
 suite already covers, so the scene maths needs no new tests. The binding layer is
@@ -287,7 +287,7 @@ leaves the rest alone:
 Build verification gains the `wasm32-unknown-unknown` target, so a change that
 breaks the WebAssembly build fails CI rather than the deploy.
 
-E2E gains real coverage. `e2e/` already runs Playwright and `playwright-bdd`, but
+E2E gains real coverage. `e2e/`already runs Playwright and`playwright-bdd`, but
 it's pointed at demo recordings today, not at the site. This adds specs for the
 scroll narrative reaching every section, the reduced-motion path rendering a
 complete page, and the WASM-absent path doing the same.
@@ -316,7 +316,7 @@ Shipping a WASM build makes the site a distributor, with the source-offer
 obligations that brings.
 
 That reversal deserves its own design document and its own decision, not a
-side effect of a landing page. `RecordedDoom` ships first, `WasmDoom` swaps in
+side effect of a landing page. `RecordedDoom`ships first,`WasmDoom` swaps in
 behind the same interface when it's ready, and the page never blocks on it.
 
 ## A bug found while specifying this
@@ -324,14 +324,14 @@ behind the same interface when it's ready, and the page never blocks on it.
 Not a site issue, recorded here so it doesn't get lost.
 
 `crates/aa-render/src/font.rs` embeds an 8x16 bitmap font covering printable
-ASCII `0x20..=0x7E`, and `glyph_bitmap()` in `lib.rs` returns `None` for anything
+ASCII `0x20..=0x7E`, and `glyph_bitmap()`in`lib.rs`returns`None` for anything
 outside that range, which the caller skips. Life's `█` and all six of Pipes'
 box-drawing characters are outside it. On the native Rust wallpaper shells
 (`shells/linux`, `shells/windows`) both scenes should therefore render blank or
 close to it.
 
 The other paths hide this. The macOS shell uses
-`NSFont.monospacedSystemFont`, which has the glyphs. `aa play` and `aa-web` emit
+`NSFont.monospacedSystemFont`, which has the glyphs. `aa play`and`aa-web` emit
 ANSI and let the terminal or xterm.js supply the font. Only the shells that
 rasterise through `aa-render` hit the missing-glyph path.
 

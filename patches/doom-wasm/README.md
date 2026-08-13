@@ -10,9 +10,12 @@ cleanly and every line number `doomgeneric_wasm.c`'s comments reference is
 still accurate.
 
 - `doomgeneric_wasm.c` — new platform backend implementing doomgeneric's
+
   `DG_*` interface for a browser instead of a terminal. Not a patch; a
   whole new file, copied into the pinned clone's `src/` at build time.
-- `main-loop.patch` — the `emscripten_set_main_loop` restructuring of
+
+- `main-loop.patch`— the`emscripten_set_main_loop` restructuring of
+
   `src/d_main.c`'s `D_DoomLoop`, guarded behind `#ifdef __EMSCRIPTEN__` so
   the native build (`scripts/setup.sh`) is unaffected.
 

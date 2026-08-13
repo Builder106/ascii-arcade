@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the ASCII Arcade marketing site in `site/`, driven by `aa-core` compiled to WebAssembly, per `docs/landing-page-design.md`.
+**Goal:** Build the ASCII Arcade marketing site in `site/`, driven by `aa-core`compiled to WebAssembly, per`docs/landing-page-design.md`.
 
-**Architecture:** A new `aa-wasm` crate wraps `aa-core` with `wasm-bindgen` so the page runs the shipping scene engine rather than a JavaScript port. One canvas character grid is fixed to the viewport and its scene state is driven by scroll; sections float over it. The static, no-JavaScript layout is built and tested first, then motion is layered on top.
+**Architecture:** A new `aa-wasm`crate wraps`aa-core`with`wasm-bindgen` so the page runs the shipping scene engine rather than a JavaScript port. One canvas character grid is fixed to the viewport and its scene state is driven by scroll; sections float over it. The static, no-JavaScript layout is built and tested first, then motion is layered on top.
 
 **Tech Stack:** Rust + `wasm-bindgen`, vanilla ES modules, Motion (motion.dev) vendored, CSS scroll-driven animations, Playwright + `@axe-core/playwright`, IBM Plex Mono subset.
 
@@ -12,13 +12,13 @@
 
 Every task inherits these. Values are copied from the design document.
 
-- **All builds run on `ampere-dev`, never on the Mac.** Anything producing `target/`, `node_modules/`, or `.venv/` goes through `verify-on-vm`. Use full path `/Users/yinkavaughan/bin/verify-on-vm` if the bare command is not found.
+- **All builds run on `ampere-dev`, never on the Mac.** Anything producing `target/`, `node_modules/`, or `.venv/`goes through`verify-on-vm`. Use full path `/Users/yinkavaughan/bin/verify-on-vm` if the bare command is not found.
 - **Budget:** HTML, CSS, JavaScript and the WebAssembly module together stay under 150 kB. DOOM payloads sit outside this budget and load only on request.
 - **Contrast:** body text holds 4.5:1 on all four palettes, Ghost included. Enforced by test, not by eye.
 - **No pure `#000000`.** The Hacker background is tinted fractionally toward the phosphor hue.
 - **Section index is the luminance ramp** `.,-~:;=!*#$@`. Numbered section labels (`01 —`), eyebrow labels above headings, and runs of headings sharing one grammatical shape are all prohibited.
 - **Font:** IBM Plex Mono, subset to printable ASCII plus exactly seven glyphs: `█ ─ │ ┌ ┐ └ ┘`.
-- **Motion is vendored as a committed file**, never installed. No `package.json` in `site/`.
+- **Motion is vendored as a committed file**, never installed. No `package.json`in`site/`.
 - **No pulsing dots, live badges, or status indicators.**
 - **The canvas is `aria-hidden`.** Every fact it conveys also exists in text.
 - Rust edition 2021, licence GPL-2.0, matching the workspace.
@@ -66,21 +66,23 @@ Wraps `aa-core` for the browser. Later tasks depend only on the interface this p
 
 - Consumes: `aa_core::{scenes, RgbColor, Scene, Theme}`, all existing.
 - Produces, for every later task:
-  - `new Engine(id: string, cols: number, rows: number)` where `id` is one of `donut`, `helix`, `matrix`, `pipes`, `life`
+  - `new Engine(id: string, cols: number, rows: number)`where`id`is one of`donut`, `helix`, `matrix`, `pipes`, `life`
   - `engine.set_grid(cols: number, rows: number): void`
   - `engine.apply_base_color(r: number, g: number, b: number): void`
-  - `engine.render(t: number): void` — advances to time `t` in seconds and caches one frame
-  - `engine.glyphs(): string` — row-major, exactly `cols * rows` characters, no newlines
-  - `engine.colors(): Uint32Array` — row-major, one entry per cell. `0` means "paint in the theme colour"; anything else is `0xFF_RR_GG_BB`
+  - `engine.render(t: number): void`— advances to time`t` in seconds and caches one frame
+  - `engine.glyphs(): string`— row-major, exactly`cols * rows` characters, no newlines
+  - `engine.colors(): Uint32Array`— row-major, one entry per cell.`0`means "paint in the theme colour"; anything else is`0xFF_RR_GG_BB`
   - `scene_ids(): string[]`
-  - `themes_json(): string` — `[{"name":"Hacker","text":[r,g,b],"background":[r,g,b]}, ...]`
+  - `themes_json(): string`—`[{"name":"Hacker","text":[r,g,b],"background":[r,g,b]}, ...]`
 
 - [ ] **Step 1: Write the failing test**
 
 Create `crates/aa-wasm/src/lib.rs` with only the test module:
 
 ```rust
-#[cfg(test)]
+
+# [cfg(test)]
+
 mod tests {
     use super::*;
 
@@ -122,7 +124,7 @@ Expected: FAIL, the crate is not a workspace member and `Engine` does not exist.
 
 - [ ] **Step 3: Add the crate to the workspace**
 
-In `Cargo.toml`, add `"crates/aa-wasm",` to `[workspace] members`, after `"crates/aa-ffi",`.
+In `Cargo.toml`, add `"crates/aa-wasm",`to`[workspace] members`, after `"crates/aa-ffi",`.
 
 Create `crates/aa-wasm/Cargo.toml`:
 
@@ -155,14 +157,17 @@ use aa_core::{scenes, RgbColor, Scene, Theme};
 use wasm_bindgen::prelude::*;
 
 /// One live scene plus its most recent frame, flattened for JavaScript.
-#[wasm_bindgen]
+
+# [wasm_bindgen]
+
 pub struct Engine {
     scene: Box<dyn Scene + Send>,
     glyphs: String,
     colors: Vec<u32>,
 }
 
-#[wasm_bindgen]
+# [wasm_bindgen]
+
 impl Engine {
     #[wasm_bindgen(constructor)]
     pub fn new(id: &str, cols: usize, rows: usize) -> Result<Engine, JsValue> {
@@ -214,14 +219,18 @@ impl Engine {
 }
 
 /// Built-in scene ids, in the order the site presents them.
-#[wasm_bindgen]
+
+# [wasm_bindgen]
+
 pub fn scene_ids() -> Vec<String> {
     scenes::BUILTIN_IDS.iter().map(|s| (*s).to_string()).collect()
 }
 
 /// The four palettes, so the page never keeps a second copy that can drift.
 /// Hand-rolled rather than pulling in serde, which would cost more than it saves.
-#[wasm_bindgen]
+
+# [wasm_bindgen]
+
 pub fn themes_json() -> String {
     let entries: Vec<String> = Theme::ALL
         .iter()
@@ -249,11 +258,17 @@ Expected: PASS, four tests.
 Create `scripts/build-wasm.sh`, mode `755`:
 
 ```bash
-#!/usr/bin/env bash
-# Build aa-wasm for the browser into site/pkg/.
+
+# !/usr/bin/env bash
+
+# Build aa-wasm for the browser into site/pkg/
+
 #
+
 # Runs on ampere-dev, never on the Mac: it produces target/ and needs the
-# wasm32 toolchain. See docs/landing-page-design.md.
+
+# wasm32 toolchain. See docs/landing-page-design.md
+
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -278,7 +293,7 @@ ls -lh "$OUT"
 
 Run: `verify-on-vm ~/CS/projects/personal/ascii-arcade "bash scripts/build-wasm.sh"`
 
-Expected: `site/pkg/aa_wasm_bg.wasm` and `site/pkg/aa_wasm.js` exist. Note the `.wasm` size; it counts against the 150 kB budget checked in Task 9. If it exceeds 100 kB, add `[profile.release] opt-level = "z"` and `lto = true` to the workspace `Cargo.toml` and rebuild before continuing.
+Expected: `site/pkg/aa_wasm_bg.wasm`and`site/pkg/aa_wasm.js`exist. Note the`.wasm`size; it counts against the 150 kB budget checked in Task 9. If it exceeds 100 kB, add`[profile.release] opt-level = "z"`and`lto = true`to the workspace`Cargo.toml` and rebuild before continuing.
 
 - [ ] **Step 8: Commit**
 
@@ -289,7 +304,7 @@ git commit -m "feat: add aa-wasm, a wasm-bindgen wrapper over aa-core"
 
 ---
 
-### Task 2: IBM Plex Mono subset
+## Task 2: IBM Plex Mono subset
 
 **Files:**
 
@@ -299,19 +314,26 @@ git commit -m "feat: add aa-wasm, a wasm-bindgen wrapper over aa-core"
 
 **Interfaces:**
 
-- Produces: `site/fonts/IBMPlexMono-subset.woff2`, referenced by `styles.css` in Task 6 as `font-family: "IBM Plex Mono"`.
+- Produces: `site/fonts/IBMPlexMono-subset.woff2`, referenced by `styles.css`in Task 6 as`font-family: "IBM Plex Mono"`.
 
 - [ ] **Step 1: Write the subset script**
 
 Create `scripts/subset-font.sh`, mode `755`:
 
 ```bash
-#!/usr/bin/env bash
-# Subset IBM Plex Mono to the glyphs the site actually draws.
+
+# !/usr/bin/env bash
+
+# Subset IBM Plex Mono to the glyphs the site actually draws
+
 #
+
 # Printable ASCII covers the luminance ramp, the Matrix alphabet and all page
+
 # copy. The seven extras are Life's block and Pipes' box drawing; without them
-# those two scenes render as gaps. See docs/landing-page-design.md.
+
+# those two scenes render as gaps. See docs/landing-page-design.md
+
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -344,7 +366,7 @@ ls -lh "$OUT/IBMPlexMono-subset.woff2"
 
 Run: `verify-on-vm ~/CS/projects/personal/ascii-arcade "bash scripts/subset-font.sh"`
 
-Expected: it may fail on the pinned release URL. If it 404s, list available releases with `curl -fsSL https://api.github.com/repos/IBM/plex/releases | grep browser_download_url | grep -i mono`, pick the current `ibm-plex-mono` asset, and update the URL in the script. Do not switch to a different typeface.
+Expected: it may fail on the pinned release URL. If it 404s, list available releases with `curl -fsSL <https://api.github.com/repos/IBM/plex/releases> | grep browser_download_url | grep -i mono`, pick the current `ibm-plex-mono` asset, and update the URL in the script. Do not switch to a different typeface.
 
 - [ ] **Step 3: Verify glyph coverage**
 
@@ -364,7 +386,7 @@ Expected: seven matching lines. A missing one means Pipes or Life will render as
 
 - [ ] **Step 4: Add the licence**
 
-IBM Plex is OFL 1.1 and the licence text must ship with the font. Copy `LICENSE.txt` from the downloaded archive to `site/fonts/OFL.txt`, or fetch it:
+IBM Plex is OFL 1.1 and the licence text must ship with the font. Copy `LICENSE.txt`from the downloaded archive to`site/fonts/OFL.txt`, or fetch it:
 
 ```bash
 curl -fsSL -o site/fonts/OFL.txt https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt
@@ -379,7 +401,7 @@ git commit -m "feat: subset IBM Plex Mono to the glyphs the site draws"
 
 ---
 
-### Task 3: Canvas renderer
+## Task 3: Canvas renderer
 
 Paints a character grid. Knows nothing about scenes, scroll, or WebAssembly.
 
@@ -393,8 +415,8 @@ Paints a character grid. Knows nothing about scenes, scroll, or WebAssembly.
 - Produces:
   - `measureCell(ctx, fontPx): { w: number, h: number }`
   - `gridSize(pxW, pxH, cell): { cols: number, rows: number }`
-  - `new Renderer(canvas)` with `resize(cssW, cssH, fontPx)`, `paint(glyphs, colors, themeColor)`, and readonly `cols` / `rows`
-  - `themeColor` is `{ r, g, b }`; `colors` entries of `0` fall back to it, matching Task 1's sentinel
+  - `new Renderer(canvas)`with`resize(cssW, cssH, fontPx)`, `paint(glyphs, colors, themeColor)`, and readonly `cols`/`rows`
+  - `themeColor`is`{ r, g, b }`; `colors`entries of`0` fall back to it, matching Task 1's sentinel
 
 - [ ] **Step 1: Write the failing test**
 
@@ -425,12 +447,16 @@ Create `site/renderer.js`:
 
 ```javascript
 /*
- * Canvas character-grid painter.
+
+* Canvas character-grid painter.
+
  *
- * Colour is why this is canvas and not a <pre>: Matrix has bright heads with
- * fading trails and Pipes carries per-pipe hue, so per-cell colour in the DOM
- * would mean thousands of spans a frame. Runs of one colour are batched into a
- * single fillText call to keep that affordable.
+
+* Colour is why this is canvas and not a <pre>: Matrix has bright heads with
+* fading trails and Pipes carries per-pipe hue, so per-cell colour in the DOM
+* would mean thousands of spans a frame. Runs of one colour are batched into a
+* single fillText call to keep that affordable.
+
  */
 
 /** Cell metrics for the current font, measured rather than assumed. */
@@ -477,8 +503,10 @@ export class Renderer {
   }
 
   /**
-   * `glyphs` is row-major and `cols * rows` long. A `colors` entry of 0 means
-   * paint in `themeColor`, matching the sentinel aa-wasm packs.
+   *`glyphs`is row-major and`cols* rows`long. A`colors` entry of 0 means
+
+  * paint in `themeColor`, matching the sentinel aa-wasm packs.
+
    */
   paint(glyphs, colors, themeColor) {
     const { ctx, cols, rows, cell } = this;
@@ -501,7 +529,7 @@ export class Renderer {
         if (ch === null || color !== runColor) {
           if (run.trim().length > 0) {
             ctx.fillStyle = runColor;
-            ctx.fillText(run, runStart * cell.w, y * cell.h);
+            ctx.fillText(run, runStart *cell.w, y* cell.h);
           }
           if (ch === null) break;
           run = ch;
@@ -552,7 +580,7 @@ Scene changes swap glyph by glyph rather than crossfading. Pure logic, no canvas
 - Produces:
   - `makeThresholds(count, seed): Float32Array` — stable for a given seed
   - `blend(fromGlyphs, toGlyphs, fromColors, toColors, thresholds, progress): { glyphs: string[], colors: Uint32Array }`
-  - `progress` of `0` yields the `from` frame exactly, `1` yields `to` exactly
+  - `progress`of`0`yields the`from`frame exactly,`1`yields`to` exactly
 
 - [ ] **Step 1: Write the failing test**
 
@@ -604,15 +632,19 @@ Create `site/dissolve.js`:
 
 ```javascript
 /*
- * Scene transitions dissolve character by character instead of crossfading
- * opacity. Each cell gets a fixed threshold; as progress sweeps 0 to 1 a cell
- * flips the moment progress passes its threshold. One array and one comparison
- * per cell, and it is something images cannot do.
+
+* Scene transitions dissolve character by character instead of crossfading
+* opacity. Each cell gets a fixed threshold; as progress sweeps 0 to 1 a cell
+* flips the moment progress passes its threshold. One array and one comparison
+* per cell, and it is something images cannot do.
+
  */
 
 /**
- * Deterministic thresholds. Seeded so a resize or a scrub backwards reproduces
- * the same dissolve rather than reshuffling under the reader.
+
+* Deterministic thresholds. Seeded so a resize or a scrub backwards reproduces
+* the same dissolve rather than reshuffling under the reader.
+
  */
 export function makeThresholds(count, seed) {
   const out = new Float32Array(count);
@@ -672,9 +704,9 @@ Loads the WebAssembly module and drives the renderer. First point where a scene 
 
 - Consumes: Task 1's `Engine`, `scene_ids`, `themes_json`; Task 3's `Renderer`; Task 4's `makeThresholds`, `blend`.
 - Produces:
-  - `loadEngine(): Promise<{ Engine, scene_ids, themes_json }>` — resolves `null` if the module fails to load
-  - `new SceneDriver(renderer, wasm)` with `setScene(id)`, `setTheme(name)`, `tick(tSeconds)`, `stop()`
-  - `SceneDriver` no-ops safely when `wasm` is `null`, which is the WebAssembly-absent path the design requires
+  - `loadEngine(): Promise<{ Engine, scene_ids, themes_json }>`— resolves`null` if the module fails to load
+  - `new SceneDriver(renderer, wasm)`with`setScene(id)`, `setTheme(name)`, `tick(tSeconds)`, `stop()`
+  - `SceneDriver`no-ops safely when`wasm`is`null`, which is the WebAssembly-absent path the design requires
 
 - [ ] **Step 1: Write the failing test**
 
@@ -723,10 +755,14 @@ Create `site/engine.js`:
 
 ```javascript
 /*
- * Loads aa-core (as WebAssembly) and drives the renderer from it.
+
+* Loads aa-core (as WebAssembly) and drives the renderer from it.
+
  *
- * Every failure here is survivable: the canvas is decoration, so a missing
- * module costs the page its wallpaper and nothing else.
+
+* Every failure here is survivable: the canvas is decoration, so a missing
+* module costs the page its wallpaper and nothing else.
+
  */
 import { makeThresholds, blend } from "./dissolve.js";
 
@@ -782,7 +818,7 @@ export class SceneDriver {
     }
     this.next = engine;
     this.transitionStart = performance.now();
-    this.thresholds = makeThresholds(cols * rows, cols * 31 + rows);
+    this.thresholds = makeThresholds(cols *rows, cols* 31 + rows);
   }
 
   resize() {
@@ -790,7 +826,7 @@ export class SceneDriver {
     for (const e of [this.current, this.next]) {
       if (e) e.set_grid(cols, rows);
     }
-    this.thresholds = makeThresholds(cols * rows, cols * 31 + rows);
+    this.thresholds = makeThresholds(cols *rows, cols* 31 + rows);
   }
 
   tick(tSeconds) {
@@ -831,8 +867,10 @@ Create `site/main.js`:
 
 ```javascript
 /*
- * Wiring only. The loop runs when the grid is on screen and the tab is
- * visible, and stops otherwise.
+
+* Wiring only. The loop runs when the grid is on screen and the tab is
+* visible, and stops otherwise.
+
  */
 import { Renderer } from "./renderer.js";
 import { loadEngine, SceneDriver } from "./engine.js";
@@ -926,7 +964,7 @@ The complete static page. This is also the reduced-motion and WebAssembly-absent
 
 **Interfaces:**
 
-- Consumes: Task 2's font, Task 5's `main.js` and the `#grid` canvas, and `data-scene` attributes on sections.
+- Consumes: Task 2's font, Task 5's `main.js`and the`#grid`canvas, and`data-scene` attributes on sections.
 - Produces: section ids `stack`, `layer`, `scenes`, `palette`, `surfaces`, `install`, consumed by Task 7's choreography.
 
 - [ ] **Step 1: Add the accessibility dependency and Playwright config**
@@ -1179,8 +1217,10 @@ Create `site/styles.css`:
 
 ```css
 /*
- * Tokens come from aa-core's Theme::ALL, so the palettes here are the app's.
- * Backgrounds are tinted rather than pure black: a flat #000 reads synthetic.
+
+* Tokens come from aa-core's Theme::ALL, so the palettes here are the app's.
+* Backgrounds are tinted rather than pure black: a flat #000 reads synthetic.
+
  */
 @font-face {
   font-family: "IBM Plex Mono";
@@ -1209,7 +1249,8 @@ body {
   font: 400 1rem/1.6 "IBM Plex Mono", ui-monospace, monospace;
 }
 
-#grid {
+# grid {
+
   position: fixed;
   inset: 0;
   z-index: 0;
@@ -1312,7 +1353,9 @@ kbd { border: 1px solid var(--rule); padding: 0 0.3rem; }
 .foot a { color: var(--muted); }
 
 @media (prefers-reduced-motion: reduce) {
+
   * { animation: none !important; transition: none !important; }
+
   html { scroll-behavior: auto; }
 }
 ```
@@ -1321,7 +1364,7 @@ kbd { border: 1px solid var(--rule); padding: 0 0.3rem; }
 
 Run: `verify-on-vm ~/CS/projects/personal/ascii-arcade/e2e "npx playwright test tests/site/"`
 
-Expected: PASS. If an axe contrast violation appears, raise `--muted` or `--dim` toward `--fg` until it clears on all four palettes. Do not silence the rule.
+Expected: PASS. If an axe contrast violation appears, raise `--muted`or`--dim`toward`--fg` until it clears on all four palettes. Do not silence the rule.
 
 - [ ] **Step 7: Commit**
 
@@ -1332,7 +1375,7 @@ git commit -m "feat: add the static landing page, copy and palettes"
 
 ---
 
-### Task 7: Motion and progressive enhancements
+## Task 7: Motion and progressive enhancements
 
 Layered onto a page that already works without any of it. Covers the reveals, the
 scroll scrub, the copy buttons and the persistent affordance, all of which are
@@ -1354,8 +1397,8 @@ additions to markup that already reads on its own.
 - Consumes: Task 6's section ids, Task 5's `SceneDriver`.
 - Produces:
   - `initMotion({ reduced })`, called once from `main.js`, a no-op when `reduced` is true
-  - `scrollProgress()` inside `motion.js` — a lerped 0-to-1 value updated on the existing `rAF` loop, which is where scrub smoothing comes from since native scroll timelines are strictly one-to-one with scroll position
-  - `initEnhancements()` in `enhance.js` — copy buttons on `pre.code`, and the fixed depth-glyph affordance
+  - `scrollProgress()`inside`motion.js`— a lerped 0-to-1 value updated on the existing`rAF` loop, which is where scrub smoothing comes from since native scroll timelines are strictly one-to-one with scroll position
+  - `initEnhancements()`in`enhance.js`— copy buttons on`pre.code`, and the fixed depth-glyph affordance
 
 - [ ] **Step 1: Vendor Motion**
 
@@ -1363,7 +1406,7 @@ additions to markup that already reads on its own.
 curl -fsSL -o site/vendor/motion.min.js https://cdn.jsdelivr.net/npm/motion@11/+esm
 ```
 
-Confirm it is an ES module (`grep -c "export" site/vendor/motion.min.js` returns non-zero) and record the version in a comment at the top of `site/motion.js`. Motion is MIT licensed, which is why it is here rather than GSAP.
+Confirm it is an ES module (`grep -c "export" site/vendor/motion.min.js`returns non-zero) and record the version in a comment at the top of`site/motion.js`. Motion is MIT licensed, which is why it is here rather than GSAP.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -1407,11 +1450,15 @@ Create `site/motion.js`:
 
 ```javascript
 /*
- * Motion 11 (MIT), vendored rather than installed. GSAP has the better pinning
- * story but ships under a licence that does not sit with GPL-2.0.
+
+* Motion 11 (MIT), vendored rather than installed. GSAP has the better pinning
+* story but ships under a licence that does not sit with GPL-2.0.
+
  *
- * Reveals are added here rather than in the markup so the page still reads if
- * this module never loads.
+
+* Reveals are added here rather than in the markup so the page still reads if
+* this module never loads.
+
  */
 import { animate, inView } from "./vendor/motion.min.js";
 
@@ -1502,9 +1549,11 @@ running for the canvas. Append to `site/motion.js`:
 
 ```javascript
 /*
- * Lerped scroll position. Native scroll timelines are one-to-one with the
- * scrollbar; this trails it slightly, which is the inertia GSAP's scrub would
- * have given us. Read by main.js on the frame loop it already runs.
+
+* Lerped scroll position. Native scroll timelines are one-to-one with the
+* scrollbar; this trails it slightly, which is the inertia GSAP's scrub would
+* have given us. Read by main.js on the frame loop it already runs.
+
  */
 let smoothed = 0;
 
@@ -1527,7 +1576,7 @@ In `site/main.js`, extend the import:
 import { initMotion, updateScrollProgress } from "./motion.js";
 ```
 
-and inside the `frame` function, immediately before `driver.tick(...)`:
+and inside the `frame`function, immediately before`driver.tick(...)`:
 
 ```javascript
       if (!reduced) updateScrollProgress();
@@ -1585,9 +1634,11 @@ Create `site/enhance.js`:
 
 ```javascript
 /*
- * Additions to markup that already works. The command blocks are readable and
- * selectable without a copy button; the dock is a shortcut, not the only route
- * to the download. Nothing here is required for the page to make sense.
+
+* Additions to markup that already works. The command blocks are readable and
+* selectable without a copy button; the dock is a shortcut, not the only route
+* to the download. Nothing here is required for the page to make sense.
+
  */
 
 const DEPTHS = [
@@ -1729,10 +1780,10 @@ git commit -m "feat: layer choreography, scroll scrub and copy affordances over 
 
 **Interfaces:**
 
-- Consumes: Task 6's `#doomFrame` and `#playDoom`.
+- Consumes: Task 6's `#doomFrame`and`#playDoom`.
 - Produces:
-  - `DoomSource` contract: `start()`, `stop()`, `frame(): string | null`
-  - `RecordedDoom` implements it from `site/assets/doom-attract.json`
+  - `DoomSource`contract:`start()`, `stop()`, `frame(): string | null`
+  - `RecordedDoom`implements it from`site/assets/doom-attract.json`
   - `mountDoom(preEl, buttonEl)` wires both and handles the absent-asset case
 
 - [ ] **Step 1: Write the recorder**
@@ -1741,11 +1792,15 @@ Create `scripts/record-doom.mjs`:
 
 ```javascript
 /*
- * Capture DOOM's attract-mode loop from aa-web as plain character frames.
+
+* Capture DOOM's attract-mode loop from aa-web as plain character frames.
+
  *
- * Runs on ampere-dev with doom_ascii already built by scripts/setup.sh. The
- * output is text, so nothing GPL is redistributed: doom_ascii itself never
- * leaves the build machine.
+
+* Runs on ampere-dev with doom_ascii already built by scripts/setup.sh. The
+* output is text, so nothing GPL is redistributed: doom_ascii itself never
+* leaves the build machine.
+
  */
 import { writeFileSync } from "node:fs";
 
@@ -1785,7 +1840,7 @@ Run on the VM, with `aa-web` serving DOOM in one tmux pane:
 verify-on-vm ~/CS/projects/personal/ascii-arcade "mkdir -p site/assets && AA_WEB_ENABLE_DOOM=1 cargo run -p aa-web --features doom & sleep 8 && node scripts/record-doom.mjs"
 ```
 
-Expected: `site/assets/doom-attract.json` exists and is under 400 kB. If larger, drop `SECONDS` to 4. This file sits outside the 150 kB page budget because it loads only on request.
+Expected: `site/assets/doom-attract.json`exists and is under 400 kB. If larger, drop`SECONDS` to 4. This file sits outside the 150 kB page budget because it loads only on request.
 
 - [ ] **Step 3: Write the failing test**
 
@@ -1823,9 +1878,11 @@ Create `site/doom.js`:
 
 ```javascript
 /*
- * DOOM as a frame source, which is how the app already treats it: one contract,
- * two implementations. RecordedDoom replays captured attract-mode frames today
- * and a WasmDoom can take its place without touching this page.
+
+* DOOM as a frame source, which is how the app already treats it: one contract,
+* two implementations. RecordedDoom replays captured attract-mode frames today
+* and a WasmDoom can take its place without touching this page.
+
  */
 
 export class RecordedDoom {
@@ -1969,7 +2026,7 @@ test("the page stays inside its 150 kB budget", () => {
 
 Run: `verify-on-vm ~/CS/projects/personal/ascii-arcade/e2e "npx playwright test tests/site/budget.spec.ts"`
 
-Expected: PASS. If it fails, the WebAssembly module is the likely cause; apply the `opt-level = "z"` and `lto = true` change noted in Task 1 Step 7 and rebuild. Never raise `LIMIT`.
+Expected: PASS. If it fails, the WebAssembly module is the likely cause; apply the `opt-level = "z"`and`lto = true`change noted in Task 1 Step 7 and rebuild. Never raise`LIMIT`.
 
 - [ ] **Step 3: Write the deploy workflow**
 
@@ -1997,13 +2054,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+
         with:
           targets: wasm32-unknown-unknown
+
       - run: bash scripts/build-wasm.sh
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
+
         with:
           path: site
 
@@ -2014,7 +2075,9 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
+
       - id: deploy
+
         uses: actions/deploy-pages@v4
 ```
 
@@ -2026,11 +2089,15 @@ In `.github/workflows/ci.yml`, add a job that fails the build when the wasm targ
   wasm:
     runs-on: ubuntu-latest
     steps:
+
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+
         with:
           targets: wasm32-unknown-unknown
+
       - run: cargo build -p aa-wasm --release --target wasm32-unknown-unknown
+
 ```
 
 - [ ] **Step 5: Verify the workflow parses**
@@ -2058,6 +2125,6 @@ git commit -m "ci: build the wasm target, gate the page budget, deploy to Pages"
 
 **Enabling Pages.** The workflow deploys but the repository setting is manual: Settings, Pages, Source, GitHub Actions. Nothing publishes until that is switched on, and switching it on is the owner's call rather than something to do unasked.
 
-**The `pkg/` directory.** `site/pkg/` is generated by `scripts/build-wasm.sh`. Committing it keeps a plain `python3 -m http.server` working with no build, which suits a repository that has stayed dependency-light. Not committing it means CI is the only way to get a working page. Either is defensible; ask before deciding, and add `site/pkg/` to `.gitignore` if it stays out.
+**The `pkg/`directory.**`site/pkg/`is generated by`scripts/build-wasm.sh`. Committing it keeps a plain `python3 -m http.server`working with no build, which suits a repository that has stayed dependency-light. Not committing it means CI is the only way to get a working page. Either is defensible; ask before deciding, and add`site/pkg/`to`.gitignore` if it stays out.
 
-**A known gap, out of scope here.** `crates/aa-render/src/font.rs` covers ASCII `0x20..=0x7E` only and `glyph_bitmap()` returns `None` past that, so Life's `█` and Pipes' six box-drawing characters have no bitmap on the Linux and Windows shells. It does not affect this site, which uses its own font. It is written up at the end of `docs/landing-page-design.md` and wants confirming on a Linux shell before anyone fixes it.
+**A known gap, out of scope here.** `crates/aa-render/src/font.rs`covers ASCII`0x20..=0x7E`only and`glyph_bitmap()`returns`None`past that, so Life's`█`and Pipes' six box-drawing characters have no bitmap on the Linux and Windows shells. It does not affect this site, which uses its own font. It is written up at the end of`docs/landing-page-design.md` and wants confirming on a Linux shell before anyone fixes it.

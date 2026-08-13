@@ -14,7 +14,7 @@ npm run demo           # builds + boots the Swift Server, records, transcodes
 
 > **Environment notes**
 >
-> - The `webServer` command exports a `GIT_CONFIG_*` override for `safe.bareRepository`
+> - The `webServer`command exports a`GIT_CONFIG_*`override for`safe.bareRepository`
 >   so SwiftPM's package cache works even if you've set that git option globally.
 > - SwiftPM's build database (`.build/build.db`) is a sqlite file and can throw
 >   `disk I/O error` on network/synced filesystems (e.g. Google Drive / iCloud).
@@ -22,17 +22,20 @@ npm run demo           # builds + boots the Swift Server, records, transcodes
 
 `npm run demo` will:
 
-1. start the server via the `webServer` block in `playwright.demo.config.ts`
-   (it runs `scripts/setup.sh` to ensure `bin/doom_ascii` exists, then `swift run --package-path Server Server`),
+1. start the server via the `webServer`block in`playwright.demo.config.ts`
+
+   (it runs `scripts/setup.sh`to ensure`bin/doom_ascii`exists, then`swift run --package-path Server Server`),
+
 2. run the demo scenarios with `DEMO=1` (slow-mo + dwell beats + a visible cursor),
-3. transcode each scenario's `webm` → `mp4` into `e2e/recordings/` via the custom
+3. transcode each scenario's `webm`→`mp4`into`e2e/recordings/` via the custom
+
    reporter (warmup + 0-byte clips are discarded).
 
 ## Tuning knobs
 
 | Var | Default | Purpose |
 | ----- | --------- | --------- |
-| `DEMO` | `0` | Master switch — dwell/cursor only fire when `1` |
+| `DEMO` | `0` | Master switch — dwell/cursor only fire when`1` |
 | `DEMO_SLOWMO` | `1000` | Per-action pause (ms) |
 | `DEMO_DWELL_MS` | `1500` | Default dwell after "thing appeared" beats |
 | `DOOM_PORT` | `8787` | Server port |

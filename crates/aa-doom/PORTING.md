@@ -2,17 +2,17 @@
 
 `aa-doom` shells out to the vendored [`doom_ascii`](https://github.com/wojciech-graj/doom-ascii)
 binary (a `doomgeneric`-based terminal DOOM, pure C, GPL — built locally, not
-redistributed). `scripts/setup.sh` clones it and runs `make`. The launcher
-([`launcher.rs`](src/launcher.rs)) looks for `doom_ascii` (or `doom_ascii.exe`
+redistributed). `scripts/setup.sh`clones it and runs`make`. The launcher
+([`launcher.rs`](src/launcher.rs)) looks for `doom_ascii`(or`doom_ascii.exe`
 on Windows) under `bin/`, `$DOOM_ASCII_PATH`, and the system bin dirs.
 
 The DOOM frames reach us over a PTY via `portable-pty`, which abstracts the
-per-OS pseudo-terminal: **forkpty** on macOS/Linux, **ConPTY** on Windows. That
+per-OS pseudo-terminal: **forkpty**on macOS/Linux,**ConPTY** on Windows. That
 single abstraction is why DOOM works on all three.
 
 ## Linux
 
-Trivial — same as macOS. `cc` + `make`:
+Trivial — same as macOS. `cc`+`make`:
 
 ```text
 git clone --depth 1 https://github.com/wojciech-graj/doom-ascii
@@ -38,15 +38,18 @@ cd doom-ascii && make
 Notes:
 
 - **VT output:** `doom_ascii` emits ANSI/truecolor escapes. Under our ConPTY
+
   master those are delivered as-is to [`screen.rs`](src/screen.rs) — we parse
   the escapes ourselves, so the child doesn't need the Windows console's own VT
   processing enabled.
+
 - **Binary name:** the launcher already prefers `doom_ascii.exe` on Windows.
 - An MSVC build is possible but requires porting the Makefile; MinGW is simpler
+
   and the resulting exe runs fine under ConPTY.
 
 ## WADs
 
-Any supported IWAD in `wad/` (or `$DOOM_WAD_DIR`); the repo ships the
-redistributable Freedoom set. The launcher exports `DOOMWADDIR` so `doom_ascii`
+Any supported IWAD in `wad/`(or`$DOOM_WAD_DIR`); the repo ships the
+redistributable Freedoom set. The launcher exports `DOOMWADDIR`so`doom_ascii`
 finds adjacent lumps.
