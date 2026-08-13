@@ -65,15 +65,15 @@ echo "── Lipo-ing simulator slices ─────────────�
 LIPO_SIM_DIR="$REPO_ROOT/target/lipo-ios-sim/release"
 mkdir -p "$LIPO_SIM_DIR"
 lipo -create \
-  "$SIM_ARM_TARGET_DIR/aarch64-apple-ios-sim/release/$LIB_NAME" \
-  "$SIM_X86_TARGET_DIR/x86_64-apple-ios/release/$LIB_NAME" \
+  "$SIM_ARM_TARGET_DIR/aarch64-apple-ios-sim/release/deps/$LIB_NAME" \
+  "$SIM_X86_TARGET_DIR/x86_64-apple-ios/release/deps/$LIB_NAME" \
   -output "$LIPO_SIM_DIR/$LIB_NAME"
 
 echo "── Assembling XCFramework ───────────────────────────────────────"
 mkdir -p "$OUT_DIR"
 rm -rf "$XCFRAMEWORK"
 xcodebuild -create-xcframework \
-  -library "$DEVICE_TARGET_DIR/aarch64-apple-ios/release/$LIB_NAME" \
+  -library "$DEVICE_TARGET_DIR/aarch64-apple-ios/release/deps/$LIB_NAME" \
   -headers "$HEADERS_DIR" \
   -library "$LIPO_SIM_DIR/$LIB_NAME" \
   -headers "$HEADERS_DIR" \
