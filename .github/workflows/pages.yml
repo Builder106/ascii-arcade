@@ -6,6 +6,9 @@ on:
     paths: ['site/**', 'crates/aa-core/**', 'crates/aa-wasm/**', 'scripts/build-wasm.sh', '.github/workflows/pages.yml']
   workflow_dispatch:
 
+# REQUIRED: Repository must have Pages enabled in Settings → Pages → Build and deployment → Source: "GitHub Actions"
+# If this workflow fails with "Not Found" from configure-pages, enable Pages in the repo settings first.
+
 permissions:
   contents: read
   pages: write
