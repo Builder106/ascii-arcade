@@ -21,8 +21,7 @@ pub struct Engine {
 impl Engine {
     #[wasm_bindgen(constructor)]
     pub fn new(id: &str, cols: usize, rows: usize) -> SceneResult<Engine> {
-        let mut scene =
-            scenes::make(id).ok_or_else(|| format!("unknown scene: {id}"))?;
+        let mut scene = scenes::make(id).ok_or_else(|| format!("unknown scene: {id}"))?;
         scene.set_grid(cols, rows);
         Ok(Engine {
             scene,
@@ -51,10 +50,7 @@ impl Engine {
             // genuinely black cell can never collide with the zero sentinel.
             self.colors.push(match cell.color {
                 Some(c) => {
-                    0xFF00_0000
-                        | (u32::from(c.r) << 16)
-                        | (u32::from(c.g) << 8)
-                        | u32::from(c.b)
+                    0xFF00_0000 | (u32::from(c.r) << 16) | (u32::from(c.g) << 8) | u32::from(c.b)
                 }
                 None => 0,
             });
@@ -75,7 +71,10 @@ impl Engine {
 /// Built-in scene ids, in the order the site presents them.
 #[wasm_bindgen]
 pub fn scene_ids() -> Vec<String> {
-    scenes::BUILTIN_IDS.iter().map(|s| (*s).to_string()).collect()
+    scenes::BUILTIN_IDS
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect()
 }
 
 /// The four palettes, so the page never keeps a second copy that can drift.
