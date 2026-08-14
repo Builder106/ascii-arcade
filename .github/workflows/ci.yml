@@ -147,26 +147,7 @@ jobs:
         run: xcodegen generate
 
       - name: Boot iOS Simulator
-        run: |
-          # Try iPhone 16 first, fall back to iPhone 15, then any available iOS simulator
-          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c "
-import json,sys
-d=json.load(sys.stdin)['devices']
-for name in ['iPhone 16', 'iPhone 15', 'iPhone 14']:
-    try:
-        print(next(x['udid'] for rt in d.values() for x in rt if x['name']==name))
-        break
-    except StopIteration:
-        continue
-else:
-    # Fallback: any iOS simulator
-    try:
-        print(next(x['udid'] for rt in d.values() for x in rt if 'iOS' in str(rt)))
-    except StopIteration:
-        sys.exit(1)
-")
-          echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
-          xcrun simctl boot "$DEVICE_ID"
+        run: ./scripts/boot-ios-simulator.sh
 
       - name: Build for simulator
         working-directory: shells/ios
