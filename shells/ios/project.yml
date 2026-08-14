@@ -4,13 +4,13 @@ options:
   deploymentTarget:
     iOS: "26.0"
   createIntermediateGroups: true
-  xcodeVersion: "16.4"
+  xcodeVersion: "16.2"
 
 targets:
   AsciiArcade:
     type: application
     platform: iOS
-    deploymentTarget: "26.0"
+    deploymentTarget: "17.0"
     sources:
       - path: AsciiArcade
     settings:

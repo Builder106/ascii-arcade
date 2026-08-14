@@ -163,7 +163,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1640;
+				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					E2200B2EDA0B5957429C1BC7 = {
 						DevelopmentTeam = "";
@@ -261,7 +261,7 @@
 					"\"Frameworks\"",
 				);
 				INFOPLIST_FILE = AsciiArcade/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -292,7 +292,7 @@
 					"\"Frameworks\"",
 				);
 				INFOPLIST_FILE = AsciiArcade/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
