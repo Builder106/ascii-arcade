@@ -161,7 +161,7 @@ jobs:
       - name: Install and launch on simulator
         working-directory: shells/ios
         run: |
-          APP_PATH=$(find build/Build/Products -maxdepth 1 -iname "*.app" | head -1)
+          APP_PATH=$(find build/Build/Products -iname "*.app" | head -1)
           xcrun simctl install "$DEVICE_ID" "$APP_PATH"
           xcrun simctl launch "$DEVICE_ID" com.builder106.asciiarcade
 
