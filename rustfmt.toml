@@ -1,63 +1,7 @@
 # ascii-arcade Rust formatting configuration
 # Run with: cargo fmt --all --check
 
-# Edition of the Rust language to use
 edition = "2021"
-
-# Maximum line width
 max_width = 100
-
-# Indentation style
-indent_style = "Block"
-tab_spaces = 4
-
-# Blank lines
-blank_lines_upper_bound = 1
-
-# Newline style
 newline_style = "Unix"
-
-# Import organization
-imports_granularity = "Crate"
-group_imports = "StdExternalCrate"
-reorder_imports = true
-
-# Function formatting
-fn_args_layout = "Tall"
-fn_return_indent = "Block"
-brace_style = "SameLineWhere"
-
-# Control flow formatting
-control_brace_style = "Always"
-match_block_trailing_comma = true
-
-# Struct/enum formatting
-struct_lit_style = "Mixed"
-enum_discriminant_alignment = "AlignAll"
-
-# Chain formatting
-chain_width = 60
-
-# Comment formatting
-normalize_comments = true
-comment_width = 80
-
-# Version stability
-version = "Two"
-
-# Force explicit formats
-force_explicit_abi = false
-hard_tabs = false
-
-# Format code in macros
-format_macro_matchers = true
-format_macro_bodies = true
-
-# Use small heuristics for import layout
 use_small_heuristics = "Default"
-
-# Allow trailing commas
-trailing_comma = "Vertical"
-
-# Single line if possible
-single_line_if_else_max_width = 50

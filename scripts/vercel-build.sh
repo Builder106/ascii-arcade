@@ -10,7 +10,7 @@
 # standing VM-only build rule" — that rule is about not installing heavy
 # toolchains on the developer's own Mac (see CLAUDE.md), not about CI in
 # general; Vercel's build container is an ephemeral cloud sandbox in the
-# same category as the GitHub Actions runner pages.yml already builds
+# same category as the GitHub Actions runner ci.yml already builds
 # aa-core's own WASM target on, not "the Mac" the rule is about.
 set -euo pipefail
 
