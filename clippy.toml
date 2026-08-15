@@ -1,0 +1,92 @@
+# ascii-arcade Clippy configuration
+# Run with: cargo clippy --all-targets -- -D warnings
+
+# Lint levels: deny, warn, allow
+
+# Restriction lints (off by default, but we enable key ones)
+[clippy::restriction]
+# Style
+doc_markdown = "warn"
+implicit_return = "warn"
+wildcard_imports = "warn"
+use_self = "warn"
+pub_use = "warn"
+enum_variant_names = "warn"
+explicit_iter_loop = "warn"
+explicit_into_iter_loop = "warn"
+filter_map_next = "warn"
+manual_map = "warn"
+manual_find = "warn"
+manual_filter = "warn"
+manual_ok_or = "warn"
+single_char_lifetime_names = "warn"
+module_name_repetitions = "warn"
+similar_names = "warn"
+items_after_statements = "warn"
+separated_literal_suffix = "warn"
+unused_self = "warn"
+unused_async = "warn"
+future_not_send = "warn"
+non_ascii_literal = "warn"
+
+# Complexity
+too_many_arguments = "warn"
+cognitive_complexity = "warn"
+type_complexity = "warn"
+
+# Performance
+inefficient_to_string = "warn"
+linkedlist = "warn"
+box_collection = "warn"
+format_push_string = "warn"
+
+# Correctness
+get_unwrap = "warn"
+expect_used = "warn"
+unwrap_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+missing_docs_in_private_items = "allow"
+
+# Perf lints (warn by default, keep as warn)
+[clippy::perf]
+clone_on_copy = "warn"
+unnecessary_to_owned = "warn"
+inefficient_to_string = "warn"
+format_push_string = "warn"
+
+# Style lints (warn by default, keep as warn)
+[clippy::style]
+wildcard_imports = "warn"
+doc_markdown = "warn"
+enum_variant_names = "warn"
+module_name_repetitions = "warn"
+
+# Complexity lints (warn by default, keep as warn)
+[clippy::complexity]
+too_many_arguments = "warn"
+cognitive_complexity = "warn"
+type_complexity = "warn"
+
+# Correctness lints (deny by default, keep as deny)
+[clippy::correctness]
+get_unwrap = "deny"
+expect_used = "deny"
+unwrap_used = "deny"
+panic = "deny"
+
+# Pedantic lints (off by default, enable some)
+[clippy::pedantic]
+missing_docs_in_private_items = "allow"
+multiple_crate_versions = "allow"
+must_use_candidate = "warn"
+similar_names = "warn"
+items_after_statements = "warn"
+struct_excessive_bools = "warn"
+enum_glob_use = "warn"
+wildcard_enum_match_arm = "warn"
+
+# Cargo lints
+[clippy::cargo]
+multiple_crate_versions = "warn"

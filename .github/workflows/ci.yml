@@ -23,6 +23,25 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_NOTIFY_USER_LIST: ""
 
+  fmt:
+    name: Rust format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  audit:
+    name: Security audit (cargo-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   build-test:
     name: Build & test (macOS)
     runs-on: macos-15
@@ -155,13 +174,27 @@ jobs:
           xcodebuild build \
             -project AsciiArcade.xcodeproj \
             -scheme AsciiArcade \
+            -configuration Debug \
             -destination "id=$DEVICE_ID" \
             -derivedDataPath build
 
       - name: Install and launch on simulator
         working-directory: shells/ios
         run: |
-          APP_PATH=$(find build/Build/Products -iname "*.app" | head -1)
+          # Wait for simulator to be fully booted
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+
+          # Find the .app bundle - xcodebuild with -derivedDataPath puts it in a platform-specific folder
+          APP_PATH=$(find build/Build/Products -iname "AsciiArcade.app" -type d | head -1)
+
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "Error: Could not find AsciiArcade.app in build/Build/Products"
+            echo "Contents of build/Build/Products:"
+            find build/Build/Products -type f -name "*.app" 2>/dev/null || echo "No .app files found"
+            exit 1
+          fi
+
+          echo "Found app at: $APP_PATH"
           xcrun simctl install "$DEVICE_ID" "$APP_PATH"
           xcrun simctl launch "$DEVICE_ID" com.builder106.asciiarcade
 

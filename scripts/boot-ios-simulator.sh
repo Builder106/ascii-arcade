@@ -26,3 +26,6 @@ fi
 
 echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
 xcrun simctl boot "$DEVICE_ID"
+
+# Wait for simulator to be fully booted
+xcrun simctl bootstatus "$DEVICE_ID" -b
