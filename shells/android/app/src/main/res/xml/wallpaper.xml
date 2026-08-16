@@ -2,4 +2,5 @@
 <wallpaper xmlns:android="http://schemas.android.com/apk/res/android"
     android:thumbnail="@android:drawable/sym_def_app_icon"
     android:description="@string/wallpaper_description"
+    android:supportsAmbientMode="true"
     android:settingsActivity="com.builder106.asciiarcade.PreviewActivity" />
