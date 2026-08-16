@@ -43,7 +43,7 @@ on a shared or school machine, so DOOM stays out of the Scene list, ⌘⌥C
 cycling, and idle auto-cycle until you turn on *"Enable DOOM Scene"* in the
 menu. Once enabled, it behaves like any other scene.
 
-**Capture.**macOS's native ⌘⇧3/⌘⇧4 skips the wallpaper layer — use the in-app shortcuts instead:**⌘⌥S**saves a PNG to ~/Desktop and copies it to the clipboard;**⌘⌥R** records a 3-second MP4 clip and opens it in Finder when done. Both commands are also in the `◎` menu under *Capture*.
+**Capture.** macOS's native ⌘⇧3/⌘⇧4 skips the wallpaper layer — use the in-app shortcuts instead: **⌘⌥S** saves a PNG to ~/Desktop and copies it to the clipboard; **⌘⌥V** records a 3-second MP4 clip and opens it in Finder when done. Both commands are also in the `◎` menu under *Capture*.
 
 **Colour.** Scenes can paint each glyph individually: DOOM uses its own native
 palette, while Matrix, Life, and the math scenes key off the theme's text colour
