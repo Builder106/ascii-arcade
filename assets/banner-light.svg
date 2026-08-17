@@ -4,10 +4,6 @@
       <stop offset="0%" stop-color="#fafafa"/>
       <stop offset="100%" stop-color="#ececed"/>
     </linearGradient>
-    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#2b2b2e"/>
-      <stop offset="100%" stop-color="#161618"/>
-    </linearGradient>
   </defs>
 
   <rect width="1200" height="420" fill="url(#bg)"/>
@@ -59,7 +55,7 @@
   </g>
 
   <!-- ASCII donut -->
-  <g font-family="'SFMono-Regular','Menlo','Consolas',monospace" font-size="22" fill="url(#ink)" letter-spacing="2.5">
+  <g font-family="'SFMono-Regular','Menlo','Consolas',monospace" font-size="22" fill="#161618" letter-spacing="2.5">
     <text x="70" y="95"  xml:space="preserve">         .~=#@@@#=~.</text>
     <text x="70" y="121" xml:space="preserve">      :=#$$$$$$$$$#=:</text>
     <text x="70" y="147" xml:space="preserve">    ~#$$;;;;;;;;;;;$$#~</text>
@@ -74,7 +70,7 @@
   </g>
 
   <!-- wordmark -->
-  <text x="550" y="200" font-family="'SFMono-Regular','Menlo','Consolas',monospace" font-size="74" font-weight="700" fill="url(#ink)" letter-spacing="2">ASCII ARCADE</text>
+  <text x="550" y="200" font-family="'SFMono-Regular','Menlo','Consolas',monospace" font-size="74" font-weight="700" fill="#161618" letter-spacing="2">ASCII ARCADE</text>
   <text x="563" y="255" font-family="system-ui,'Helvetica Neue',Arial,sans-serif" font-size="27" fill="#4a4a4f">Live ASCII scenes as your macOS desktop wallpaper.</text>
 
   <!-- scene chips -->
