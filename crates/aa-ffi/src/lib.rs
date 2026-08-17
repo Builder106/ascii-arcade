@@ -80,7 +80,6 @@ pub extern "C" fn aa_engine_create(scene_id: *const c_char) -> *mut AaEngine {
     }
 }
 
-/// Destroy the engine and release all resources.
 #[no_mangle]
 pub extern "C" fn aa_engine_destroy(engine: *mut AaEngine) {
     if !engine.is_null() {
@@ -88,7 +87,6 @@ pub extern "C" fn aa_engine_destroy(engine: *mut AaEngine) {
     }
 }
 
-/// Resize the character grid the scene renders into.
 #[no_mangle]
 pub extern "C" fn aa_engine_set_grid(engine: *mut AaEngine, width: u32, height: u32) {
     if engine.is_null() {
@@ -183,7 +181,6 @@ pub extern "C" fn aa_scene_names(out_count: *mut u32) -> *mut *mut c_char {
     if !out_count.is_null() {
         unsafe { *out_count = BUILTIN_IDS.len() as u32 };
     }
-    // Allocate array with a null terminator slot.
     let mut ptrs: Vec<*mut c_char> = BUILTIN_IDS
         .iter()
         .map(|s| CString::new(*s).unwrap().into_raw())
