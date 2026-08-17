@@ -13,4 +13,4 @@ crate-type = ["cdylib", "rlib"]
 aa-core = { workspace = true }
 # Pinned exactly: wasm-bindgen refuses to run if the CLI's version differs from
 # the crate's, and scripts/build-wasm.sh installs the CLI at this same version.
-wasm-bindgen = "=0.2.126"
+wasm-bindgen = "=0.2.127"
