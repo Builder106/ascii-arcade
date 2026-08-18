@@ -30,7 +30,6 @@ class AaWallpaperService : WallpaperService() {
         private var cols = 1
         private var rows = 1
         private var visible = false
-        private var inAmbientMode = false
         private val startNanos = System.nanoTime()
 
         private val drawRunnable = object : Runnable {
@@ -60,18 +59,7 @@ class AaWallpaperService : WallpaperService() {
         override fun onVisibilityChanged(visible: Boolean) {
             this.visible = visible
             handler.removeCallbacks(drawRunnable)
-            if (visible && !inAmbientMode) handler.post(drawRunnable)
-        }
-
-        override fun onAmbientModeChanged(inAmbientMode: Boolean, animated: Boolean) {
-            super.onAmbientModeChanged(inAmbientMode, animated)
-            this.inAmbientMode = inAmbientMode
-            handler.removeCallbacks(drawRunnable)
-            if (visible && !inAmbientMode) {
-                handler.post(drawRunnable)
-            } else if (visible && inAmbientMode) {
-                drawFrame() // Draw one static frame for AOD
-            }
+            if (visible) handler.post(drawRunnable)
         }
 
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
