@@ -13,35 +13,28 @@
   <a href="#license"><img alt="License" src="<https://img.shields.io/badge/license-GPL--2.0-blue.svg>"></a>
 </p>
 
-A macOS live-wallpaper customizer that renders ASCII scenes as your desktop
-background. Pick a spinning [Andy Sloane donut](https://www.a1k0n.net/2011/07/20/donut-math.html),
-Matrix rain, Conway's Game of Life, or the old pipes screensaver — all drawn
-straight onto the desktop, behind your windows. **Playable text-mode DOOM** is
-also in there as an opt-in scene (see below).
+> **Live ASCII animations and playable retro scenes for your Mac desktop background.** Render Matrix digital rain, rotating 3D geometry, Conway's Game of Life, or retro DOOM directly on your desktop.
 
-It started as the merge of two earlier projects: `donut` (the ASCII wallpaper
-host) and `DOOM` (text-mode DOOM over a PTY). DOOM is just another *scene*: its
-frames are reconstructed from the `doom_ascii` terminal stream and rendered with
-the same CRT-styled text drawing as the donut, with keystrokes forwarded so you
-can play it as your wallpaper.
+## 💡 What is ASCII Arcade?
+
+ASCII Arcade turns your macOS desktop background into an animated retro computer terminal. Instead of a static picture, your desktop comes alive with dynamic text-art animations running smoothly behind your open application windows.
+
+You can switch between classic visual scenes (like glowing green Matrix rain, rotating 3D shapes, or vintage pipe screensavers) from your Mac menu bar. It even includes an optional retro DOOM mode that lets you play the classic game directly on your desktop using your keyboard.
 
 ## Scenes
 
-| Scene | What it is | Colour | Interactive |
+| Scene | Description | Color Scheme | Interactive |
 | ------- | ------------ | -------- | ------------- |
-| **Donut** | The classic rotating ASCII torus | theme | — |
-| **Helix** | A precessing double-helix variant | theme | — |
-| **Matrix** | Falling digital rain with bright heads + fading trails | theme-tinted | — |
-| **Life** | Conway's Game of Life, seeded with classic patterns; auto-reseeds when it stalls | theme-tinted | — |
-| **Pipes** | The old pipes screensaver in box-drawing glyphs | per-pipe hue | — |
-| **DOOM** *(opt-in)* | `doom_ascii` rendered to the desktop, in its native colours | full colour | ✅ keyboard |
+| **Donut** | Classic rotating 3D ASCII donut | Theme color | No |
+| **Helix** | Rotating DNA double-helix spiral | Theme color | No |
+| **Matrix** | Falling digital code rain with glowing trails | Green / Amber | No |
+| **Life** | Conway's Game of Life cell simulation | Theme color | No |
+| **Pipes** | Retro 3D pipe maze screensaver | Multi-color | No |
+| **DOOM** *(optional)* | Playable classic DOOM rendered in ASCII characters | Full color | Yes (Keyboard) |
 
-Switch scenes and themes from the menu-bar `◎` item, or cycle scenes with **⌘⌥C**.
+Switch scenes and themes from the menu bar icon, or cycle scenes quickly with **⌘⌥C**.
 
-**DOOM is opt-in.** A playable shooter isn't what everyone wants greeting them
-on a shared or school machine, so DOOM stays out of the Scene list, ⌘⌥C
-cycling, and idle auto-cycle until you turn on *"Enable DOOM Scene"* in the
-menu. Once enabled, it behaves like any other scene.
+**Optional DOOM mode:** To keep the wallpaper suitable for all environments, the playable game is disabled by default. Enable it anytime under *"Enable DOOM Scene"* in the menu.
 
 **Capture.** macOS's native ⌘⇧3/⌘⇧4 skips the wallpaper layer — use the in-app shortcuts instead: **⌘⌥S** saves a PNG to ~/Desktop and copies it to the clipboard; **⌘⌥V** records a 3-second MP4 clip and opens it in Finder when done. Both commands are also in the `◎` menu under *Capture*.
 
