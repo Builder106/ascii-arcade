@@ -36,7 +36,7 @@ Switch scenes and themes from the menu bar icon, or cycle scenes quickly with **
 
 **Optional DOOM mode:** To keep the wallpaper suitable for all environments, the playable game is disabled by default. Enable it anytime under *"Enable DOOM Scene"* in the menu.
 
-**Capture.** macOS's native ⌘⇧3/⌘⇧4 skips the wallpaper layer — use the in-app shortcuts instead: **⌘⌥S** saves a PNG to ~/Desktop and copies it to the clipboard; **⌘⌥V** records a 3-second MP4 clip and opens it in Finder when done. Both commands are also in the `◎` menu under *Capture*.
+**Capture.** macOS's native ⌘⇧3/⌘⇧4 skips the wallpaper layer — use the in-app shortcuts instead: **⌘⌥S** saves a PNG to ~/Desktop and copies it to the clipboard; **⌘⌥E** records a 3-second MP4 clip and opens it in Finder when done. Both commands are also in the `◎` menu under *Capture*.
 
 **Colour.** Scenes can paint each glyph individually: DOOM uses its own native
 palette, while Matrix, Life, and the math scenes key off the theme's text colour

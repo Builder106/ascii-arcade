@@ -918,13 +918,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let win = windows.first else { return }
         let windowID = CGWindowID(win.windowNumber)
         recordingActive = true
-        recordingMenuItem?.title = "Stop Recording  (⌘⌥V)"
+        recordingMenuItem?.title = "Stop Recording  (⌘⌥E)"
         startBlinking()
         recorder.start(windowID: windowID) { [weak self] result in
             guard let self else { return }
             self.recordingActive = false
             self.stopBlinking()
-            self.recordingMenuItem?.title = "Record 3-Sec Clip  (⌘⌥V)"
+            self.recordingMenuItem?.title = "Record 3-Sec Clip  (⌘⌥E)"
             switch result {
             case .success(let url):
                 self.flashStatus("✓ Clip saved", duration: 3.0)
@@ -1005,7 +1005,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let screenshotItem = NSMenuItem(title: "Save Screenshot  (⌘⌥S)", action: #selector(saveScreenshot), keyEquivalent: "")
         screenshotItem.target = self
         menu.addItem(screenshotItem)
-        let recordItem = NSMenuItem(title: "Record 3-Sec Clip  (⌘⌥V)", action: #selector(toggleRecording), keyEquivalent: "")
+        let recordItem = NSMenuItem(title: "Record 3-Sec Clip  (⌘⌥E)", action: #selector(toggleRecording), keyEquivalent: "")
         recordItem.target = self
         recordingMenuItem = recordItem
         menu.addItem(recordItem)
