@@ -36,7 +36,7 @@ fn main() -> std::io::Result<()> {
     write!(out, "P6\n{} {}\n255\n", buf.width, buf.height)?;
     // PPM is RGB; drop the alpha channel from each RGBA pixel.
     let mut rgb = Vec::with_capacity((buf.width * buf.height * 3) as usize);
-    for px in buf.pixels.chunks_exact(4) {
+    for px in buf.pixels.as_chunks::<4>().0 {
         rgb.extend_from_slice(&px[..3]);
     }
     out.write_all(&rgb)?;

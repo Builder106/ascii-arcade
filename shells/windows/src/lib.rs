@@ -242,7 +242,12 @@ mod imp {
         dst_h: i32,
     ) -> Result<(), ShellError> {
         bgra.resize(buf.pixels.len(), 0);
-        for (dst, src) in bgra.chunks_exact_mut(4).zip(buf.pixels.chunks_exact(4)) {
+        for (dst, src) in bgra
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .zip(buf.pixels.as_chunks::<4>().0.iter())
+        {
             dst[0] = src[2]; // B
             dst[1] = src[1]; // G
             dst[2] = src[0]; // R

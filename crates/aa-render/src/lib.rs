@@ -43,7 +43,7 @@ impl PixelBuffer {
 
     /// Fill every pixel with an opaque `color`.
     fn fill(&mut self, color: RgbColor) {
-        for px in self.pixels.chunks_exact_mut(4) {
+        for px in self.pixels.as_chunks_mut::<4>().0 {
             px[0] = color.r;
             px[1] = color.g;
             px[2] = color.b;
@@ -198,7 +198,7 @@ fn apply_glow(buf: &mut PixelBuffer, bg: RgbColor) {
     let mut ch_r = vec![0u16; w * h];
     let mut ch_g = vec![0u16; w * h];
     let mut ch_b = vec![0u16; w * h];
-    for (i, px) in buf.pixels.chunks_exact(4).enumerate() {
+    for (i, px) in buf.pixels.as_chunks::<4>().0.iter().enumerate() {
         ch_r[i] = px[0].saturating_sub(bg.r) as u16;
         ch_g[i] = px[1].saturating_sub(bg.g) as u16;
         ch_b[i] = px[2].saturating_sub(bg.b) as u16;
@@ -217,7 +217,7 @@ fn apply_glow(buf: &mut PixelBuffer, bg: RgbColor) {
     // Add the blurred halo back. STRENGTH ≈ the macOS shadowOpacity (0.45).
     const STRENGTH_NUM: u32 = 45;
     const STRENGTH_DEN: u32 = 100;
-    for (i, px) in buf.pixels.chunks_exact_mut(4).enumerate() {
+    for (i, px) in buf.pixels.as_chunks_mut::<4>().0.iter_mut().enumerate() {
         let hr = ch_r[i] as u32 * STRENGTH_NUM / STRENGTH_DEN;
         let hg = ch_g[i] as u32 * STRENGTH_NUM / STRENGTH_DEN;
         let hb = ch_b[i] as u32 * STRENGTH_NUM / STRENGTH_DEN;
@@ -280,7 +280,7 @@ fn apply_scanlines(buf: &mut PixelBuffer) {
     let h = buf.height as usize;
     for y in (1..h).step_by(2) {
         let row = y * w * 4;
-        for px in buf.pixels[row..row + w * 4].chunks_exact_mut(4) {
+        for px in buf.pixels[row..row + w * 4].as_chunks_mut::<4>().0 {
             px[0] = (px[0] as u32 * DARKEN_NUM / DARKEN_DEN) as u8;
             px[1] = (px[1] as u32 * DARKEN_NUM / DARKEN_DEN) as u8;
             px[2] = (px[2] as u32 * DARKEN_NUM / DARKEN_DEN) as u8;
@@ -344,7 +344,7 @@ mod tests {
         let f = Frame::blank(6, 3);
         let buf = render(&f, &opts);
         let bg = opts.theme.background;
-        for px in buf.pixels.chunks_exact(4) {
+        for px in buf.pixels.as_chunks::<4>().0 {
             assert_eq!((px[0], px[1], px[2], px[3]), (bg.r, bg.g, bg.b, 255));
         }
     }
@@ -361,7 +361,7 @@ mod tests {
         };
         let buf = render(&Frame::blank(4, 4), &opts);
         let bg = opts.theme.background;
-        for px in buf.pixels.chunks_exact(4) {
+        for px in buf.pixels.as_chunks::<4>().0 {
             assert_eq!((px[0], px[1], px[2]), (bg.r, bg.g, bg.b));
         }
     }
@@ -410,7 +410,9 @@ mod tests {
         let text = opts.theme.text;
         let lit = buf
             .pixels
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .any(|px| (px[0], px[1], px[2]) == (text.r, text.g, text.b));
         assert!(
             lit,
@@ -429,7 +431,7 @@ mod tests {
         let f = one_cell_frame(2, 2, 0, 0, Cell::new('\u{2603}', Some(RgbColor::WHITE)));
         let buf = render(&f, &opts);
         let bg = opts.theme.background;
-        for px in buf.pixels.chunks_exact(4) {
+        for px in buf.pixels.as_chunks::<4>().0 {
             assert_eq!((px[0], px[1], px[2]), (bg.r, bg.g, bg.b));
         }
     }
@@ -455,8 +457,10 @@ mod tests {
         let mut spread = false;
         for (a, b) in plain
             .pixels
-            .chunks_exact(4)
-            .zip(bloomed.pixels.chunks_exact(4))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(bloomed.pixels.as_chunks::<4>().0.iter())
         {
             // A pixel that was background in `plain` but brighter in `bloomed`.
             if a[1] == Theme::HACKER.background.g && b[1] > a[1] {

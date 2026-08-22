@@ -110,7 +110,12 @@ fn run_wayland(scene_id: &str, opts: RenderOptions) -> Result<(), ShellError> {
 #[cfg(target_os = "linux")]
 fn rgba_to_bgrx(pixels: &[u8], out: &mut Vec<u8>) {
     out.resize(pixels.len(), 0);
-    for (dst, src) in out.chunks_exact_mut(4).zip(pixels.chunks_exact(4)) {
+    for (dst, src) in out
+        .as_chunks_mut::<4>()
+        .0
+        .iter_mut()
+        .zip(pixels.as_chunks::<4>().0.iter())
+    {
         dst[0] = src[2]; // B
         dst[1] = src[1]; // G
         dst[2] = src[0]; // R
@@ -362,7 +367,7 @@ mod wayland {
             // Fill the theme background, then copy the rendered region (which can
             // be a few pixels smaller than the surface due to integer cell sizing).
             let bg = self.opts.theme.background;
-            for px in canvas.chunks_exact_mut(4) {
+            for px in canvas.as_chunks_mut::<4>().0 {
                 px[0] = bg.b;
                 px[1] = bg.g;
                 px[2] = bg.r;
