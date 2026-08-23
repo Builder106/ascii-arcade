@@ -61,9 +61,7 @@ impl ScreenBuffer {
 
     /// Reset the grid to all-blank and home the cursor.
     pub fn clear(&mut self) {
-        for c in &mut self.cells {
-            *c = Cell::BLANK;
-        }
+        self.cells.fill(Cell::BLANK);
         self.cursor_row = 0;
         self.cursor_col = 0;
     }
