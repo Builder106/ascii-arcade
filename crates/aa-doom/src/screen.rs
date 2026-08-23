@@ -191,9 +191,7 @@ impl ScreenBuffer {
             }
             b'J' => {
                 // Erase display (any mode → full clear, as doom only emits 2J).
-                for c in &mut self.cells {
-                    *c = Cell::BLANK;
-                }
+                self.cells.fill(Cell::BLANK);
             }
             b'K' => {
                 let mode = parse_uint_field(params).unwrap_or(0);
