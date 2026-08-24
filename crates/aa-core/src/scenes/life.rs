@@ -526,4 +526,113 @@ mod tests {
         };
         assert_eq!(run(), run());
     }
+
+    #[test]
+    fn display_name_and_default() {
+        let mut s = LifeScene::default();
+        assert_eq!(s.display_name(), "Life");
+
+        // Zero grid dimensions ignored
+        s.set_grid(0, 0);
+        s.set_grid(20, 0);
+        s.set_grid(0, 10);
+        let f = s.frame(0.0);
+        assert_eq!(f.width, 10);
+        assert_eq!(f.height, 10);
+    }
+
+    #[test]
+    fn settings_and_apply_setting() {
+        let mut s = LifeScene::new();
+        s.set_grid(60, 30);
+        let settings = s.settings();
+        assert_eq!(settings.len(), 2);
+        assert_eq!(settings[0].id, "speed");
+        assert_eq!(settings[1].id, "size");
+
+        // Apply speed
+        s.apply_setting("speed", 4.0);
+        assert_eq!(s.speed, 4.0);
+
+        // Apply size (triggers recompute_logical & seed)
+        s.apply_setting("size", 2.0);
+        assert_eq!(s.size, 2.0);
+
+        // Apply unknown setting (no-op)
+        s.apply_setting("unknown", 99.0);
+
+        // Frame after settings changes
+        let f = s.frame(1.0);
+        assert_eq!(f.width, 60);
+        assert_eq!(f.height, 30);
+    }
+
+    #[test]
+    fn large_grid_stamps_all_patterns() {
+        // cols >= 40 and rows >= 16 to trigger PULSAR and GOSPER_GUN branches
+        let mut s = LifeScene::new();
+        s.apply_setting("size", 1.0);
+        s.set_grid(100, 50);
+        s.start();
+        let f = s.frame(0.0);
+        let non_blank = f.cells.iter().filter(|c| c.ch != ' ').count();
+        assert!(non_blank > 0);
+    }
+
+    #[test]
+    fn simulation_step_and_stability_reseed() {
+        let mut s = LifeScene::new();
+        s.set_grid(20, 20);
+        s.start();
+        // Advance many steps to trigger generations and stability checks
+        for i in 1..=100 {
+            s.frame(i as f64 * 0.2);
+        }
+    }
+
+    #[test]
+    fn various_grid_sizes_and_patterns_coverage() {
+        // Test varying grid sizes (10x10, 40x20, 100x60, 200x100) and cell sizes
+        for &(w, h) in &[(10, 10), (40, 20), (100, 60), (200, 100)] {
+            for &size in &[1.0, 2.0, 3.0, 4.0] {
+                let mut s = LifeScene::new();
+                s.apply_setting("size", size);
+                s.set_grid(w, h);
+                s.start();
+                let f = s.frame(0.0);
+                assert_eq!(f.width, w);
+                assert_eq!(f.height, h);
+                s.frame(1.0);
+            }
+        }
+    }
+
+    #[test]
+    fn empty_and_uninitialized_grid_handling() {
+        let mut s = LifeScene::new();
+        // Setting same grid twice should return early
+        s.set_grid(10, 10);
+        s.set_grid(10, 10);
+
+        // Rendering with empty/mismatched alive buffer
+        s.alive.clear();
+        let f = s.render();
+        assert_eq!(f.width, 10);
+
+        // Calling step on mismatched size
+        s.step();
+        assert!(s.alive.is_empty());
+    }
+
+    #[test]
+    fn render_pixel_clipping_bounds() {
+        let mut s = LifeScene::new();
+        // Set cell size large so logical cells extend beyond width/height
+        s.apply_setting("size", 4.0);
+        s.set_grid(11, 11);
+        s.start();
+        let f = s.frame(0.0);
+        assert_eq!(f.width, 11);
+        assert_eq!(f.height, 11);
+    }
 }

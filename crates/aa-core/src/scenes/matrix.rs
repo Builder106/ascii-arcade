@@ -301,4 +301,77 @@ mod tests {
         };
         assert_eq!(run(), run());
     }
+
+    #[test]
+    fn display_name_and_default() {
+        let mut s = MatrixScene::default();
+        assert_eq!(s.display_name(), "Matrix");
+
+        // Zero grid dimensions ignored
+        s.set_grid(0, 0);
+        s.set_grid(20, 0);
+        s.set_grid(0, 10);
+        let f = s.frame(0.0);
+        assert_eq!(f.width, 10);
+        assert_eq!(f.height, 10);
+    }
+
+    #[test]
+    fn settings_and_apply_setting() {
+        let mut s = MatrixScene::new();
+        s.set_grid(40, 20);
+        let settings = s.settings();
+        assert_eq!(settings.len(), 2);
+        assert_eq!(settings[0].id, "speed");
+        assert_eq!(settings[1].id, "density");
+
+        s.apply_setting("speed", 26.0);
+        assert_eq!(s.speed, 26.0);
+
+        s.apply_setting("density", 0.95);
+        assert_eq!(s.density, 0.95);
+
+        s.apply_setting("unknown", 123.0);
+
+        let f = s.frame(1.0);
+        assert_eq!(f.width, 40);
+        assert_eq!(f.height, 20);
+    }
+
+    #[test]
+    fn steps_exercise_shimmer_and_respawn() {
+        let mut s = MatrixScene::new();
+        s.set_grid(30, 15);
+        s.start();
+        // Advance many steps to trigger shimmer mutations, trail off-screen respawn, and idle reactivation
+        for i in 1..=200 {
+            s.frame(i as f64 * 0.1);
+        }
+    }
+
+    #[test]
+    fn various_densities_and_speeds_coverage() {
+        for &density in &[0.0, 0.5, 1.0] {
+            for &speed in &[9.0, 16.0, 26.0] {
+                let mut s = MatrixScene::new();
+                s.set_grid(30, 15);
+                s.apply_setting("density", density);
+                s.apply_setting("speed", speed);
+                s.start();
+                for i in 0..100 {
+                    s.frame(i as f64 * 0.1);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn set_grid_same_dimensions_noop() {
+        let mut s = MatrixScene::new();
+        s.set_grid(20, 10);
+        s.frame(0.0);
+        // Setting same grid again should return early
+        s.set_grid(20, 10);
+        assert_eq!(s.columns.len(), 20);
+    }
 }

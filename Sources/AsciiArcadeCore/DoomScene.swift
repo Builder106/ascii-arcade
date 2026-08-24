@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import PTYBridge
 
@@ -94,3 +95,4 @@ public final class DoomScene: AsciiScene {
         p?.send(data: Data(bytes))
     }
 }
+#endif

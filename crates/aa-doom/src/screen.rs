@@ -486,4 +486,182 @@ mod tests {
         assert_eq!(f.cells[1], Cell::new('█', Some(RgbColor::new(0, 0, 200))));
         assert_eq!(f.cells[2], Cell::BLANK);
     }
+
+    #[test]
+    fn erase_line_mode_1_and_mode_2() {
+        let mut buf = ScreenBuffer::new(5, 2);
+        buf.feed(b"\x1b[;HABCDE\r\nFGHIJ");
+        // Mode 1: start of line to cursor (inclusive). Put cursor at col 3 (1-based), row 1.
+        buf.feed(b"\x1b[1;3H\x1b[1K");
+        let f = buf.snapshot();
+        // Row 0 cols 0..=2 should be blank, rest untouched
+        assert_eq!(&f.cells[0..5].iter().map(|c| c.ch).collect::<String>(), "   DE");
+
+        // Mode 2: entire line. Put cursor at row 2, erase entire line.
+        buf.feed(b"\x1b[2;1H\x1b[2K");
+        let f2 = buf.snapshot();
+        assert_eq!(&f2.cells[5..10].iter().map(|c| c.ch).collect::<String>(), "     ");
+    }
+
+    #[test]
+    fn carriage_return_and_control_characters() {
+        let mut buf = ScreenBuffer::new(5, 1);
+        // CR resets cursor_col to 0
+        buf.feed(b"ABC\rZ");
+        assert_eq!(frame_text(&buf), "ZBC  ");
+
+        // Other control bytes (0x00..=0x1f like 0x01, 0x08) are ignored
+        buf.feed(b"\x1b[;H\x01\x02Hello");
+        assert_eq!(frame_text(&buf), "Hello");
+    }
+
+    #[test]
+    fn csi_cursor_position_f_and_default_coords() {
+        let mut buf = ScreenBuffer::new(4, 3);
+        // Using 'f' instead of 'H'
+        buf.feed(b"\x1b[2;2fQ");
+        let f = buf.snapshot();
+        assert_eq!(f.cells[f.idx(1, 1)].ch, 'Q');
+
+        // Defaults to 1;1 when params are empty or missing
+        buf.feed(b"\x1b[fW");
+        let f2 = buf.snapshot();
+        assert_eq!(f2.cells[f2.idx(0, 0)].ch, 'W');
+    }
+
+    #[test]
+    fn malformed_sgr_and_empty_sgr_resets_color() {
+        let mut buf = ScreenBuffer::new(3, 1);
+        // Empty SGR \x1b[m resets color
+        buf.feed(b"\x1b[38;2;100;100;100mA\x1b[mB");
+        let f = buf.snapshot();
+        assert_eq!(f.cells[0].color, Some(RgbColor::new(100, 100, 100)));
+        assert_eq!(f.cells[1].color, None);
+
+        // Malformed 38 without enough components is ignored
+        buf.feed(b"\x1b[38;5;123mC");
+        let f2 = buf.snapshot();
+        assert_eq!(f2.cells[2].ch, 'C');
+    }
+
+    #[test]
+    fn clear_and_show_message_with_overflow() {
+        let mut buf = ScreenBuffer::new(4, 2);
+        buf.feed(b"ABCD");
+        buf.clear();
+        assert_eq!(frame_text(&buf), "    \n    ");
+
+        // Message longer than buffer width truncates gracefully
+        buf.show_message("WAY_TOO_LONG_MESSAGE");
+        let f = buf.snapshot();
+        assert_eq!(f.width, 4);
+        assert_eq!(f.height, 2);
+
+        // Multiline show_message
+        buf.show_message("Line 1\nLine 2\nLine 3\nLine 4");
+        let f_multi = buf.snapshot();
+        assert_eq!(f_multi.height, 2);
+    }
+
+    #[test]
+    fn screen_buffer_additional_edge_cases() {
+        let mut buf = ScreenBuffer::new(3, 2);
+
+        // 1. Partial ESC at end of buffer
+        buf.feed(b"AB\x1b");
+        assert_eq!(buf.pending, vec![0x1b]);
+        buf.feed(b"[;HC");
+        assert_eq!(frame_text(&buf), "CB \n   ");
+
+        // 2. Partial OSC at end of buffer (missing terminator)
+        let mut buf2 = ScreenBuffer::new(3, 2);
+        buf2.feed(b"\x1b]2;incomplete");
+        assert_eq!(buf2.pending, b"\x1b]2;incomplete".to_vec());
+        buf2.feed(b"\x07X");
+        assert_eq!(frame_text(&buf2), "X  \n   ");
+
+        // 3. Partial ST in OSC (ending in ESC)
+        let mut buf3 = ScreenBuffer::new(3, 2);
+        buf3.feed(b"\x1b]2;title\x1b");
+        assert_eq!(buf3.pending, b"\x1b]2;title\x1b".to_vec());
+        buf3.feed(b"\\Y");
+        assert_eq!(frame_text(&buf3), "Y  \n   ");
+
+        // 4. Two-byte escape sequence (like ESC M or ESC \)
+        let mut buf4 = ScreenBuffer::new(3, 2);
+        buf4.feed(b"\x1bMhello");
+        assert_eq!(frame_text(&buf4), "hel\n   ");
+
+        // 5. Incomplete CSI terminator at end of buffer
+        let mut buf5 = ScreenBuffer::new(3, 2);
+        buf5.feed(b"\x1b[38;2;10;20;");
+        assert_eq!(buf5.pending, b"\x1b[38;2;10;20;".to_vec());
+        buf5.feed(b"30mZ");
+        let snap = buf5.snapshot();
+        assert_eq!(snap.cells[0].color, Some(RgbColor::new(10, 20, 30)));
+        assert_eq!(snap.cells[0].ch, 'Z');
+
+        // 6. Invalid UTF-8 sequence error branch
+        // 0xE0 followed by invalid continuation byte 0x00
+        let mut buf6 = ScreenBuffer::new(3, 2);
+        buf6.feed(b"\xe0\x00\x00A");
+        assert_eq!(frame_text(&buf6), "A  \n   ");
+
+        // 7. Place when cursor_row >= height
+        let mut small_buf = ScreenBuffer::new(2, 1);
+        small_buf.feed(b"\n\n\nXYZ"); // cursor_row moves to 3 >= height 1
+
+        // 8. Place when cursor_col >= width on same line (no auto-wrap)
+        let mut row_buf = ScreenBuffer::new(2, 2);
+        row_buf.feed(b"ABCDEF");
+        assert_eq!(frame_text(&row_buf), "AB\n  ");
+
+        // 9. Erase line (CSI K) with default mode (no param) and mode 0
+        let mut erase_buf = ScreenBuffer::new(4, 2);
+        erase_buf.feed(b"ABCD\nEFGH");
+        erase_buf.feed(b"\x1b[1;2H\x1b[K"); // default erase to end of line
+        assert_eq!(frame_text(&erase_buf), "A   \nEFGH");
+
+        // 10. Erase line when cursor_row >= height
+        erase_buf.feed(b"\x1b[10;1H\x1b[K");
+
+        // 11. Erase line when cursor_col >= width
+        let mut erase_buf2 = ScreenBuffer::new(2, 2);
+        erase_buf2.feed(b"AB\nCD");
+        erase_buf2.feed(b"\x1b[1;10H\x1b[K");
+
+        // 12. CSI J default mode / any mode
+        let mut clear_buf = ScreenBuffer::new(2, 2);
+        clear_buf.feed(b"AB\nCD");
+        clear_buf.feed(b"\x1b[J");
+        assert_eq!(frame_text(&clear_buf), "  \n  ");
+
+        // 13. Cursor position CSI H with partial numbers (e.g. \x1b[;5H, \x1b[10;H, \x1b[H)
+        let mut cur_buf = ScreenBuffer::new(5, 5);
+        cur_buf.feed(b"\x1b[;3HA"); // row 1, col 3
+        assert_eq!(cur_buf.snapshot().cells[cur_buf.snapshot().idx(2, 0)].ch, 'A');
+        cur_buf.feed(b"\x1b[3;HB"); // row 3, col 1
+        assert_eq!(cur_buf.snapshot().cells[cur_buf.snapshot().idx(0, 2)].ch, 'B');
+        cur_buf.feed(b"\x1b[HC"); // row 1, col 1
+        assert_eq!(cur_buf.snapshot().cells[cur_buf.snapshot().idx(0, 0)].ch, 'C');
+
+        // 14. Unknown CSI command
+        cur_buf.feed(b"\x1b[?25h"); // cursor visible sequence, unhandled CSI
+    }
+
+    #[test]
+    fn parse_int_field_and_utf8_length_unit_tests() {
+        // parse_int_field with non-digit
+        assert_eq!(parse_int_field(b"12a3"), None);
+        assert_eq!(parse_int_field(b""), None);
+        assert_eq!(parse_int_field(b"123"), Some(123));
+
+        // utf8_length for 2, 3, 4 bytes and 1 byte fallback
+        assert_eq!(utf8_length(0b1100_0000), 2);
+        assert_eq!(utf8_length(0b1110_0000), 3);
+        assert_eq!(utf8_length(0b1111_0000), 4);
+        assert_eq!(utf8_length(0b1111_1000), 1);
+        assert_eq!(utf8_length(0x41), 1);
+    }
 }
+

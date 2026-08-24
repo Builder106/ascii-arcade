@@ -219,4 +219,18 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn display_name_and_default() {
+        let mut s = HelixScene::default();
+        assert_eq!(s.display_name(), "Helix");
+
+        // Zero dimensions ignored
+        s.set_grid(0, 0);
+        s.set_grid(50, 0);
+        s.set_grid(0, 30);
+        let f = s.frame(0.0);
+        assert_eq!(f.width, 10);
+        assert_eq!(f.height, 10);
+    }
 }

@@ -114,4 +114,16 @@ mod tests {
         s.advance(5.0, 0.1); // anchor
         assert_eq!(s.advance(4.0, 0.1), 0);
     }
+
+    #[test]
+    fn stepper_default_and_reset() {
+        let mut s = Stepper::default();
+        s.advance(0.0, 0.1);
+        assert_eq!(s.advance(0.2, 0.1), 2);
+
+        s.reset();
+        // After reset, the first advance should anchor and return 0
+        assert_eq!(s.advance(100.0, 0.1), 0);
+        assert_eq!(s.advance(100.2, 0.1), 2);
+    }
 }

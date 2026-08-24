@@ -124,6 +124,38 @@ mod tests {
     }
 
     #[test]
+    fn engine_set_grid_and_apply_base_color() {
+        let mut e = Engine::new("matrix", 30, 15).expect("matrix exists");
+        e.set_grid(50, 25);
+        e.apply_base_color(0, 255, 0);
+        e.render(2.0);
+        assert_eq!(e.glyphs().chars().count(), 1250);
+        assert_eq!(e.colors().len(), 1250);
+    }
+
+    #[test]
+    fn engine_colored_scene_packs_argb() {
+        let mut e = Engine::new("pipes", 20, 10).expect("pipes exists");
+        e.render(0.0);
+        e.render(1.0); // stepper advances on second frame
+        assert_eq!(e.glyphs().chars().count(), 200);
+        assert_eq!(e.colors().len(), 200);
+        // Pipes uses colors, so at least some cells should have 0xFF000000 alpha mask
+        let has_colored = e.colors().iter().any(|&c| c & 0xFF00_0000 == 0xFF00_0000 && c != 0);
+        assert!(has_colored, "expected colored pipes cells to pack ARGB");
+    }
+
+    #[test]
+    fn scene_ids_returns_builtin_ids() {
+        let ids = scene_ids();
+        assert!(ids.contains(&"donut".to_string()));
+        assert!(ids.contains(&"matrix".to_string()));
+        assert!(ids.contains(&"pipes".to_string()));
+        assert!(ids.contains(&"helix".to_string()));
+        assert!(ids.contains(&"life".to_string()));
+    }
+
+    #[test]
     fn themes_json_lists_all_four() {
         let json = themes_json();
         for name in ["Hacker", "Amber", "Ice", "Ghost"] {
@@ -131,3 +163,4 @@ mod tests {
         }
     }
 }
+

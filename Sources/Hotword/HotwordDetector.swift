@@ -33,11 +33,6 @@ public struct HotwordDetector {
 		// Mismatch: consider KMP-like fallback for overlaps
 		if matchedCount > 0 {
 			matchedCount = fallbackOverlapCount(current: ch)
-			if matchedCount == pattern.count {
-				matchedCount = overlapCountAfterFullMatch(nextStartWith: ch)
-				lastTimestampMs = timestampMs
-				return true
-			}
 		}
 		lastTimestampMs = timestampMs
 		return false

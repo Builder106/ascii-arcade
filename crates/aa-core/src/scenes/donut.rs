@@ -132,4 +132,32 @@ mod tests {
         d.set_grid(60, 30);
         assert_eq!(d.frame(2.5).text(), d.frame(2.5).text());
     }
+
+    #[test]
+    fn display_name_and_default() {
+        let mut d = DonutScene::default();
+        assert_eq!(d.display_name(), "Donut");
+
+        // Zero grid dimensions should be ignored (keep previous/default dimensions)
+        d.set_grid(0, 0);
+        d.set_grid(20, 0);
+        d.set_grid(0, 10);
+        let f = d.frame(0.0);
+        assert_eq!(f.width, 10);
+        assert_eq!(f.height, 10);
+    }
+
+    #[test]
+    fn various_angles_and_sizes_exercise_zbuf_and_luminance() {
+        let mut d = DonutScene::new();
+        for &(w, h) in &[(5, 5), (15, 10), (40, 20), (80, 40), (120, 60)] {
+            d.set_grid(w, h);
+            for i in 0..50 {
+                let t = i as f64 * 0.15;
+                let f = d.frame(t);
+                assert_eq!(f.width, w);
+                assert_eq!(f.height, h);
+            }
+        }
+    }
 }

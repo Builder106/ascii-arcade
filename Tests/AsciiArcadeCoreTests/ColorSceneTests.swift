@@ -114,9 +114,36 @@ final class PipesSceneTests: XCTestCase {
 }
 
 final class SceneDefaultsTests: XCTestCase {
+    private final class DefaultScene: AsciiScene {
+        let displayName = "Default"
+
+        func setGrid(width: Int, height: Int) {}
+
+        func frame(atTime t: Double) -> String { "" }
+    }
+
     func testGeneratorSceneHasNoColoredFrame() {
         let s = GeneratorScene(displayName: "Donut") { w, h in DonutFrameGenerator(width: w, height: h) }
         s.setGrid(width: 40, height: 12)
         XCTAssertNil(s.coloredFrame(atTime: 0.0), "math scenes stay monochrome")
+    }
+
+    func testSceneDefaultsAreInertAndMonochrome() {
+        let scene = DefaultScene()
+        XCTAssertFalse(scene.isInteractive)
+        XCTAssertNil(scene.fixedGrid)
+        XCTAssertNil(scene.coloredFrame(atTime: 0.0))
+        XCTAssertTrue(scene.settings.isEmpty)
+        scene.applyBaseColor(.white)
+        scene.applySetting(id: "unused", value: 1)
+        scene.sendKey([0x1B])
+        scene.start()
+        scene.stop()
+    }
+
+    func testZeroSeedUsesTheDocumentedNonzeroState() {
+        var zeroSeed = SeededGenerator(seed: 0)
+        var explicitDefault = SeededGenerator(seed: 0x9E37_79B9_7F4A_7C15)
+        XCTAssertEqual(zeroSeed.next(), explicitDefault.next())
     }
 }

@@ -60,4 +60,12 @@ final class HotwordTests: XCTestCase {
         XCTAssertFalse(detector.push("o", timestampMs: base + 5))
         XCTAssertTrue(detector.push("m", timestampMs: base + 6))
     }
+
+    func testFallbackKeepsOverlappingPrefix() throws {
+        var detector = HotwordDetector(hotword: "aab", isCaseSensitive: true)
+        XCTAssertFalse(detector.push("a", timestampMs: 0))
+        XCTAssertFalse(detector.push("a", timestampMs: 1))
+        XCTAssertFalse(detector.push("a", timestampMs: 2))
+        XCTAssertTrue(detector.push("b", timestampMs: 3))
+    }
 }

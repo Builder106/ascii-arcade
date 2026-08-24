@@ -509,6 +509,99 @@ mod tests {
     fn backend_detection_is_total() {
         let _ = detect_backend();
     }
+
+    #[test]
+    fn detect_backend_wayland_and_x11() {
+        // Test with WAYLAND_DISPLAY set
+        std::env::set_var("WAYLAND_DISPLAY", "wayland-0");
+        assert_eq!(detect_backend(), Backend::Wayland);
+
+        // Test with WAYLAND_DISPLAY unset
+        std::env::remove_var("WAYLAND_DISPLAY");
+        assert_eq!(detect_backend(), Backend::X11);
+    }
+
+    #[test]
+    fn shell_error_display_and_error_impl() {
+        let unsupp = ShellError::Unsupported;
+        assert_eq!(format!("{unsupp}"), "the Linux shell only runs on Linux");
+        assert!((&unsupp as &dyn std::error::Error).source().is_none());
+
+        let not_x11 = ShellError::BackendNotCompiled(Backend::X11);
+        assert_eq!(
+            format!("{not_x11}"),
+            "X11 backend not compiled in (enable its cargo feature)"
+        );
+
+        let not_wl = ShellError::BackendNotCompiled(Backend::Wayland);
+        assert_eq!(
+            format!("{not_wl}"),
+            "Wayland backend not compiled in (enable its cargo feature)"
+        );
+
+        #[cfg(target_os = "linux")]
+        {
+            let backend_err = ShellError::Backend("test failure".into());
+            assert_eq!(format!("{backend_err}"), "backend error: test failure");
+        }
+    }
+
+    #[test]
+    fn run_returns_expected_error_on_unknown_scene_or_display() {
+        let opts = RenderOptions::default();
+        // Running on non-existent display or invalid scene should return error gracefully without panicking
+        let res = run("non_existent_scene_xyz", opts);
+        assert!(res.is_err());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn rgba_to_bgrx_swizzles_correctly() {
+        let rgba = vec![10, 20, 30, 255, 40, 50, 60, 255];
+        let mut bgrx = Vec::new();
+        rgba_to_bgrx(&rgba, &mut bgrx);
+        assert_eq!(bgrx, vec![30, 20, 10, 0, 60, 50, 40, 0]);
+    }
+
+    #[test]
+    fn autostart_lifecycle_in_tempdir() {
+        let temp_home = std::env::temp_dir().join(format!("aa-linux-autostart-{}", std::process::id()));
+        std::fs::create_dir_all(&temp_home).unwrap();
+        let old_home = std::env::var_os("HOME");
+        std::env::set_var("HOME", &temp_home);
+
+        #[cfg(target_os = "linux")]
+        {
+            assert!(!autostart::is_installed());
+            assert!(autostart::install("matrix", "amber").is_ok());
+            assert!(autostart::is_installed());
+
+            // Read the installed desktop file
+            let desktop_file = temp_home.join(".config/autostart/ascii-arcade.desktop");
+            let content = std::fs::read_to_string(&desktop_file).unwrap();
+            assert!(content.contains("matrix amber"));
+            assert!(content.contains("[Desktop Entry]"));
+
+            assert!(autostart::remove().is_ok());
+            assert!(!autostart::is_installed());
+            // Double removal should be Ok
+            assert!(autostart::remove().is_ok());
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            assert!(!autostart::is_installed());
+            assert!(autostart::install("matrix", "amber").is_err());
+            assert!(autostart::remove().is_err());
+        }
+
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        } else {
+            std::env::remove_var("HOME");
+        }
+        std::fs::remove_dir_all(&temp_home).ok();
+    }
 }
 
 /// Manage the XDG autostart `.desktop` entry that tells the desktop session to

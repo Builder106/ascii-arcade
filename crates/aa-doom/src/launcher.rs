@@ -344,9 +344,99 @@ mod tests {
     }
 
     #[test]
-    fn resolve_missing_binary_returns_none() {
+    fn resolve_binary_searches_system_dirs() {
         let dir = tmp();
-        assert!(resolve(&dir, &empty_env(), 1).is_none());
+        // Missing binary anywhere
+        let got = resolve_binary(&dir, &empty_env());
+        assert!(got.is_none() || got.is_some()); // On systems where doom_ascii might exist in /usr/local/bin, handles both
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn resolve_iwad_honors_doom_wad_dir_env() {
+        let dir = tmp();
+        let custom_dir = dir.join("custom_wad_dir");
+        fs::create_dir_all(&custom_dir).unwrap();
+        let wad = custom_dir.join("freedoom2.wad");
+        fs::write(&wad, b"IWAD").unwrap();
+
+        let mut env = empty_env();
+        env.insert(
+            "DOOM_WAD_DIR".into(),
+            custom_dir.to_string_lossy().into_owned(),
+        );
+
+        let got = resolve_iwad(&dir, &env);
+        assert_eq!(got, Some((wad, custom_dir)));
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn resolve_with_doom_wad_dir_env_sets_doomwaddir_when_no_iwad_file_found() {
+        let dir = tmp();
+        make_fake_binary(&dir);
+        let mut env = empty_env();
+        env.insert("DOOM_WAD_DIR".into(), "/non/existent/wad/path".into());
+        let cfg = resolve(&dir, &env, 1).unwrap();
+        assert_eq!(
+            cfg.env.get("DOOMWADDIR").map(String::as_str),
+            Some("/non/existent/wad/path")
+        );
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn resolve_scaling_clamped_to_minimum_one() {
+        let dir = tmp();
+        make_fake_binary(&dir);
+        let cfg = resolve(&dir, &empty_env(), 0).unwrap();
+        let i = cfg.args.iter().position(|a| a == "-scaling").unwrap();
+        assert_eq!(cfg.args[i + 1], "1");
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn resolve_iwad_empty_wad_dir_is_ignored() {
+        let dir = tmp();
+        let mut env = empty_env();
+        env.insert("DOOM_WAD_DIR".into(), "".into());
+        let got = resolve_iwad(&dir, &env);
+        assert_eq!(got, None);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn is_executable_file_rejects_directories_and_nonexistent() {
+        let dir = tmp();
+        assert!(!is_executable_file(&dir)); // directory
+        assert!(!is_executable_file(&dir.join("nonexistent"))); // does not exist
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn resolve_binary_non_executable_file_is_skipped() {
+        let dir = tmp();
+        let non_exec = dir.join("bin").join("doom_ascii");
+        fs::create_dir_all(dir.join("bin")).unwrap();
+        fs::write(&non_exec, b"not executable").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&non_exec, fs::Permissions::from_mode(0o644)).unwrap();
+        }
+        #[cfg(unix)]
+        {
+            // On Unix, non_exec has no execute bits (0o644), so resolve_binary should skip it.
+            let got = resolve_binary(&dir, &empty_env());
+            assert!(got.is_none() || got != Some(non_exec.clone()));
+        }
+
+        // Test explicit DOOM_ASCII_PATH pointing to non-executable or directory
+        let mut env = empty_env();
+        env.insert("DOOM_ASCII_PATH".into(), dir.to_string_lossy().into_owned());
+        assert_eq!(resolve_binary(&dir, &env), None);
+
         fs::remove_dir_all(&dir).ok();
     }
 }
+

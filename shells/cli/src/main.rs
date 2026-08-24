@@ -222,8 +222,6 @@ fn doom_scaling_for(cols: u16, rows: u16) -> usize {
         .unwrap_or(16)
 }
 
-// ── play ──────────────────────────────────────────────────────────────────────
-
 fn cmd_play(
     scene_id: &str,
     theme: aa_core::Theme,
@@ -232,13 +230,10 @@ fn cmd_play(
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crossterm::{
         cursor,
-        event::{self, Event, KeyCode, KeyModifiers},
         execute,
         style::{Color, SetBackgroundColor},
         terminal::{self, ClearType},
     };
-    use std::io::Write as _;
-    use std::time::{Duration, Instant};
 
     // RAII guard: restore the terminal even if we return early or panic.
     struct TermGuard;
@@ -281,8 +276,48 @@ fn cmd_play(
         eprintln!("aa: {e}, falling back to donut");
         aa_core::scenes::make("donut").unwrap()
     });
+
+    let mut event_source = CrosstermEvents;
+    run_play_loop(
+        &mut *scene,
+        theme,
+        fps,
+        cols as usize,
+        rows as usize,
+        &mut stdout,
+        &mut event_source,
+    )
+}
+
+pub trait EventSource {
+    fn poll_event(&mut self, timeout: std::time::Duration) -> Result<bool, std::io::Error>;
+    fn read_event(&mut self) -> Result<crossterm::event::Event, std::io::Error>;
+}
+
+struct CrosstermEvents;
+impl EventSource for CrosstermEvents {
+    fn poll_event(&mut self, timeout: std::time::Duration) -> Result<bool, std::io::Error> {
+        crossterm::event::poll(timeout)
+    }
+    fn read_event(&mut self) -> Result<crossterm::event::Event, std::io::Error> {
+        crossterm::event::read()
+    }
+}
+
+fn run_play_loop<W: std::io::Write, E: EventSource>(
+    scene: &mut dyn aa_core::Scene,
+    theme: aa_core::Theme,
+    fps: u32,
+    initial_cols: usize,
+    initial_rows: usize,
+    writer: &mut W,
+    events: &mut E,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crossterm::event::{Event, KeyCode, KeyModifiers};
+    use std::time::{Duration, Instant};
+
     scene.apply_base_color(theme.text);
-    scene.set_grid(cols as usize, rows as usize);
+    scene.set_grid(initial_cols, initial_rows);
     scene.start();
 
     let frame_dur = Duration::from_millis(1000 / fps.max(1) as u64);
@@ -292,8 +327,8 @@ fn cmd_play(
         let ansi =
             aa_core::ansi::frame_to_ansi(&scene.frame(start.elapsed().as_secs_f64()), &theme);
         // frame_to_ansi already emits \x1b[2J\x1b[H, so write directly.
-        print!("{ansi}");
-        stdout.flush()?;
+        writer.write_all(ansi.as_bytes())?;
+        writer.flush()?;
 
         // Poll for terminal events until the next frame deadline.
         let deadline = Instant::now() + frame_dur;
@@ -304,8 +339,8 @@ fn cmd_play(
             if remaining.is_zero() {
                 break;
             }
-            if event::poll(remaining)? {
-                match event::read()? {
+            if events.poll_event(remaining)? {
+                match events.read_event()? {
                     Event::Key(k) => {
                         let quit = k.code == KeyCode::Char('q')
                             || k.code == KeyCode::Esc
@@ -400,114 +435,110 @@ fn cmd_run(scene_id: &str, theme: aa_core::Theme) -> Result<(), String> {
 
 // ── web ───────────────────────────────────────────────────────────────────────
 
+#[derive(Clone, Copy)]
+struct AppState {
+    theme: aa_core::Theme,
+    enable_doom: bool,
+}
+
+// DOOM's framebuffer is fixed at scene-construction time (see
+// `make_scene`), but a browser tab's terminal size isn't known until its
+// first `__resize__:` message arrives just after connecting — after the
+// scene already exists. Rather than delay construction on that
+// handshake, use one fixed, conservative grid (160×50) that fits most
+// browser windows; unlike the CLI's `aa play doom`, it isn't fit exactly.
+const WEB_DOOM_SCALING: usize = 4;
+
+async fn root() -> axum::response::Html<&'static str> {
+    axum::response::Html(include_str!("../../web/static/index.html"))
+}
+
+async fn scene_list(axum::extract::State(s): axum::extract::State<AppState>) -> axum::response::Json<Vec<&'static str>> {
+    let mut ids: Vec<&'static str> = aa_core::scenes::BUILTIN_IDS.to_vec();
+    if cfg!(feature = "doom") && s.enable_doom {
+        ids.push("doom");
+    }
+    axum::response::Json(ids)
+}
+
+async fn ws_upgrade(
+    axum::extract::Path(sid): axum::extract::Path<String>,
+    ws: axum::extract::ws::WebSocketUpgrade,
+    axum::extract::State(s): axum::extract::State<AppState>,
+) -> impl axum::response::IntoResponse {
+    ws.on_upgrade(move |socket| run_ws(socket, sid, s.theme, s.enable_doom))
+}
+
+async fn run_ws(mut socket: axum::extract::ws::WebSocket, sid: String, theme: aa_core::Theme, enable_doom: bool) {
+    use axum::extract::ws::Message;
+    use std::time::{Duration, Instant};
+    use tokio::time::MissedTickBehavior;
+
+    let mut scene = match make_scene(&sid, enable_doom, WEB_DOOM_SCALING) {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = socket.send(Message::Text(format!("{e}\r\n").into())).await;
+            return;
+        }
+    };
+    let mut cols = 120usize;
+    let mut rows = 40usize;
+    scene.apply_base_color(theme.text);
+    scene.set_grid(cols, rows);
+    scene.start();
+
+    let start = Instant::now();
+    let mut interval = tokio::time::interval(Duration::from_millis(33));
+    interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+    loop {
+        tokio::select! {
+            _ = interval.tick() => {
+                let frame = scene.frame(start.elapsed().as_secs_f64());
+                let ansi = aa_core::ansi::frame_to_ansi(&frame, &theme);
+                if socket.send(Message::Text(ansi.into())).await.is_err() { break; }
+            }
+            msg = socket.recv() => {
+                match msg {
+                    Some(Ok(Message::Text(text))) => {
+                        if let Some(dims) = text.strip_prefix("__resize__:") {
+                            if let Some((c, r)) = dims.split_once('x') {
+                                if let (Ok(c), Ok(r)) = (c.parse::<usize>(), r.parse::<usize>()) {
+                                    cols = c.max(20); rows = r.max(10);
+                                    scene.set_grid(cols, rows);
+                                }
+                            }
+                        } else {
+                            scene.send_key(text.as_bytes());
+                        }
+                    }
+                    Some(Ok(Message::Binary(data))) => { scene.send_key(&data); }
+                    None | Some(Err(_)) | Some(Ok(Message::Close(_))) => break,
+                    _ => {}
+                }
+            }
+        }
+    }
+    scene.stop();
+}
+
+fn build_router(theme: aa_core::Theme, enable_doom: bool) -> axum::Router {
+    use axum::routing::get;
+    axum::Router::new()
+        .route("/", get(root))
+        .route("/api/scenes", get(scene_list))
+        .route("/ws/{scene_id}", get(ws_upgrade))
+        .with_state(AppState { theme, enable_doom })
+}
+
 async fn cmd_web(
     scene_id: String,
     theme: aa_core::Theme,
     port: u16,
     enable_doom: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use axum::{
-        extract::{
-            ws::{Message, WebSocket, WebSocketUpgrade},
-            Path, State,
-        },
-        response::{Html, IntoResponse, Json},
-        routing::get,
-        Router,
-    };
-    use std::time::{Duration, Instant};
-    use tokio::time::MissedTickBehavior;
-
-    // DOOM's framebuffer is fixed at scene-construction time (see
-    // `make_scene`), but a browser tab's terminal size isn't known until its
-    // first `__resize__:` message arrives just after connecting — after the
-    // scene already exists. Rather than delay construction on that
-    // handshake, use one fixed, conservative grid (160×50) that fits most
-    // browser windows; unlike the CLI's `aa play doom`, it isn't fit exactly.
-    const WEB_DOOM_SCALING: usize = 4;
-
-    #[derive(Clone, Copy)]
-    struct AppState {
-        theme: aa_core::Theme,
-        enable_doom: bool,
-    }
-
-    async fn root() -> Html<&'static str> {
-        Html(include_str!("../../web/static/index.html"))
-    }
-
-    async fn scene_list(State(s): State<AppState>) -> Json<Vec<&'static str>> {
-        let mut ids: Vec<&'static str> = aa_core::scenes::BUILTIN_IDS.to_vec();
-        if cfg!(feature = "doom") && s.enable_doom {
-            ids.push("doom");
-        }
-        Json(ids)
-    }
-
-    async fn ws_upgrade(
-        Path(sid): Path<String>,
-        ws: WebSocketUpgrade,
-        State(s): State<AppState>,
-    ) -> impl IntoResponse {
-        ws.on_upgrade(move |socket| run_ws(socket, sid, s.theme, s.enable_doom))
-    }
-
-    async fn run_ws(mut socket: WebSocket, sid: String, theme: aa_core::Theme, enable_doom: bool) {
-        let mut scene = match make_scene(&sid, enable_doom, WEB_DOOM_SCALING) {
-            Ok(s) => s,
-            Err(e) => {
-                let _ = socket.send(Message::Text(format!("{e}\r\n").into())).await;
-                return;
-            }
-        };
-        let mut cols = 120usize;
-        let mut rows = 40usize;
-        scene.apply_base_color(theme.text);
-        scene.set_grid(cols, rows);
-        scene.start();
-
-        let start = Instant::now();
-        let mut interval = tokio::time::interval(Duration::from_millis(33));
-        interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
-
-        loop {
-            tokio::select! {
-                _ = interval.tick() => {
-                    let frame = scene.frame(start.elapsed().as_secs_f64());
-                    let ansi = aa_core::ansi::frame_to_ansi(&frame, &theme);
-                    if socket.send(Message::Text(ansi.into())).await.is_err() { break; }
-                }
-                msg = socket.recv() => {
-                    match msg {
-                        Some(Ok(Message::Text(text))) => {
-                            if let Some(dims) = text.strip_prefix("__resize__:") {
-                                if let Some((c, r)) = dims.split_once('x') {
-                                    if let (Ok(c), Ok(r)) = (c.parse::<usize>(), r.parse::<usize>()) {
-                                        cols = c.max(20); rows = r.max(10);
-                                        scene.set_grid(cols, rows);
-                                    }
-                                }
-                            } else {
-                                scene.send_key(text.as_bytes());
-                            }
-                        }
-                        Some(Ok(Message::Binary(data))) => { scene.send_key(&data); }
-                        None | Some(Err(_)) | Some(Ok(Message::Close(_))) => break,
-                        _ => {}
-                    }
-                }
-            }
-        }
-        scene.stop();
-    }
-
     let _ = scene_id; // default scene lives in the URL; the CLI arg is informational
-    let app = Router::new()
-        .route("/", get(root))
-        .route("/api/scenes", get(scene_list))
-        .route("/ws/{scene_id}", get(ws_upgrade))
-        .with_state(AppState { theme, enable_doom });
-
+    let app = build_router(theme, enable_doom);
     let addr = format!("0.0.0.0:{port}");
     println!("aa web  →  http://{addr}");
     axum::serve(tokio::net::TcpListener::bind(&addr).await?, app).await?;
@@ -636,4 +667,352 @@ mod scene_resolution_tests {
     fn doom_scaling_falls_back_instead_of_panicking_on_a_tiny_terminal() {
         assert_eq!(doom_scaling_for(1, 1), 16);
     }
+
+    #[test]
+    fn resolve_theme_finds_valid_and_falls_back_for_unknown() {
+        assert_eq!(resolve_theme("amber").name, "Amber");
+        assert_eq!(resolve_theme("ice").name, "Ice");
+        assert_eq!(resolve_theme("ghost").name, "Ghost");
+        assert_eq!(resolve_theme("hacker").name, "Hacker");
+        assert_eq!(resolve_theme("unknown_theme_123").name, "Hacker");
+    }
+
+    #[test]
+    fn cli_parse_play_subcommand() {
+        let cli = Cli::try_parse_from(["aa", "play", "matrix", "--theme", "amber", "--fps", "60", "--enable-doom"]).unwrap();
+        assert!(cli.enable_doom);
+        match cli.command {
+            Command::Play { scene, theme, fps } => {
+                assert_eq!(scene, "matrix");
+                assert_eq!(theme, "amber");
+                assert_eq!(fps, 60);
+            }
+            _ => panic!("expected Play subcommand"),
+        }
+    }
+
+    #[test]
+    fn cli_parse_run_subcommand_defaults() {
+        let cli = Cli::try_parse_from(["aa", "run"]).unwrap();
+        assert!(!cli.enable_doom);
+        match cli.command {
+            Command::Run { scene, theme } => {
+                assert_eq!(scene, "donut");
+                assert_eq!(theme, "hacker");
+            }
+            _ => panic!("expected Run subcommand"),
+        }
+    }
+
+    #[test]
+    fn cli_parse_web_subcommand() {
+        let cli = Cli::try_parse_from(["aa", "web", "pipes", "--port", "9000"]).unwrap();
+        match cli.command {
+            Command::Web { scene, theme, port } => {
+                assert_eq!(scene, "pipes");
+                assert_eq!(theme, "hacker");
+                assert_eq!(port, 9000);
+            }
+            _ => panic!("expected Web subcommand"),
+        }
+    }
+
+    #[test]
+    fn cli_parse_autostart_subcommands() {
+        let cli_enable = Cli::try_parse_from(["aa", "autostart", "enable", "life", "--theme", "ice"]).unwrap();
+        match cli_enable.command {
+            Command::Autostart { action: AutostartAction::Enable { scene, theme } } => {
+                assert_eq!(scene, "life");
+                assert_eq!(theme, "ice");
+            }
+            _ => panic!("expected Autostart Enable"),
+        }
+
+        let cli_disable = Cli::try_parse_from(["aa", "autostart", "disable"]).unwrap();
+        match cli_disable.command {
+            Command::Autostart { action: AutostartAction::Disable } => {}
+            _ => panic!("expected Autostart Disable"),
+        }
+
+        let cli_status = Cli::try_parse_from(["aa", "autostart", "status"]).unwrap();
+        match cli_status.command {
+            Command::Autostart { action: AutostartAction::Status } => {}
+            _ => panic!("expected Autostart Status"),
+        }
+    }
+
+    #[test]
+    fn cli_parse_scenes_and_themes_subcommands() {
+        let cli_scenes = Cli::try_parse_from(["aa", "scenes"]).unwrap();
+        match cli_scenes.command {
+            Command::Scenes => {}
+            _ => panic!("expected Scenes"),
+        }
+
+        let cli_themes = Cli::try_parse_from(["aa", "themes"]).unwrap();
+        match cli_themes.command {
+            Command::Themes => {}
+            _ => panic!("expected Themes"),
+        }
+    }
+
+    #[test]
+    fn dispatch_scenes_and_themes_returns_zero() {
+        assert_eq!(dispatch(Cli::try_parse_from(["aa", "scenes"]).unwrap()), 0);
+        assert_eq!(dispatch(Cli::try_parse_from(["aa", "scenes", "--enable-doom"]).unwrap()), 0);
+        assert_eq!(dispatch(Cli::try_parse_from(["aa", "themes"]).unwrap()), 0);
+    }
+
+    #[test]
+    fn cmd_autostart_execution_succeeds_or_returns_platform_status() {
+        // Test all autostart action variants through cmd_autostart
+        let _ = cmd_autostart(AutostartAction::Status);
+        let _ = cmd_autostart(AutostartAction::Disable);
+        let _ = cmd_autostart(AutostartAction::Enable {
+            scene: "donut".into(),
+            theme: "hacker".into(),
+        });
+    }
+
+    #[test]
+    fn cmd_run_execution() {
+        let res = cmd_run("donut", aa_core::Theme::HACKER);
+        // On Linux / Windows / macOS it either runs or returns expected error / ok
+        let _ = res;
+    }
+
+    // Mock EventSource for testing run_play_loop
+    struct MockEvents {
+        events: std::collections::VecDeque<crossterm::event::Event>,
+    }
+
+    impl MockEvents {
+        fn new(events: Vec<crossterm::event::Event>) -> Self {
+            Self {
+                events: events.into(),
+            }
+        }
+    }
+
+    impl EventSource for MockEvents {
+        fn poll_event(&mut self, _timeout: std::time::Duration) -> Result<bool, std::io::Error> {
+            Ok(!self.events.is_empty())
+        }
+        fn read_event(&mut self) -> Result<crossterm::event::Event, std::io::Error> {
+            self.events.pop_front().ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "no more events")
+            })
+        }
+    }
+
+    // Mock interactive scene to test key inputs and lifecycle
+    struct MockInteractiveScene {
+        keys_received: Vec<Vec<u8>>,
+        width: usize,
+        height: usize,
+        started: bool,
+        stopped: bool,
+    }
+
+    impl MockInteractiveScene {
+        fn new() -> Self {
+            Self {
+                keys_received: Vec::new(),
+                width: 0,
+                height: 0,
+                started: false,
+                stopped: false,
+            }
+        }
+    }
+
+    impl aa_core::Scene for MockInteractiveScene {
+        fn display_name(&self) -> &str { "MockInteractive" }
+        fn is_interactive(&self) -> bool { true }
+        fn set_grid(&mut self, width: usize, height: usize) {
+            self.width = width;
+            self.height = height;
+        }
+        fn frame(&mut self, _t: f64) -> aa_core::Frame {
+            aa_core::Frame::blank(self.width.max(1), self.height.max(1))
+        }
+        fn send_key(&mut self, bytes: &[u8]) {
+            self.keys_received.push(bytes.to_vec());
+        }
+        fn start(&mut self) { self.started = true; }
+        fn stop(&mut self) { self.stopped = true; }
+    }
+
+    #[test]
+    fn run_play_loop_quit_with_q() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut scene = MockInteractiveScene::new();
+        let mut writer = Vec::new();
+        let mut events = MockEvents::new(vec![
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)),
+        ]);
+
+        let res = run_play_loop(
+            &mut scene,
+            aa_core::Theme::HACKER,
+            30,
+            80,
+            24,
+            &mut writer,
+            &mut events,
+        );
+        assert!(res.is_ok());
+        assert!(scene.started);
+        assert!(scene.stopped);
+        assert!(!writer.is_empty());
+    }
+
+    #[test]
+    fn run_play_loop_quit_with_esc() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut scene = MockInteractiveScene::new();
+        let mut writer = Vec::new();
+        let mut events = MockEvents::new(vec![
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)),
+        ]);
+
+        let res = run_play_loop(
+            &mut scene,
+            aa_core::Theme::HACKER,
+            30,
+            80,
+            24,
+            &mut writer,
+            &mut events,
+        );
+        assert!(res.is_ok());
+        assert!(scene.stopped);
+    }
+
+    #[test]
+    fn run_play_loop_quit_with_ctrl_c() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut scene = MockInteractiveScene::new();
+        let mut writer = Vec::new();
+        let mut events = MockEvents::new(vec![
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)),
+        ]);
+
+        let res = run_play_loop(
+            &mut scene,
+            aa_core::Theme::HACKER,
+            30,
+            80,
+            24,
+            &mut writer,
+            &mut events,
+        );
+        assert!(res.is_ok());
+        assert!(scene.stopped);
+    }
+
+    #[test]
+    fn run_play_loop_handles_interactive_keys_and_resize() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut scene = MockInteractiveScene::new();
+        let mut writer = Vec::new();
+        let mut events = MockEvents::new(vec![
+            crossterm::event::Event::Resize(100, 50),
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE)),
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)),
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)),
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)),
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)),
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Char(' '), KeyModifiers::NONE)),
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Char('w'), KeyModifiers::NONE)),
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Char('🦀'), KeyModifiers::NONE)), // non-ascii char ignored
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE)), // non-handled key
+            crossterm::event::Event::FocusGained, // ignored event
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)),
+        ]);
+
+        let res = run_play_loop(
+            &mut scene,
+            aa_core::Theme::ICE,
+            60,
+            80,
+            24,
+            &mut writer,
+            &mut events,
+        );
+        assert!(res.is_ok());
+        assert_eq!(scene.width, 100);
+        assert_eq!(scene.height, 50);
+        assert!(scene.keys_received.contains(&b"\x1b[A".to_vec()));
+        assert!(scene.keys_received.contains(&b"\x1b[B".to_vec()));
+        assert!(scene.keys_received.contains(&b"\x1b[C".to_vec()));
+        assert!(scene.keys_received.contains(&b"\x1b[D".to_vec()));
+        assert!(scene.keys_received.contains(&b"\n".to_vec()));
+        assert!(scene.keys_received.contains(&b" ".to_vec()));
+        assert!(scene.keys_received.contains(&b"w".to_vec()));
+    }
+
+    #[test]
+    fn run_play_loop_non_interactive_scene() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut scene = aa_core::scenes::make("donut").unwrap();
+        let mut writer = Vec::new();
+        let mut events = MockEvents::new(vec![
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE)),
+            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)),
+        ]);
+
+        let res = run_play_loop(
+            &mut *scene,
+            aa_core::Theme::AMBER,
+            30,
+            80,
+            24,
+            &mut writer,
+            &mut events,
+        );
+        assert!(res.is_ok());
+    }
+
+    #[tokio::test]
+    async fn router_endpoints_test() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let app = build_router(aa_core::Theme::HACKER, true);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let server_handle = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        // Test GET /
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        stream.write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").await.unwrap();
+        let mut response = String::new();
+        stream.read_to_string(&mut response).await.unwrap();
+        assert!(response.contains("200 OK"));
+        assert!(response.contains("xterm"));
+
+        // Test GET /api/scenes
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        stream.write_all(b"GET /api/scenes HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").await.unwrap();
+        let mut response = String::new();
+        stream.read_to_string(&mut response).await.unwrap();
+        assert!(response.contains("200 OK"));
+        assert!(response.contains("donut"));
+
+        server_handle.abort();
+    }
+
+    #[test]
+    fn dispatch_all_subcommands() {
+        assert_eq!(dispatch(Cli::try_parse_from(["aa", "scenes"]).unwrap()), 0);
+        assert_eq!(dispatch(Cli::try_parse_from(["aa", "themes"]).unwrap()), 0);
+        assert_eq!(dispatch(Cli::try_parse_from(["aa", "autostart", "status"]).unwrap()), 0);
+        assert_eq!(dispatch(Cli::try_parse_from(["aa", "autostart", "disable"]).unwrap()), 0);
+        assert_eq!(dispatch(Cli::try_parse_from(["aa", "autostart", "enable", "donut", "--theme", "ice"]).unwrap()), 0);
+    }
 }
+
+

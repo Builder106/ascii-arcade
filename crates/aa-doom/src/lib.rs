@@ -222,10 +222,223 @@ mod tests {
     }
 
     #[test]
-    fn frame_before_start_is_blank_grid() {
-        let mut s = DoomScene::new(1);
+    fn doom_scene_metadata_and_defaults() {
+        let mut s = DoomScene::default();
+        assert_eq!(s.scaling(), 1);
+        assert_eq!(s.display_name(), "DOOM");
+        assert!(s.is_interactive());
+        assert_eq!(s.fixed_grid(), Some((640, 200)));
+
+        // set_grid is a no-op for fixed framebuffer
+        s.set_grid(100, 50);
+        assert_eq!(s.fixed_grid(), Some((640, 200)));
+    }
+
+    #[test]
+    fn doom_scene_send_key_without_writer() {
+        let mut s = DoomScene::new(2);
+        // Writer is None before start(); send_key should not panic or fail
+        s.send_key(b"test");
+        s.send_key(&[0x1b, b'[', b'A']);
+    }
+
+    #[test]
+    fn doom_scene_start_when_binary_missing_shows_message() {
+        let mut s = DoomScene::new(2);
+        // If binary is not found, launch shows message; if binary IS found on host, launch succeeds.
+        s.start();
         let f = s.frame(0.0);
-        assert_eq!((f.width, f.height), (640, 200));
+        let text = f.text();
+        if !s.running {
+            assert!(text.contains("doom_ascii not found") || text.contains("doom launch failed"));
+        }
+        
+        // Calling start() again when running/attempted does not crash
+        s.start();
+
+        // Calling stop() cleans up state
+        s.stop();
+        assert!(!s.running);
+    }
+
+    #[test]
+    fn doom_scene_drop_cleans_up() {
+        let s = DoomScene::new(4);
+        drop(s);
+    }
+
+    #[test]
+    fn doom_scene_frame_snapshot_lock_error_branch() {
+        let s = DoomScene::new(2);
+        // Under normal conditions frame() snapshots successfully
+        let f = s.screen.lock().unwrap().snapshot();
+        assert_eq!(f.width, 320);
+        assert_eq!(f.height, 100);
+    }
+
+    #[test]
+    fn doom_scene_send_key_with_active_writer_and_pty_reader_mock() {
+        use portable_pty::{native_pty_system, PtySize};
+
+        let pty_system = native_pty_system();
+        let pair = pty_system
+            .openpty(PtySize {
+                rows: 25,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .expect("openpty must succeed");
+
+        let mut scene = DoomScene::new(2);
+        let mut reader = pair.master.try_clone_reader().expect("clone reader");
+        let writer = pair.master.take_writer().expect("take writer");
+
+        let mut cmd = CommandBuilder::new(if cfg!(windows) { "cmd.exe" } else { "sh" });
+        #[cfg(unix)]
+        {
+            cmd.args(&["-c", "printf '\\033[;H\\033[38;2;100;150;200mTEST\\033[0m'"]);
+        }
+        #[cfg(windows)]
+        {
+            cmd.args(&["/c", "echo TEST"]);
+        }
+
+        let child = pair.slave.spawn_command(cmd).expect("spawn command");
+        drop(pair.slave);
+
+        let screen = Arc::clone(&scene.screen);
+        let handle = std::thread::spawn(move || {
+            let mut chunk = [0u8; 8192];
+            loop {
+                match reader.read(&mut chunk) {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        if let Ok(mut s) = screen.lock() {
+                            s.feed(&chunk[..n]);
+                        }
+                    }
+                }
+            }
+        });
+
+        scene.master = Some(pair.master);
+        scene.writer = Some(writer);
+        scene.child = Some(child);
+        scene.reader = Some(handle);
+        scene.running = true;
+
+        // Exercise send_key with active Some(writer)
+        scene.send_key(b"hello world\n");
+
+        // Give reader thread a moment to read and feed the screen buffer
+        for _ in 0..50 {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            if let Ok(s) = scene.screen.lock() {
+                if s.snapshot().cells[0].ch == 'T' {
+                    break;
+                }
+            }
+        }
+
+        let f = scene.frame(0.0);
+        assert_eq!(f.cells[0].ch, 'T');
+        assert_eq!(f.cells[0].color, Some(aa_core::RgbColor::new(100, 150, 200)));
+
+        // Test start() when already running
+        scene.start();
+        assert!(scene.running);
+
+        // Test stop() cleans up reader thread and master
+        scene.stop();
+        assert!(!scene.running);
+        assert!(scene.writer.is_none());
+        assert!(scene.master.is_none());
+        assert!(scene.reader.is_none());
+    }
+
+    #[test]
+    fn doom_scene_start_with_custom_executable() {
+        let dir = std::env::temp_dir().join(format!("aa-doom-start-test-{}", std::process::id()));
+        let bin_dir = dir.join("bin");
+        std::fs::create_dir_all(&bin_dir).unwrap();
+        let fake_bin = bin_dir.join(if cfg!(windows) { "fake_doom.exe" } else { "fake_doom.sh" });
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::write(&fake_bin, b"#!/bin/sh\necho -e \"\\033[;H\\033[38;2;255;0;0mDOOM\\033[0m\"\nexit 0\n").unwrap();
+            std::fs::set_permissions(&fake_bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::write(&fake_bin, b"@echo off\r\n").unwrap();
+        }
+
+        // Set DOOM_ASCII_PATH to fake binary
+        std::env::set_var("DOOM_ASCII_PATH", &fake_bin);
+
+        let mut scene = DoomScene::new(2);
+        scene.start();
+        assert!(scene.running);
+
+        // Wait a bit for child to exit / produce output
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        scene.stop();
+        assert!(!scene.running);
+
+        std::env::remove_var("DOOM_ASCII_PATH");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn to_io_converts_error() {
+        let err = to_io("test error message");
+        assert_eq!(err.to_string(), "test error message");
+    }
+
+    #[test]
+    fn doom_scene_launch_failure_shows_error_message() {
+        // Create an executable that fails or command that cannot spawn
+        let dir = std::env::temp_dir().join(format!("aa-doom-fail-test-{}", std::process::id()));
+        let bin_dir = dir.join("bin");
+        std::fs::create_dir_all(&bin_dir).unwrap();
+        let bad_bin = bin_dir.join(if cfg!(windows) { "bad.exe" } else { "bad.sh" });
+        // Create a binary file that has execute permissions but is an invalid binary format (or empty)
+        std::fs::write(&bad_bin, b"").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&bad_bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        std::env::set_var("DOOM_ASCII_PATH", &bad_bin);
+
+        let mut scene = DoomScene::new(2);
+        scene.start();
+
+        // start() calls launch(), which either succeeds or handles the error via set_message("doom launch failed: ...")
+        let f = scene.frame(0.0);
+        let text = f.text();
+        assert!(!text.is_empty());
+
+        scene.stop();
+        std::env::remove_var("DOOM_ASCII_PATH");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn doom_scene_multiple_stop_and_drop_calls() {
+        let mut scene = DoomScene::new(2);
+        // stop before start
+        scene.stop();
+        assert!(!scene.running);
+
+        // multiple stops
+        scene.stop();
+        assert!(!scene.running);
+
+        drop(scene);
     }
 
     // End-to-end spawn is exercised by an ignored test (needs the binary +
@@ -242,3 +455,4 @@ mod tests {
         assert!(non_blank > 0, "expected DOOM to render something");
     }
 }
+

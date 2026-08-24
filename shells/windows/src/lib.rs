@@ -50,6 +50,46 @@ pub fn run(scene_id: &str, opts: RenderOptions) -> Result<(), ShellError> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shell_error_display_and_error_impl() {
+        let unsupp = ShellError::Unsupported;
+        assert_eq!(format!("{unsupp}"), "the Windows shell only runs on Windows");
+        assert!((&unsupp as &dyn std::error::Error).source().is_none());
+
+        #[cfg(windows)]
+        {
+            let win32_err = ShellError::Win32("access denied".into());
+            assert_eq!(format!("{win32_err}"), "win32 error: access denied");
+        }
+    }
+
+    #[test]
+    fn run_off_windows_or_invalid_scene() {
+        let opts = RenderOptions::default();
+        let res = run("non_existent_scene_xyz", opts);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn autostart_stubs_or_impl() {
+        #[cfg(not(windows))]
+        {
+            assert!(!autostart::is_installed());
+            assert!(autostart::install("donut", "hacker").is_err());
+            assert!(autostart::remove().is_err());
+        }
+
+        #[cfg(windows)]
+        {
+            let _ = autostart::is_installed();
+        }
+    }
+}
+
 #[cfg(windows)]
 mod imp {
     use super::ShellError;

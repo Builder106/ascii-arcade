@@ -74,4 +74,13 @@ mod tests {
         assert_eq!(a.mixed(b, 1.0), b);
         assert_eq!(a.mixed(b, 0.5), RgbColor::new(128, 128, 128));
     }
+
+    #[test]
+    fn to_argb_packs_correctly() {
+        let c = RgbColor::new(0x12, 0x34, 0x56);
+        assert_eq!(c.to_argb(), 0xFF123456);
+
+        assert_eq!(RgbColor::BLACK.to_argb(), 0xFF000000);
+        assert_eq!(RgbColor::WHITE.to_argb(), 0xFFFFFFFF);
+    }
 }

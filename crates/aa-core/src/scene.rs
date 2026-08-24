@@ -100,3 +100,77 @@ pub trait Scene {
     /// Stop and tear down any backing work.
     fn stop(&mut self) {}
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct MinimalScene {
+        width: usize,
+        height: usize,
+    }
+
+    impl Scene for MinimalScene {
+        fn display_name(&self) -> &str {
+            "Minimal"
+        }
+
+        fn set_grid(&mut self, width: usize, height: usize) {
+            self.width = width;
+            self.height = height;
+        }
+
+        fn frame(&mut self, _t: f64) -> Frame {
+            Frame::blank(self.width, self.height)
+        }
+    }
+
+    #[test]
+    fn test_scene_option_new() {
+        let opt = SceneOption::new("Fast", 2.0);
+        assert_eq!(opt.label, "Fast");
+        assert_eq!(opt.value, 2.0);
+    }
+
+    #[test]
+    fn test_scene_setting_new_clamping() {
+        // Normal valid index
+        let opt1 = SceneOption::new("Slow", 1.0);
+        let opt2 = SceneOption::new("Fast", 2.0);
+        let setting = SceneSetting::new("speed", "Speed", vec![opt1.clone(), opt2.clone()], 1);
+        assert_eq!(setting.id, "speed");
+        assert_eq!(setting.label, "Speed");
+        assert_eq!(setting.default_index, 1);
+        assert_eq!(setting.options.len(), 2);
+
+        // Clamping out-of-bounds default_index
+        let setting_clamped = SceneSetting::new("speed", "Speed", vec![opt1, opt2], 10);
+        assert_eq!(setting_clamped.default_index, 1);
+
+        // Empty options list
+        let empty_setting = SceneSetting::new("empty", "Empty", Vec::new(), 5);
+        assert_eq!(empty_setting.default_index, 0);
+        assert!(empty_setting.options.is_empty());
+    }
+
+    #[test]
+    fn test_scene_trait_default_implementations() {
+        let mut scene = MinimalScene { width: 10, height: 5 };
+        assert_eq!(scene.display_name(), "Minimal");
+        assert!(!scene.is_interactive());
+        assert_eq!(scene.fixed_grid(), None);
+        assert!(scene.settings().is_empty());
+
+        // Default no-op methods should not panic
+        scene.apply_base_color(RgbColor::new(255, 0, 0));
+        scene.apply_setting("any_key", 1.0);
+        scene.send_key(b"abc");
+        scene.start();
+        scene.stop();
+
+        scene.set_grid(20, 10);
+        let frame = scene.frame(0.0);
+        assert_eq!(frame.width, 20);
+        assert_eq!(frame.height, 10);
+    }
+}

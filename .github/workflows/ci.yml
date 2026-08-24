@@ -74,6 +74,16 @@ jobs:
       - name: Test
         run: swift test
 
+  coverage:
+    name: Core unit coverage
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run core tests with coverage
+        run: swift test --enable-code-coverage --parallel
+      - name: Enforce 100% coverage for deterministic core targets
+        run: python3 scripts/check-swift-coverage.py
+
   doom-binary:
     name: Build vendored doom_ascii
     runs-on: macos-15
@@ -219,4 +229,3 @@ jobs:
           echo "Found app at: $APP_PATH"
           xcrun simctl install "$DEVICE_ID" "$APP_PATH"
           xcrun simctl launch "$DEVICE_ID" com.builder106.asciiarcade
-

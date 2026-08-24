@@ -360,5 +360,109 @@ mod tests {
     #[test]
     fn hsv_primary_red() {
         assert_eq!(hsv(0.0, 1.0, 1.0), RgbColor::new(255, 0, 0));
+        assert_eq!(hsv(60.0, 1.0, 1.0), RgbColor::new(255, 255, 0));
+        assert_eq!(hsv(120.0, 1.0, 1.0), RgbColor::new(0, 255, 0));
+        assert_eq!(hsv(180.0, 1.0, 1.0), RgbColor::new(0, 255, 255));
+        assert_eq!(hsv(240.0, 1.0, 1.0), RgbColor::new(0, 0, 255));
+        assert_eq!(hsv(300.0, 1.0, 1.0), RgbColor::new(255, 0, 255));
+    }
+
+    #[test]
+    fn display_name_and_default() {
+        let mut s = PipesScene::default();
+        assert_eq!(s.display_name(), "Pipes");
+
+        // Zero grid dimensions ignored
+        s.set_grid(0, 0);
+        s.set_grid(20, 0);
+        s.set_grid(0, 10);
+        let f = s.frame(0.0);
+        assert_eq!(f.width, 10);
+        assert_eq!(f.height, 10);
+    }
+
+    #[test]
+    fn settings_and_apply_setting() {
+        let mut s = PipesScene::new();
+        s.set_grid(40, 20);
+        let settings = s.settings();
+        assert_eq!(settings.len(), 2);
+        assert_eq!(settings[0].id, "speed");
+        assert_eq!(settings[1].id, "pipes");
+
+        s.apply_setting("speed", 40.0);
+        assert_eq!(s.speed, 40.0);
+
+        s.apply_setting("pipes", 8.0);
+        assert_eq!(s.pipe_count, 8.0);
+
+        s.apply_setting("unknown", 99.0);
+
+        let f = s.frame(1.0);
+        assert_eq!(f.width, 40);
+        assert_eq!(f.height, 20);
+    }
+
+    #[test]
+    fn connector_all_directions() {
+        // Same dir
+        assert_eq!(connector(0, 0), '│');
+        assert_eq!(connector(1, 1), '─');
+        assert_eq!(connector(2, 2), '│');
+        assert_eq!(connector(3, 3), '─');
+
+        // Different dir pairs
+        assert_eq!(connector(0, 2), '│');
+        assert_eq!(connector(1, 3), '─');
+        assert_eq!(connector(1, 2), '┌');
+        assert_eq!(connector(2, 3), '┐');
+        assert_eq!(connector(0, 1), '└');
+        assert_eq!(connector(0, 3), '┘');
+    }
+
+    #[test]
+    fn board_filling_triggers_clear() {
+        let mut s = PipesScene::new();
+        s.set_grid(8, 8);
+        s.apply_setting("pipes", 8.0);
+        s.start();
+        // Run enough steps to exceed 55% fill threshold and clear
+        for i in 1..=200 {
+            s.frame(i as f64 * 0.1);
+        }
+    }
+
+    #[test]
+    fn pipe_counts_and_tiny_grid_collisions() {
+        for &count in &[1.0, 10.0, 50.0] {
+            let mut s = PipesScene::new();
+            s.set_grid(1, 1);
+            s.apply_setting("pipes", count);
+            s.start();
+            for i in 0..20 {
+                s.frame(i as f64 * 0.1);
+            }
+        }
+    }
+
+    #[test]
+    fn set_grid_same_dimensions_and_empty_handling() {
+        let mut s = PipesScene::new();
+        s.set_grid(20, 10);
+        s.frame(0.0);
+        s.set_grid(20, 10);
+        assert_eq!(s.grid.len(), 200);
+
+        // Step on empty grid
+        s.grid.clear();
+        s.step();
+        assert!(s.grid.is_empty());
+    }
+
+    #[test]
+    fn connector_fallback_branch() {
+        // Test fallback '+' branch for out-of-range direction pairs
+        assert_eq!(connector(5, 6), '+');
+        assert_eq!(connector(0, 4), '+');
     }
 }

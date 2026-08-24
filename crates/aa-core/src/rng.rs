@@ -85,4 +85,62 @@ mod tests {
             assert!((0.0..1.0).contains(&v));
         }
     }
+
+    #[test]
+    fn seed_zero_initializes() {
+        let mut r = SeededRng::new(0);
+        assert_ne!(r.next_u64(), 0);
+    }
+
+    #[test]
+    fn next_below_in_range() {
+        let mut r = SeededRng::new(12345);
+        for _ in 0..500 {
+            let val = r.next_below(10);
+            assert!(val < 10);
+        }
+    }
+
+    #[test]
+    fn next_range_inclusive_in_bounds() {
+        let mut r = SeededRng::new(54321);
+        for _ in 0..500 {
+            let val = r.next_range_inclusive(-5, 5);
+            assert!((-5..=5).contains(&val));
+        }
+    }
+
+    #[test]
+    fn next_range_f64_in_bounds() {
+        let mut r = SeededRng::new(999);
+        for _ in 0..500 {
+            let val = r.next_range_f64(10.0, 20.0);
+            assert!((10.0..=20.0).contains(&val));
+        }
+    }
+
+    #[test]
+    fn next_bool_generates_both() {
+        let mut r = SeededRng::new(777);
+        let mut got_true = false;
+        let mut got_false = false;
+        for _ in 0..200 {
+            if r.next_bool() {
+                got_true = true;
+            } else {
+                got_false = true;
+            }
+        }
+        assert!(got_true && got_false);
+    }
+
+    #[test]
+    fn choose_picks_from_slice() {
+        let mut r = SeededRng::new(888);
+        let items = [10, 20, 30, 40, 50];
+        for _ in 0..100 {
+            let item = r.choose(&items);
+            assert!(items.contains(item));
+        }
+    }
 }

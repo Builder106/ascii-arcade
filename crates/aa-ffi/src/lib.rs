@@ -11,6 +11,8 @@
 //!   [6]    B
 //!   [7]    has_color: 1 = use RGB above, 0 = use theme colour in shell
 
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_double};
 
@@ -386,5 +388,175 @@ mod android {
                 Ok(arr.into_raw())
             })
             .resolve::<LogErrorAndDefault>()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::CString;
+
+    #[test]
+    fn test_encode_frame_monochrome() {
+        let mut frame = Frame::blank(2, 2);
+        frame.set_char(0, 0, 'A');
+        frame.set_char(1, 1, 'Z');
+        let mut buf = Vec::new();
+        encode_frame(&frame, &mut buf);
+
+        assert_eq!(buf.len(), 2 * 2 * BYTES_PER_CELL);
+
+        // Check cell (0, 0) -> 'A', no color
+        let ch0 = u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]);
+        assert_eq!(ch0, 'A' as u32);
+        assert_eq!(&buf[4..7], &[0, 0, 0]);
+        assert_eq!(buf[7], 0);
+
+        // Check cell (1, 0) -> ' ', no color
+        let ch1 = u32::from_le_bytes([buf[8], buf[9], buf[10], buf[11]]);
+        assert_eq!(ch1, ' ' as u32);
+        assert_eq!(&buf[12..15], &[0, 0, 0]);
+        assert_eq!(buf[15], 0);
+
+        // Check cell (1, 1) -> 'Z', no color
+        let ch3 = u32::from_le_bytes([buf[24], buf[25], buf[26], buf[27]]);
+        assert_eq!(ch3, 'Z' as u32);
+        assert_eq!(&buf[28..31], &[0, 0, 0]);
+        assert_eq!(buf[31], 0);
+    }
+
+    #[test]
+    fn test_encode_frame_colored() {
+        let mut frame = Frame::blank(1, 1);
+        let color = aa_core::color::RgbColor::new(12, 34, 56);
+        frame.set(0, 0, aa_core::frame::Cell::new('X', Some(color)));
+        let mut buf = Vec::new();
+        encode_frame(&frame, &mut buf);
+
+        assert_eq!(buf.len(), BYTES_PER_CELL);
+        let ch = u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]);
+        assert_eq!(ch, 'X' as u32);
+        assert_eq!(&buf[4..7], &[12, 34, 56]);
+        assert_eq!(buf[7], 1);
+    }
+
+    #[test]
+    fn test_aa_engine_create_null_and_unknown() {
+        // Null pointer
+        let engine_null = aa_engine_create(std::ptr::null());
+        assert!(engine_null.is_null());
+
+        // Unknown scene
+        let unknown = CString::new("nonexistent_scene").unwrap();
+        let engine_unknown = aa_engine_create(unknown.as_ptr());
+        assert!(engine_unknown.is_null());
+    }
+
+    #[test]
+    fn test_aa_engine_null_safety() {
+        // Calling any engine method with NULL shouldn't panic or crash.
+        aa_engine_destroy(std::ptr::null_mut());
+        aa_engine_set_grid(std::ptr::null_mut(), 80, 24);
+        aa_engine_set_theme(std::ptr::null_mut(), CString::new("Amber").unwrap().as_ptr());
+        aa_engine_apply_setting(
+            std::ptr::null_mut(),
+            CString::new("speed").unwrap().as_ptr(),
+            2.0,
+        );
+
+        let mut w = 0u32;
+        let mut h = 0u32;
+        let ptr = aa_engine_next_frame(std::ptr::null_mut(), 0.0, &mut w, &mut h);
+        assert!(ptr.is_null());
+    }
+
+    #[test]
+    fn test_aa_engine_null_args() {
+        let id = CString::new("donut").unwrap();
+        let engine = aa_engine_create(id.as_ptr());
+        assert!(!engine.is_null());
+
+        // Null theme string
+        aa_engine_set_theme(engine, std::ptr::null());
+
+        // Null setting string
+        aa_engine_apply_setting(engine, std::ptr::null(), 1.0);
+
+        // Null out_width / out_height
+        let ptr = aa_engine_next_frame(engine, 1.0, std::ptr::null_mut(), std::ptr::null_mut());
+        assert!(!ptr.is_null());
+
+        aa_engine_destroy(engine);
+    }
+
+    #[test]
+    fn test_aa_engine_all_scenes_lifecycle() {
+        let scenes = ["donut", "matrix", "pipes", "life", "helix"];
+        for scene_name in scenes {
+            let id = CString::new(scene_name).unwrap();
+            let engine = aa_engine_create(id.as_ptr());
+            assert!(!engine.is_null(), "Engine create failed for {}", scene_name);
+
+            // Set grid
+            aa_engine_set_grid(engine, 40, 20);
+
+            // Set themes (including known and unknown)
+            for theme_name in ["Amber", "Ice", "Ghost", "Hacker", "UnknownTheme"] {
+                let t = CString::new(theme_name).unwrap();
+                aa_engine_set_theme(engine, t.as_ptr());
+            }
+
+            // Apply settings
+            let setting_id = CString::new("speed").unwrap();
+            aa_engine_apply_setting(engine, setting_id.as_ptr(), 20.0);
+
+            // Next frame
+            let mut width = 0u32;
+            let mut height = 0u32;
+            let buf_ptr = aa_engine_next_frame(engine, 0.5, &mut width, &mut height);
+            assert!(!buf_ptr.is_null());
+            assert_eq!(width, 40);
+            assert_eq!(height, 20);
+
+            // Verify buffer slice matches wire format
+            let len = (width * height * BYTES_PER_CELL as u32) as usize;
+            let slice = unsafe { std::slice::from_raw_parts(buf_ptr, len) };
+            assert_eq!(slice.len(), 40 * 20 * 8);
+
+            // Destroy
+            aa_engine_destroy(engine);
+        }
+    }
+
+    #[test]
+    fn test_aa_scene_names_and_free() {
+        // Null count pointer
+        let names_no_count = aa_scene_names(std::ptr::null_mut());
+        assert!(!names_no_count.is_null());
+        aa_scene_names_free(names_no_count, BUILTIN_IDS.len() as u32);
+
+        // Null names free
+        aa_scene_names_free(std::ptr::null_mut(), 0);
+
+        // Standard usage
+        let mut count = 0u32;
+        let names = aa_scene_names(&mut count);
+        assert_eq!(count as usize, BUILTIN_IDS.len());
+        assert!(!names.is_null());
+
+        let mut read_names = Vec::new();
+        for i in 0..count as usize {
+            let p = unsafe { *names.add(i) };
+            assert!(!p.is_null());
+            let s = unsafe { CStr::from_ptr(p) }.to_str().unwrap();
+            read_names.push(s);
+        }
+        // Check null terminator at the end
+        let terminator = unsafe { *names.add(count as usize) };
+        assert!(terminator.is_null());
+
+        assert_eq!(read_names, BUILTIN_IDS);
+
+        aa_scene_names_free(names, count);
     }
 }

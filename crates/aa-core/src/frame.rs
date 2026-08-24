@@ -103,6 +103,25 @@ mod tests {
     fn out_of_bounds_set_is_ignored() {
         let mut f = Frame::blank(2, 2);
         f.set_char(5, 5, 'x');
+        f.set(5, 5, Cell::new('y', Some(RgbColor::WHITE)));
         assert_eq!(f.text(), "  \n  ");
+    }
+
+    #[test]
+    fn cell_default_and_new() {
+        let def = Cell::default();
+        assert_eq!(def, Cell::BLANK);
+        assert_eq!(def.ch, ' ');
+        assert_eq!(def.color, None);
+
+        let c = Cell::new('Z', Some(RgbColor::new(1, 2, 3)));
+        assert_eq!(c.ch, 'Z');
+        assert_eq!(c.color, Some(RgbColor::new(1, 2, 3)));
+    }
+
+    #[test]
+    fn frame_idx() {
+        let f = Frame::blank(10, 5);
+        assert_eq!(f.idx(3, 2), 2 * 10 + 3);
     }
 }
