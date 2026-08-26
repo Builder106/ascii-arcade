@@ -839,8 +839,12 @@ mod scene_resolution_tests {
         fn send_key(&mut self, bytes: &[u8]) {
             self.keys_received.push(bytes.to_vec());
         }
-        fn start(&mut self) { self.started = true; }
-        fn stop(&mut self) { self.stopped = true; }
+        fn start(&mut self) {
+            self.started = true;
+        }
+        fn stop(&mut self) {
+            self.stopped = true;
+        }
     }
 
     #[test]
@@ -848,9 +852,10 @@ mod scene_resolution_tests {
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
         let mut scene = MockInteractiveScene::new();
         let mut writer = Vec::new();
-        let mut events = MockEvents::new(vec![
-            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)),
-        ]);
+        let mut events = MockEvents::new(vec![crossterm::event::Event::Key(KeyEvent::new(
+            KeyCode::Char('q'),
+            KeyModifiers::NONE,
+        ))]);
 
         let res = run_play_loop(
             &mut scene,
@@ -872,9 +877,10 @@ mod scene_resolution_tests {
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
         let mut scene = MockInteractiveScene::new();
         let mut writer = Vec::new();
-        let mut events = MockEvents::new(vec![
-            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)),
-        ]);
+        let mut events = MockEvents::new(vec![crossterm::event::Event::Key(KeyEvent::new(
+            KeyCode::Esc,
+            KeyModifiers::NONE,
+        ))]);
 
         let res = run_play_loop(
             &mut scene,
@@ -894,9 +900,10 @@ mod scene_resolution_tests {
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
         let mut scene = MockInteractiveScene::new();
         let mut writer = Vec::new();
-        let mut events = MockEvents::new(vec![
-            crossterm::event::Event::Key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)),
-        ]);
+        let mut events = MockEvents::new(vec![crossterm::event::Event::Key(KeyEvent::new(
+            KeyCode::Char('c'),
+            KeyModifiers::CONTROL,
+        ))]);
 
         let res = run_play_loop(
             &mut scene,
@@ -988,7 +995,10 @@ mod scene_resolution_tests {
 
         // Test GET /
         let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
-        stream.write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").await.unwrap();
+        stream
+            .write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .await
+            .unwrap();
         let mut response = String::new();
         stream.read_to_string(&mut response).await.unwrap();
         assert!(response.contains("200 OK"));
@@ -996,7 +1006,10 @@ mod scene_resolution_tests {
 
         // Test GET /api/scenes
         let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
-        stream.write_all(b"GET /api/scenes HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").await.unwrap();
+        stream
+            .write_all(b"GET /api/scenes HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .await
+            .unwrap();
         let mut response = String::new();
         stream.read_to_string(&mut response).await.unwrap();
         assert!(response.contains("200 OK"));
