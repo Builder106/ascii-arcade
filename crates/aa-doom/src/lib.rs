@@ -252,7 +252,7 @@ mod tests {
         if !s.running {
             assert!(text.contains("doom_ascii not found") || text.contains("doom launch failed"));
         }
-        
+
         // Calling start() again when running/attempted does not crash
         s.start();
 
@@ -343,7 +343,10 @@ mod tests {
 
         let f = scene.frame(0.0);
         assert_eq!(f.cells[0].ch, 'T');
-        assert_eq!(f.cells[0].color, Some(aa_core::RgbColor::new(100, 150, 200)));
+        assert_eq!(
+            f.cells[0].color,
+            Some(aa_core::RgbColor::new(100, 150, 200))
+        );
 
         // Test start() when already running
         scene.start();
@@ -362,11 +365,19 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("aa-doom-start-test-{}", std::process::id()));
         let bin_dir = dir.join("bin");
         std::fs::create_dir_all(&bin_dir).unwrap();
-        let fake_bin = bin_dir.join(if cfg!(windows) { "fake_doom.exe" } else { "fake_doom.sh" });
+        let fake_bin = bin_dir.join(if cfg!(windows) {
+            "fake_doom.exe"
+        } else {
+            "fake_doom.sh"
+        });
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            std::fs::write(&fake_bin, b"#!/bin/sh\necho -e \"\\033[;H\\033[38;2;255;0;0mDOOM\\033[0m\"\nexit 0\n").unwrap();
+            std::fs::write(
+                &fake_bin,
+                b"#!/bin/sh\necho -e \"\\033[;H\\033[38;2;255;0;0mDOOM\\033[0m\"\nexit 0\n",
+            )
+            .unwrap();
             std::fs::set_permissions(&fake_bin, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
         #[cfg(not(unix))]
@@ -455,4 +466,3 @@ mod tests {
         assert!(non_blank > 0, "expected DOOM to render something");
     }
 }
-

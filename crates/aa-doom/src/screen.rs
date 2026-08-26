@@ -495,12 +495,18 @@ mod tests {
         buf.feed(b"\x1b[1;3H\x1b[1K");
         let f = buf.snapshot();
         // Row 0 cols 0..=2 should be blank, rest untouched
-        assert_eq!(&f.cells[0..5].iter().map(|c| c.ch).collect::<String>(), "   DE");
+        assert_eq!(
+            &f.cells[0..5].iter().map(|c| c.ch).collect::<String>(),
+            "   DE"
+        );
 
         // Mode 2: entire line. Put cursor at row 2, erase entire line.
         buf.feed(b"\x1b[2;1H\x1b[2K");
         let f2 = buf.snapshot();
-        assert_eq!(&f2.cells[5..10].iter().map(|c| c.ch).collect::<String>(), "     ");
+        assert_eq!(
+            &f2.cells[5..10].iter().map(|c| c.ch).collect::<String>(),
+            "     "
+        );
     }
 
     #[test]
@@ -639,11 +645,20 @@ mod tests {
         // 13. Cursor position CSI H with partial numbers (e.g. \x1b[;5H, \x1b[10;H, \x1b[H)
         let mut cur_buf = ScreenBuffer::new(5, 5);
         cur_buf.feed(b"\x1b[;3HA"); // row 1, col 3
-        assert_eq!(cur_buf.snapshot().cells[cur_buf.snapshot().idx(2, 0)].ch, 'A');
+        assert_eq!(
+            cur_buf.snapshot().cells[cur_buf.snapshot().idx(2, 0)].ch,
+            'A'
+        );
         cur_buf.feed(b"\x1b[3;HB"); // row 3, col 1
-        assert_eq!(cur_buf.snapshot().cells[cur_buf.snapshot().idx(0, 2)].ch, 'B');
+        assert_eq!(
+            cur_buf.snapshot().cells[cur_buf.snapshot().idx(0, 2)].ch,
+            'B'
+        );
         cur_buf.feed(b"\x1b[HC"); // row 1, col 1
-        assert_eq!(cur_buf.snapshot().cells[cur_buf.snapshot().idx(0, 0)].ch, 'C');
+        assert_eq!(
+            cur_buf.snapshot().cells[cur_buf.snapshot().idx(0, 0)].ch,
+            'C'
+        );
 
         // 14. Unknown CSI command
         cur_buf.feed(b"\x1b[?25h"); // cursor visible sequence, unhandled CSI

@@ -155,7 +155,10 @@ mod tests {
 
     #[test]
     fn test_scene_trait_default_implementations() {
-        let mut scene = MinimalScene { width: 10, height: 5 };
+        let mut scene = MinimalScene {
+            width: 10,
+            height: 5,
+        };
         assert_eq!(scene.display_name(), "Minimal");
         assert!(!scene.is_interactive());
         assert_eq!(scene.fixed_grid(), None);
