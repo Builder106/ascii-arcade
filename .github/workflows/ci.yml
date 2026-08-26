@@ -10,6 +10,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
@@ -61,6 +64,7 @@ jobs:
 
   build-test:
     name: Build & test (macOS)
+    needs: [secrets, licenses, fmt, audit]
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
@@ -76,6 +80,7 @@ jobs:
 
   coverage:
     name: Core unit coverage
+    needs: [secrets, licenses, fmt, audit]
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
@@ -86,6 +91,7 @@ jobs:
 
   doom-binary:
     name: Build vendored doom_ascii
+    needs: [secrets, licenses, fmt, audit]
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
@@ -101,6 +107,7 @@ jobs:
 
   wasm:
     name: Build Wasm target
+    needs: [secrets, licenses, fmt, audit]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -111,6 +118,7 @@ jobs:
 
   android:
     name: Android build + emulator smoke test
+    needs: [secrets, licenses, fmt, audit]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -169,6 +177,7 @@ jobs:
 
   ios:
     name: iOS build + simulator smoke test
+    needs: [secrets, licenses, fmt, audit]
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
@@ -180,7 +189,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.x'
 

@@ -13,6 +13,9 @@ concurrency:
   group: rust-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
@@ -70,6 +73,7 @@ jobs:
   # author's macOS dev machine.
   shells:
     name: shell ${{ matrix.crate }} (${{ matrix.os }})
+    needs: core
     strategy:
       fail-fast: false
       matrix:
@@ -113,6 +117,7 @@ jobs:
   # for on-device testing without a 35-minute VM build.
   artifacts:
     name: release artifact (${{ matrix.target }})
+    needs: [core, shells]
     strategy:
       fail-fast: false
       matrix:
