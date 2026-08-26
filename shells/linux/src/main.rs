@@ -62,14 +62,19 @@ mod tests {
 
     #[test]
     fn run_cli_autostart_enable_and_disable() {
-        let temp_home = std::env::temp_dir().join(format!("aa-linux-cli-autostart-{}", std::process::id()));
+        let temp_home =
+            std::env::temp_dir().join(format!("aa-linux-cli-autostart-{}", std::process::id()));
         std::fs::create_dir_all(&temp_home).unwrap();
         let old_home = std::env::var_os("HOME");
         std::env::set_var("HOME", &temp_home);
 
         #[cfg(target_os = "linux")]
         {
-            let enable_args = vec!["--autostart-enable".to_string(), "matrix".to_string(), "amber".to_string()];
+            let enable_args = vec![
+                "--autostart-enable".to_string(),
+                "matrix".to_string(),
+                "amber".to_string(),
+            ];
             assert_eq!(run_cli(&enable_args), Ok(()));
             assert!(aa_linux::autostart::is_installed());
 
@@ -98,7 +103,10 @@ mod tests {
     #[test]
     fn run_cli_default_args_error_handling() {
         // Without active X11/Wayland display server or on invalid scene, run_cli returns Err(1)
-        let args = vec!["unknown_scene_123".to_string(), "unknown_theme_456".to_string()];
+        let args = vec![
+            "unknown_scene_123".to_string(),
+            "unknown_theme_456".to_string(),
+        ];
         assert_eq!(run_cli(&args), Err(1));
 
         let empty_args = vec![];

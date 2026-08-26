@@ -1009,10 +1009,20 @@ mod scene_resolution_tests {
     fn dispatch_all_subcommands() {
         assert_eq!(dispatch(Cli::try_parse_from(["aa", "scenes"]).unwrap()), 0);
         assert_eq!(dispatch(Cli::try_parse_from(["aa", "themes"]).unwrap()), 0);
-        assert_eq!(dispatch(Cli::try_parse_from(["aa", "autostart", "status"]).unwrap()), 0);
-        assert_eq!(dispatch(Cli::try_parse_from(["aa", "autostart", "disable"]).unwrap()), 0);
-        assert_eq!(dispatch(Cli::try_parse_from(["aa", "autostart", "enable", "donut", "--theme", "ice"]).unwrap()), 0);
+        assert_eq!(
+            dispatch(Cli::try_parse_from(["aa", "autostart", "status"]).unwrap()),
+            0
+        );
+        assert_eq!(
+            dispatch(Cli::try_parse_from(["aa", "autostart", "disable"]).unwrap()),
+            0
+        );
+        assert_eq!(
+            dispatch(
+                Cli::try_parse_from(["aa", "autostart", "enable", "donut", "--theme", "ice"])
+                    .unwrap()
+            ),
+            0
+        );
     }
 }
-
-

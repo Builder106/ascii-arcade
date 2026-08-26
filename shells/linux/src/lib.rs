@@ -565,7 +565,8 @@ mod tests {
 
     #[test]
     fn autostart_lifecycle_in_tempdir() {
-        let temp_home = std::env::temp_dir().join(format!("aa-linux-autostart-{}", std::process::id()));
+        let temp_home =
+            std::env::temp_dir().join(format!("aa-linux-autostart-{}", std::process::id()));
         std::fs::create_dir_all(&temp_home).unwrap();
         let old_home = std::env::var_os("HOME");
         std::env::set_var("HOME", &temp_home);
