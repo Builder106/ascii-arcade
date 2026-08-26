@@ -49,7 +49,10 @@ pub fn create_app(enable_doom: bool) -> Router {
         .with_state(AppState { enable_doom })
 }
 
-pub async fn run_server(listener: tokio::net::TcpListener, enable_doom: bool) -> std::io::Result<()> {
+pub async fn run_server(
+    listener: tokio::net::TcpListener,
+    enable_doom: bool,
+) -> std::io::Result<()> {
     let app = create_app(enable_doom);
     axum::serve(listener, app).await
 }
@@ -280,7 +283,10 @@ mod tests {
 
         // Test root endpoint HTTP GET
         let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
-        stream.write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").await.unwrap();
+        stream
+            .write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .await
+            .unwrap();
         let mut response = String::new();
         stream.read_to_string(&mut response).await.unwrap();
         assert!(response.contains("200 OK"));
@@ -288,7 +294,10 @@ mod tests {
 
         // Test API scenes endpoint
         let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
-        stream.write_all(b"GET /api/scenes HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").await.unwrap();
+        stream
+            .write_all(b"GET /api/scenes HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .await
+            .unwrap();
         let mut response = String::new();
         stream.read_to_string(&mut response).await.unwrap();
         assert!(response.contains("200 OK"));
@@ -321,8 +330,12 @@ mod tests {
     }
 
     impl aa_core::Scene for MockWebScene {
-        fn display_name(&self) -> &str { "MockWeb" }
-        fn is_interactive(&self) -> bool { true }
+        fn display_name(&self) -> &str {
+            "MockWeb"
+        }
+        fn is_interactive(&self) -> bool {
+            true
+        }
         fn set_grid(&mut self, width: usize, height: usize) {
             self.cols = width;
             self.rows = height;
@@ -333,8 +346,12 @@ mod tests {
         fn send_key(&mut self, bytes: &[u8]) {
             self.keys.push(bytes.to_vec());
         }
-        fn start(&mut self) { self.started = true; }
-        fn stop(&mut self) { self.stopped = true; }
+        fn start(&mut self) {
+            self.started = true;
+        }
+        fn stop(&mut self) {
+            self.stopped = true;
+        }
     }
 
     #[tokio::test]
@@ -345,7 +362,12 @@ mod tests {
         let (out_tx, mut out_rx) = tokio::sync::mpsc::channel::<Message>(32);
         let (in_tx, in_rx) = tokio::sync::mpsc::channel::<Message>(32);
 
-        let task = tokio::spawn(process_ws_stream(scene, aa_core::Theme::HACKER, out_tx, in_rx));
+        let task = tokio::spawn(process_ws_stream(
+            scene,
+            aa_core::Theme::HACKER,
+            out_tx,
+            in_rx,
+        ));
 
         // Read at least one frame
         let first_frame = out_rx.recv().await;
