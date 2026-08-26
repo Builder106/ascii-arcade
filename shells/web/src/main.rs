@@ -352,20 +352,41 @@ mod tests {
         assert!(first_frame.is_some());
 
         // Send resize message
-        in_tx.send(Message::Text("__resize__:100x40".into())).await.unwrap();
+        in_tx
+            .send(Message::Text("__resize__:100x40".into()))
+            .await
+            .unwrap();
 
         // Send invalid resize message
-        in_tx.send(Message::Text("__resize__:bad_format".into())).await.unwrap();
-        in_tx.send(Message::Text("__resize__:100xnotanumber".into())).await.unwrap();
+        in_tx
+            .send(Message::Text("__resize__:bad_format".into()))
+            .await
+            .unwrap();
+        in_tx
+            .send(Message::Text("__resize__:100xnotanumber".into()))
+            .await
+            .unwrap();
 
         // Send text data
-        in_tx.send(Message::Text("user_input".into())).await.unwrap();
+        in_tx
+            .send(Message::Text("user_input".into()))
+            .await
+            .unwrap();
 
         // Send binary data
-        in_tx.send(Message::Binary(vec![4, 5, 6].into())).await.unwrap();
+        in_tx
+            .send(Message::Binary(vec![4, 5, 6].into()))
+            .await
+            .unwrap();
 
         // Send close message
-        in_tx.send(Message::Close(Some(CloseFrame { code: 1000, reason: "".into() }))).await.unwrap();
+        in_tx
+            .send(Message::Close(Some(CloseFrame {
+                code: 1000,
+                reason: "".into(),
+            })))
+            .await
+            .unwrap();
 
         // Let the task exit cleanly
         let _ = task.await;
@@ -383,4 +404,3 @@ mod tests {
         let _ = task.await;
     }
 }
-

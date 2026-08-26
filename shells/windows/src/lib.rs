@@ -57,7 +57,10 @@ mod tests {
     #[test]
     fn shell_error_display_and_error_impl() {
         let unsupp = ShellError::Unsupported;
-        assert_eq!(format!("{unsupp}"), "the Windows shell only runs on Windows");
+        assert_eq!(
+            format!("{unsupp}"),
+            "the Windows shell only runs on Windows"
+        );
         assert!((&unsupp as &dyn std::error::Error).source().is_none());
 
         #[cfg(windows)]

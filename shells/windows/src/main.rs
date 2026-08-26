@@ -63,7 +63,11 @@ mod tests {
 
     #[test]
     fn run_cli_autostart_flags() {
-        let enable_args = vec!["--autostart-enable".to_string(), "donut".to_string(), "hacker".to_string()];
+        let enable_args = vec![
+            "--autostart-enable".to_string(),
+            "donut".to_string(),
+            "hacker".to_string(),
+        ];
         #[cfg(not(windows))]
         {
             assert_eq!(run_cli(&enable_args), Err(1));
