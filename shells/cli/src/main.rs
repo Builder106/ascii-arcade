@@ -229,8 +229,7 @@ fn cmd_play(
     enable_doom: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crossterm::{
-        cursor,
-        execute,
+        cursor, execute,
         style::{Color, SetBackgroundColor},
         terminal::{self, ClearType},
     };
@@ -453,7 +452,9 @@ async fn root() -> axum::response::Html<&'static str> {
     axum::response::Html(include_str!("../../web/static/index.html"))
 }
 
-async fn scene_list(axum::extract::State(s): axum::extract::State<AppState>) -> axum::response::Json<Vec<&'static str>> {
+async fn scene_list(
+    axum::extract::State(s): axum::extract::State<AppState>,
+) -> axum::response::Json<Vec<&'static str>> {
     let mut ids: Vec<&'static str> = aa_core::scenes::BUILTIN_IDS.to_vec();
     if cfg!(feature = "doom") && s.enable_doom {
         ids.push("doom");
@@ -469,7 +470,12 @@ async fn ws_upgrade(
     ws.on_upgrade(move |socket| run_ws(socket, sid, s.theme, s.enable_doom))
 }
 
-async fn run_ws(mut socket: axum::extract::ws::WebSocket, sid: String, theme: aa_core::Theme, enable_doom: bool) {
+async fn run_ws(
+    mut socket: axum::extract::ws::WebSocket,
+    sid: String,
+    theme: aa_core::Theme,
+    enable_doom: bool,
+) {
     use axum::extract::ws::Message;
     use std::time::{Duration, Instant};
     use tokio::time::MissedTickBehavior;

@@ -141,7 +141,10 @@ mod tests {
         assert_eq!(e.glyphs().chars().count(), 200);
         assert_eq!(e.colors().len(), 200);
         // Pipes uses colors, so at least some cells should have 0xFF000000 alpha mask
-        let has_colored = e.colors().iter().any(|&c| c & 0xFF00_0000 == 0xFF00_0000 && c != 0);
+        let has_colored = e
+            .colors()
+            .iter()
+            .any(|&c| c & 0xFF00_0000 == 0xFF00_0000 && c != 0);
         assert!(has_colored, "expected colored pipes cells to pack ARGB");
     }
 
@@ -163,4 +166,3 @@ mod tests {
         }
     }
 }
-

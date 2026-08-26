@@ -457,7 +457,10 @@ mod tests {
         // Calling any engine method with NULL shouldn't panic or crash.
         aa_engine_destroy(std::ptr::null_mut());
         aa_engine_set_grid(std::ptr::null_mut(), 80, 24);
-        aa_engine_set_theme(std::ptr::null_mut(), CString::new("Amber").unwrap().as_ptr());
+        aa_engine_set_theme(
+            std::ptr::null_mut(),
+            CString::new("Amber").unwrap().as_ptr(),
+        );
         aa_engine_apply_setting(
             std::ptr::null_mut(),
             CString::new("speed").unwrap().as_ptr(),

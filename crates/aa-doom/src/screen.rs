@@ -664,4 +664,3 @@ mod tests {
         assert_eq!(utf8_length(0x41), 1);
     }
 }
-
