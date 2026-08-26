@@ -58,6 +58,9 @@ shells/android/app/src/main/jniLibs/
 # the live site always has a fresh copy. Not carried in day-to-day history.
 site/pkg/
 
+# TypeScript compiler metadata
+site/tsconfig.tsbuildinfo
+
 # --- Built doom-wasm (produced by scripts/build-doom-wasm.sh)
 # Same pattern as site/pkg/ — regenerated from patches/doom-wasm/, not
 # carried in day-to-day history.
