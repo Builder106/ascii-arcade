@@ -679,7 +679,17 @@ mod scene_resolution_tests {
 
     #[test]
     fn cli_parse_play_subcommand() {
-        let cli = Cli::try_parse_from(["aa", "play", "matrix", "--theme", "amber", "--fps", "60", "--enable-doom"]).unwrap();
+        let cli = Cli::try_parse_from([
+            "aa",
+            "play",
+            "matrix",
+            "--theme",
+            "amber",
+            "--fps",
+            "60",
+            "--enable-doom",
+        ])
+        .unwrap();
         assert!(cli.enable_doom);
         match cli.command {
             Command::Play { scene, theme, fps } => {
@@ -719,9 +729,12 @@ mod scene_resolution_tests {
 
     #[test]
     fn cli_parse_autostart_subcommands() {
-        let cli_enable = Cli::try_parse_from(["aa", "autostart", "enable", "life", "--theme", "ice"]).unwrap();
+        let cli_enable =
+            Cli::try_parse_from(["aa", "autostart", "enable", "life", "--theme", "ice"]).unwrap();
         match cli_enable.command {
-            Command::Autostart { action: AutostartAction::Enable { scene, theme } } => {
+            Command::Autostart {
+                action: AutostartAction::Enable { scene, theme },
+            } => {
                 assert_eq!(scene, "life");
                 assert_eq!(theme, "ice");
             }
@@ -730,13 +743,17 @@ mod scene_resolution_tests {
 
         let cli_disable = Cli::try_parse_from(["aa", "autostart", "disable"]).unwrap();
         match cli_disable.command {
-            Command::Autostart { action: AutostartAction::Disable } => {}
+            Command::Autostart {
+                action: AutostartAction::Disable,
+            } => {}
             _ => panic!("expected Autostart Disable"),
         }
 
         let cli_status = Cli::try_parse_from(["aa", "autostart", "status"]).unwrap();
         match cli_status.command {
-            Command::Autostart { action: AutostartAction::Status } => {}
+            Command::Autostart {
+                action: AutostartAction::Status,
+            } => {}
             _ => panic!("expected Autostart Status"),
         }
     }
@@ -759,7 +776,10 @@ mod scene_resolution_tests {
     #[test]
     fn dispatch_scenes_and_themes_returns_zero() {
         assert_eq!(dispatch(Cli::try_parse_from(["aa", "scenes"]).unwrap()), 0);
-        assert_eq!(dispatch(Cli::try_parse_from(["aa", "scenes", "--enable-doom"]).unwrap()), 0);
+        assert_eq!(
+            dispatch(Cli::try_parse_from(["aa", "scenes", "--enable-doom"]).unwrap()),
+            0
+        );
         assert_eq!(dispatch(Cli::try_parse_from(["aa", "themes"]).unwrap()), 0);
     }
 
@@ -827,8 +847,12 @@ mod scene_resolution_tests {
     }
 
     impl aa_core::Scene for MockInteractiveScene {
-        fn display_name(&self) -> &str { "MockInteractive" }
-        fn is_interactive(&self) -> bool { true }
+        fn display_name(&self) -> &str {
+            "MockInteractive"
+        }
+        fn is_interactive(&self) -> bool {
+            true
+        }
         fn set_grid(&mut self, width: usize, height: usize) {
             self.width = width;
             self.height = height;
