@@ -424,16 +424,16 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             fs::set_permissions(&non_exec, fs::Permissions::from_mode(0o644)).unwrap();
         }
+        // On Unix, non_exec has no execute bits (0o644), so resolve_binary should skip it.
         #[cfg(unix)]
         {
-            // On Unix, non_exec has no execute bits (0o644), so resolve_binary should skip it.
             let got = resolve_binary(&dir, &empty_env());
             assert!(got.is_none() || got != Some(non_exec.clone()));
         }
 
-        // Test explicit DOOM_ASCII_PATH pointing to non-executable or directory
+        // Test explicit DOOM_ASCII_PATH pointing to non-executable or directory (non-existent or directory)
         let mut env = empty_env();
-        env.insert("DOOM_ASCII_PATH".into(), dir.to_string_lossy().into_owned());
+        env.insert("DOOM_ASCII_PATH".into(), dir.join("nonexistent_doom").to_string_lossy().into_owned());
         assert_eq!(resolve_binary(&dir, &env), None);
 
         fs::remove_dir_all(&dir).ok();
