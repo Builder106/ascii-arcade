@@ -431,14 +431,19 @@ mod tests {
             assert!(got.is_none() || got != Some(non_exec.clone()));
         }
 
-        // Test explicit DOOM_ASCII_PATH pointing to non-executable or directory (non-existent or directory)
+        // Test explicit DOOM_ASCII_PATH pointing to a non-existent file or directory
+        let dir_non_existent = tmp();
         let mut env = empty_env();
         env.insert(
             "DOOM_ASCII_PATH".into(),
-            dir.join("nonexistent_doom").to_string_lossy().into_owned(),
+            dir_non_existent
+                .join("nonexistent_doom")
+                .to_string_lossy()
+                .into_owned(),
         );
-        assert_eq!(resolve_binary(&dir, &env), None);
+        assert_eq!(resolve_binary(&dir_non_existent, &env), None);
 
         fs::remove_dir_all(&dir).ok();
+        fs::remove_dir_all(&dir_non_existent).ok();
     }
 }

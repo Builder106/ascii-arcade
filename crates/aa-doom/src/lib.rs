@@ -277,6 +277,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn doom_scene_send_key_with_active_writer_and_pty_reader_mock() {
         use portable_pty::{native_pty_system, PtySize};
 
@@ -294,15 +295,8 @@ mod tests {
         let mut reader = pair.master.try_clone_reader().expect("clone reader");
         let writer = pair.master.take_writer().expect("take writer");
 
-        let mut cmd = CommandBuilder::new(if cfg!(windows) { "cmd.exe" } else { "sh" });
-        #[cfg(unix)]
-        {
-            cmd.args(["-c", "printf '\\033[;H\\033[38;2;100;150;200mTEST\\033[0m'"]);
-        }
-        #[cfg(windows)]
-        {
-            cmd.args(["/d", "/c", "echo \x1b[;H\x1b[38;2;100;150;200mTEST\x1b[0m"]);
-        }
+        let mut cmd = CommandBuilder::new("sh");
+        cmd.args(["-c", "printf '\\033[;H\\033[38;2;100;150;200mTEST\\033[0m'"]);
 
         let child = pair.slave.spawn_command(cmd).expect("spawn command");
         drop(pair.slave);
@@ -335,15 +329,18 @@ mod tests {
         for _ in 0..100 {
             std::thread::sleep(std::time::Duration::from_millis(10));
             if let Ok(s) = scene.screen.lock() {
-                if s.snapshot().cells.iter().any(|c| c.ch == 'T') {
+                if s.snapshot().cells[0].ch == 'T' {
                     break;
                 }
             }
         }
 
         let f = scene.frame(0.0);
-        let found_t = f.cells.iter().any(|c| c.ch == 'T');
-        assert!(found_t);
+        assert_eq!(f.cells[0].ch, 'T');
+        assert_eq!(
+            f.cells[0].color,
+            Some(aa_core::RgbColor::new(100, 150, 200))
+        );
 
         // Test start() when already running
         scene.start();
