@@ -297,11 +297,11 @@ mod tests {
         let mut cmd = CommandBuilder::new(if cfg!(windows) { "cmd.exe" } else { "sh" });
         #[cfg(unix)]
         {
-            cmd.args(&["-c", "printf '\\033[;H\\033[38;2;100;150;200mTEST\\033[0m'"]);
+            cmd.args(["-c", "printf '\\033[;H\\033[38;2;100;150;200mTEST\\033[0m'"]);
         }
         #[cfg(windows)]
         {
-            cmd.args(&["/c", "echo TEST"]);
+            cmd.args(["/c", "echo TEST"]);
         }
 
         let child = pair.slave.spawn_command(cmd).expect("spawn command");
