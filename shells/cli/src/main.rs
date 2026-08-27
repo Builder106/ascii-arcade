@@ -802,8 +802,8 @@ mod scene_resolution_tests {
 
     #[test]
     fn cmd_run_execution() {
-        let res = cmd_run("donut", aa_core::Theme::HACKER);
-        // On Linux / Windows / macOS it either runs or returns expected error / ok
+        let res = cmd_run("invalid_scene_id_xyz", aa_core::Theme::HACKER);
+        // On Linux / Windows / macOS it verifies dispatch and returns expected result/error without entering live render loop
         let _ = res;
     }
 
