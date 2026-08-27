@@ -380,7 +380,8 @@ mod tests {
         #[cfg(windows)]
         {
             // On Windows, use existing system cmd.exe so spawn_command executes a valid PE binary
-            let comspec = std::env::var("COMSPEC").unwrap_or_else(|_| "C:\\Windows\\System32\\cmd.exe".into());
+            let comspec = std::env::var("COMSPEC")
+                .unwrap_or_else(|_| "C:\\Windows\\System32\\cmd.exe".into());
             let _ = std::fs::copy(&comspec, &fake_bin);
         }
 
