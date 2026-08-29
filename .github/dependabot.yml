@@ -27,3 +27,18 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    directory: "/e2e"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "swift"
+    directory: "/Server"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "gradle"
+    directory: "/shells/android"
+    schedule:
+      interval: "weekly"
