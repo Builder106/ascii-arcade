@@ -44,12 +44,6 @@ let sceneNames: [String] = makeScenes().map { $0.displayName }
 /// who just wanted an ambient wallpaper.
 let sceneIsInteractive: [Bool] = makeScenes().map { $0.isInteractive }
 
-// MARK: - Wallpaper helpers
-
-private func setWallpaper(_ url: URL, for screen: NSScreen) {
-    try? NSWorkspace.shared.setDesktopImageURL(url, for: screen, options: [:])
-}
-
 // MARK: - Window
 
 final class DesktopSceneWindow: NSWindow {
@@ -692,7 +686,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// auto-cycle until the user explicitly turns it on. Defaults off so it
     /// can't ambush someone who just wanted an ambient wallpaper.
     var doomEnabled = false
-    var originalWallpapers: [NSScreen: URL] = [:]
 
     // Per-scene chosen setting options: sceneIndex → (settingId → optionIndex).
     var sceneSettingSelections: [Int: [String: Int]] = [:]
@@ -717,13 +710,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var opaqueBackground = true
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Save original wallpapers before we touch anything
-        for screen in NSScreen.screens {
-            if let url = NSWorkspace.shared.desktopImageURL(for: screen) {
-                originalWallpapers[screen] = url
-            }
-        }
-
         // Restore remembered scene / theme / settings from a previous run.
         let restored = loadState()
         if let s = restored {
@@ -815,10 +801,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if recordingActive { recorder.stop() }
         // Tear down any running DOOM PTY.
         for view in views { view.stopCurrentScene() }
-        // Restore original wallpapers
-        for (screen, url) in originalWallpapers {
-            setWallpaper(url, for: screen)
-        }
     }
 
     // MARK: - Sleep / wake
