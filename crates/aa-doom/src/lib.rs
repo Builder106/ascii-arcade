@@ -409,6 +409,7 @@ mod tests {
             args: vec![],
             env: test_env,
         };
+        let mut scene = DoomScene::new(2);
         let res = scene.launch_with(Some(launch_cfg), std::path::Path::new("."));
         assert!(res.is_ok());
         assert!(scene.running);
@@ -444,6 +445,24 @@ mod tests {
         let f = scene.frame(0.0);
         let text = f.text();
         assert!(text.contains("doom launch failed"));
+
+        // Trigger start() failure when binary fails to launch
+        let dir = std::env::temp_dir().join(format!("aa-doom-start-err-{}", std::process::id()));
+        let bin_dir = dir.join("bin");
+        std::fs::create_dir_all(&bin_dir).unwrap();
+        let unspawnable = bin_dir.join("unspawnable");
+        std::fs::write(&unspawnable, b"").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&unspawnable, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        std::env::set_var("DOOM_ASCII_PATH", &unspawnable);
+        let mut fail_scene = DoomScene::new(2);
+        let _ = fail_scene.launch();
+        fail_scene.start();
+        std::env::remove_var("DOOM_ASCII_PATH");
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
