@@ -4,6 +4,26 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-08-31: CI covers the xtool package build #decision
+
+CI now builds the SwiftPM iOS package with xtool on macOS and checks that the Metal shader source reaches the app bundle. The existing XcodeGen job remains the simulator smoke test. A Linux ARM64 job runs the full Darwin SDK build when the repository has the Xcode XIP URL and checksum configured as Actions secrets; forked pull requests skip that job because they cannot access those secrets.
+
+## 2026-08-31: xtool packages the Metal shader source #feature #milestone
+
+SwiftPM cannot compile `Shaders.metal` on the Linux xtool path, so the package now copies it into its resource bundle and `GlyphPipelines` compiles it with `MTLDevice.makeLibrary(source:)` when `SWIFT_PACKAGE` is set. The XcodeGen path still calls `makeDefaultLibrary()`. The clean release build passed with exit code 0, and the resulting app contains `AsciiArcade_AsciiArcade.bundle/Shaders.metal` plus a Mach-O arm64 executable. Runtime Metal rendering remains unverified because this host has no iOS device or simulator.
+
+## 2026-08-31: Linux xtool build verified #milestone #incident
+
+The Xcode 26.6 Apple silicon XIP extracted into `darwin.artifactbundle`; registering that bundle requires `swift sdk install`, while `xtool sdk install` expects the original Xcode input. The Linux Rust bridge now uses Swiftly's Clang, xtool's `ld64.lld`, and explicit iOS platform-version flags. The complete release build passed with exit code 0 and produced a non-empty arm64 Mach-O app. SwiftPM still reports `Shaders.metal` as unhandled, so the app's Metal library packaging and runtime rendering need a separate follow-up before this is a functional replacement for the Xcode build.
+
+## 2026-08-31: Linux xtool package added #feature #decision
+
+Kept the existing XcodeGen project as the macOS and IDE path and added a separate SwiftPM package under `shells/ios` for xtool. `scripts/build-ios.sh` now stages only the C headers, keeps Rust intermediates under `AA_IOS_BUILD_ROOT`, and assembles a device-only XCFramework on Linux with the Darwin SDK linker. `scripts/build-xtool-ios.sh` redirects SwiftPM's SDK configuration into the managed SDK tree before building. The package and scripts parse cleanly, and the full `swift test --parallel` suite passes. The end-to-end iOS build remains pending until an Xcode XIP is supplied to generate the Darwin SDK.
+
+## 2026-08-29: Mac scene changes use character dissolves #feature
+
+`SceneView` now keeps the frame it actually painted when a menu or idle-cycle change selects another scene. The new scene renders on its own grid, then takes over cell by cell using deterministic thresholds over 0.9 seconds. Mapping the saved cells to the destination grid keeps the handoff legible across normal text scenes and DOOM's fixed-resolution bitmap path. A second selection during the dissolve starts from the frame on screen, so rapid cycling does not flash or snap. The pure `SceneTransition` helper has core tests; Swift verification remains pending because the designated build host currently has no Swift toolchain.
+
 ## 2026-08-23 — Linux Swift coverage uses SwiftPM JSON for deterministic targets #decision
 
 Swift 6.3.3 on ampere-dev emits `llvm.coverage.json.export` rather than an LLVM `.profdata` file on Linux, so the old `xcrun llvm-cov` gate could not run there. Added a small standard-library Python gate for the cross-platform `DonutFrameGenerator` target, which the existing tests exercise at 100% lines and functions. `HotwordDetector` remains tested but is excluded from the line gate because SwiftPM's JSON exporter reports 98.25% lines while reporting 100% functions, counting non-executable declaration/closing lines. macOS-only app, watcher, PTY, and ApplicationServices paths remain explicitly outside the Linux coverage claim; their macOS targets and products stay in the package manifest.
