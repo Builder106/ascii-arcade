@@ -251,6 +251,11 @@ mod wayland {
     use aa_render::{render, RenderOptions};
     use std::time::Instant;
 
+    use smithay_client_toolkit::reexports::client::{
+        globals::registry_queue_init,
+        protocol::{wl_output, wl_shm, wl_surface},
+        Connection, QueueHandle,
+    };
     use smithay_client_toolkit::{
         compositor::{CompositorHandler, CompositorState},
         delegate_compositor, delegate_layer, delegate_output, delegate_registry, delegate_shm,
@@ -265,11 +270,6 @@ mod wayland {
             WaylandSurface,
         },
         shm::{slot::SlotPool, Shm, ShmHandler},
-    };
-    use smithay_client_toolkit::reexports::client::{
-        globals::registry_queue_init,
-        protocol::{wl_output, wl_shm, wl_surface},
-        Connection, QueueHandle,
     };
 
     pub fn run(scene_id: &str, opts: RenderOptions) -> Result<(), String> {
