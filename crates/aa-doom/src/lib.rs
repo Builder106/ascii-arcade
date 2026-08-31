@@ -188,10 +188,7 @@ impl Scene for DoomScene {
         if self.running {
             return;
         }
-        let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
-        let env: std::collections::HashMap<String, String> = std::env::vars().collect();
-        let config = launcher::resolve(&cwd, &env, self.scaling);
-        if let Err(e) = self.launch_with(config, &cwd) {
+        if let Err(e) = self.launch() {
             self.set_message(&format!("doom launch failed: {e}"));
         }
     }
@@ -384,7 +381,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("aa-doom-start-test-{}", std::process::id()));
         let bin_dir = dir.join("bin");
         std::fs::create_dir_all(&bin_dir).unwrap();
-        let fake_bin = bin_dir.join(launcher::resolve_binary_in(std::path::Path::new("."), &std::collections::HashMap::new(), &[]).map(|_| "fake").unwrap_or("fake_doom.sh"));
+        #[cfg(unix)]
+        let fake_bin = bin_dir.join("fake_doom.sh");
+        #[cfg(windows)]
+        let fake_bin = bin_dir.join("cmd.exe");
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -402,11 +402,15 @@ mod tests {
             let _ = std::fs::copy(&comspec, &fake_bin);
         }
 
-        // Set DOOM_ASCII_PATH to fake binary
-        std::env::set_var("DOOM_ASCII_PATH", &fake_bin);
-
-        let mut scene = DoomScene::new(2);
-        scene.start();
+        let mut test_env = std::collections::HashMap::new();
+        test_env.insert("TEST_DOOM_KEY".to_string(), "TEST_VAL".to_string());
+        let launch_cfg = launcher::DoomLaunchConfig {
+            executable: fake_bin.clone(),
+            args: vec![],
+            env: test_env,
+        };
+        let res = scene.launch_with(Some(launch_cfg), std::path::Path::new("."));
+        assert!(res.is_ok());
         assert!(scene.running);
 
         // Wait a bit for child to exit / produce output
@@ -415,7 +419,6 @@ mod tests {
         scene.stop();
         assert!(!scene.running);
 
-        std::env::remove_var("DOOM_ASCII_PATH");
         std::fs::remove_dir_all(&dir).ok();
     }
 
@@ -427,33 +430,20 @@ mod tests {
 
     #[test]
     fn doom_scene_launch_failure_shows_error_message() {
-        let dir = std::env::temp_dir().join(format!("aa-doom-fail-test-{}", std::process::id()));
-        fs_create_empty_file(&dir);
-        let bad_path = dir.join("fake_non_spawnable");
-        // Set DOOM_ASCII_PATH to non-spawnable file
-        std::env::set_var("DOOM_ASCII_PATH", &bad_path);
-
         let mut scene = DoomScene::new(2);
-        let _ = scene.launch();
-        scene.start();
+        let err_cfg = launcher::DoomLaunchConfig {
+            executable: std::path::PathBuf::from("/nonexistent/doom/binary/that/cannot/be/spawned"),
+            args: vec![],
+            env: std::collections::HashMap::new(),
+        };
+        let bad_dir = std::path::Path::new(".");
+        let err = scene.launch_with(Some(err_cfg), bad_dir);
+        assert!(err.is_err());
+        scene.set_message(&format!("doom launch failed: {}", err.unwrap_err()));
 
         let f = scene.frame(0.0);
         let text = f.text();
-        assert!(!text.is_empty());
-
-        std::env::remove_var("DOOM_ASCII_PATH");
-        std::fs::remove_dir_all(&dir).ok();
-    }
-
-    fn fs_create_empty_file(dir: &std::path::Path) {
-        std::fs::create_dir_all(dir).unwrap();
-        let path = dir.join("fake_non_spawnable");
-        std::fs::write(&path, b"").unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
+        assert!(text.contains("doom launch failed"));
     }
 
     #[test]
