@@ -66,6 +66,20 @@ final class SceneView: NSView {
     override var isOpaque: Bool { false }
     override var isFlipped: Bool { true }
 
+    private struct RenderedCell {
+        let character: Character
+        let color: AsciiArcadeCore.RGBColor?
+
+        static let blank = RenderedCell(character: " ", color: nil)
+    }
+
+    private struct RenderedFrame {
+        let width: Int
+        let height: Int
+        let cells: [RenderedCell]
+        let isBitmap: Bool
+    }
+
     private let scenes: [any AsciiScene]
     private(set) var currentIndex = 0
     var currentScene: any AsciiScene { scenes[currentIndex] }
@@ -110,6 +124,13 @@ final class SceneView: NSView {
     /// Last grid size passed to `currentScene.setGrid`, so unchanged layouts
     /// skip the redundant per-frame call.
     private var lastGridSize: (w: Int, h: Int)?
+    /// The last frame actually painted. It is the source snapshot for the next
+    /// scene handoff, including if a new selection interrupts an active one.
+    private var lastFrame: RenderedFrame?
+    private var outgoingFrame: RenderedFrame?
+    private var sceneTransition: SceneTransition?
+    private var transitionStartTime: CFAbsoluteTime?
+    private let transitionDuration: CFTimeInterval = 0.9
 
     init(frame: CGRect, scenes: [any AsciiScene]) {
         self.scenes = scenes
@@ -140,9 +161,13 @@ final class SceneView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    /// Switch the active cabinet: stop the old one, reset the clock, start the new one.
+    /// Switch the active cabinet: preserve the painted frame, then hand it over
+    /// to the new scene one character at a time instead of cutting immediately.
     func selectScene(_ index: Int) {
         guard index >= 0, index < scenes.count, index != currentIndex else { return }
+        outgoingFrame = lastFrame
+        transitionStartTime = outgoingFrame == nil ? nil : CFAbsoluteTimeGetCurrent()
+        sceneTransition = nil
         scenes[currentIndex].stop()
         currentIndex = index
         startTime = CFAbsoluteTimeGetCurrent()
@@ -244,35 +269,128 @@ final class SceneView: NSView {
 
         let viewH = bounds.height
 
-        // DOOM (and any fixed-resolution scene) renders as a scaled colour bitmap
-        // that fills the padded rect — its framebuffer is far denser than the text
-        // grid, so each cell is painted as a rectangle rather than a font glyph.
-        if let fixed = currentScene.fixedGrid {
-            drawBitmap(currentScene, fixed: fixed, in: paddedRect, ctx: ctx, t: t)
-            if instrument {
-                recordInstrumentation(scene: currentScene, w: fixed.width, h: fixed.height,
-                                      batches: 0, start: drawStart)
+        guard let incoming = makeFrame(for: currentScene, atTime: t, in: paddedRect) else { return }
+        let frame: RenderedFrame
+        var transitionInProgress = false
+        if let outgoing = outgoingFrame, let transitionStartTime {
+            if sceneTransition?.cellCount != incoming.cells.count {
+                let seed = UInt64((currentIndex + 1) &* 31 &+ incoming.width &+ incoming.height)
+                sceneTransition = SceneTransition(cellCount: incoming.cells.count, seed: seed)
             }
-            return
+            let elapsed = CFAbsoluteTimeGetCurrent() - transitionStartTime
+            let linear = min(1.0, max(0.0, elapsed / transitionDuration))
+            let eased = linear < 0.5
+                ? 4.0 * linear * linear * linear
+                : 1.0 - pow(-2.0 * linear + 2.0, 3.0) / 2.0
+            transitionInProgress = eased < 1.0
+            frame = blend(outgoing, into: incoming, progress: eased,
+                          using: sceneTransition!)
+            if eased >= 1.0 {
+                outgoingFrame = nil
+                sceneTransition = nil
+                self.transitionStartTime = nil
+            }
+        } else {
+            frame = incoming
+        }
+
+        lastFrame = frame
+        draw(frame, in: paddedRect, viewHeight: viewH, context: ctx)
+
+        if instrument {
+            let batches = frame.isBitmap ? 0 : batchPool.count
+            recordInstrumentation(scene: currentScene, w: frame.width, h: frame.height,
+                                  batches: batches, start: drawStart)
+        }
+
+        // Keep the display link alive while a handoff is in progress even if the
+        // view is otherwise quiescent. The next display-link tick paints the next
+        // threshold wave; ordinary scene animation already invalidates itself.
+        if transitionInProgress {
+            needsDisplay = true
+        }
+    }
+
+    private func makeFrame(for scene: any AsciiScene, atTime t: Double,
+                           in rect: CGRect) -> RenderedFrame? {
+        if let fixed = scene.fixedGrid {
+            guard fixed.width > 0, fixed.height > 0,
+                  let colored = scene.coloredFrame(atTime: t) else { return nil }
+            let cells = zip(colored.chars, colored.colors).map { RenderedCell(character: $0.0, color: $0.1) }
+            guard cells.count >= fixed.width * fixed.height else { return nil }
+            return RenderedFrame(width: fixed.width, height: fixed.height,
+                                 cells: Array(cells.prefix(fixed.width * fixed.height)), isBitmap: true)
         }
 
         let charW = cellCharWidth
         let lineH = cellLineHeight
         let (w, h) = DonutFrameGenerator.gridDimensions(
-            paddedWidth: Double(paddedRect.width),
-            paddedHeight: Double(paddedRect.height),
+            paddedWidth: Double(rect.width),
+            paddedHeight: Double(rect.height),
             charWidth: Double(charW),
             lineHeight: Double(lineH)
         )
         if lastGridSize?.w != w || lastGridSize?.h != h {
-            currentScene.setGrid(width: w, height: h)
+            scene.setGrid(width: w, height: h)
             lastGridSize = (w, h)
         }
 
-        let contentWidth = CGFloat(w) * charW
-        let contentHeight = CGFloat(h) * lineH
-        let originX = paddedRect.midX - contentWidth / 2.0
-        let originY = paddedRect.midY - contentHeight / 2.0
+        var cells = Array(repeating: RenderedCell.blank, count: w * h)
+        if let colored = scene.coloredFrame(atTime: t) {
+            for index in 0..<min(cells.count, colored.chars.count) {
+                cells[index] = RenderedCell(character: colored.chars[index], color: colored.colors[index])
+            }
+        } else {
+            var row = 0
+            var col = 0
+            for ch in scene.frame(atTime: t) {
+                if ch == "\n" {
+                    row += 1
+                    col = 0
+                } else if row < h, col < w {
+                    cells[row * w + col] = RenderedCell(character: ch, color: nil)
+                    col += 1
+                }
+                if row >= h { break }
+            }
+        }
+        return RenderedFrame(width: w, height: h, cells: cells, isBitmap: false)
+    }
+
+    private func blend(_ outgoing: RenderedFrame, into incoming: RenderedFrame,
+                       progress: Double, using transition: SceneTransition) -> RenderedFrame {
+        var cells = Array(repeating: RenderedCell.blank, count: incoming.cells.count)
+        for index in cells.indices {
+            let x = index % incoming.width
+            let y = index / incoming.width
+            let oldX = min(outgoing.width - 1, x * outgoing.width / incoming.width)
+            let oldY = min(outgoing.height - 1, y * outgoing.height / incoming.height)
+            let oldCell = outgoing.cells[oldY * outgoing.width + oldX]
+            cells[index] = transition.usesDestination(at: index, progress: progress)
+                ? incoming.cells[index]
+                : oldCell
+        }
+        return RenderedFrame(width: incoming.width, height: incoming.height,
+                             cells: cells, isBitmap: incoming.isBitmap)
+    }
+
+    private func draw(_ frame: RenderedFrame, in rect: CGRect, viewHeight: CGFloat,
+                      context ctx: CGContext) {
+        if frame.isBitmap {
+            drawBitmap(frame, in: rect, ctx: ctx)
+        } else {
+            drawText(frame, in: rect, viewHeight: viewHeight, ctx: ctx)
+        }
+    }
+
+    private func drawText(_ frame: RenderedFrame, in rect: CGRect, viewHeight: CGFloat,
+                          ctx: CGContext) {
+        let charW = cellCharWidth
+        let lineH = cellLineHeight
+        let contentWidth = CGFloat(frame.width) * charW
+        let contentHeight = CGFloat(frame.height) * lineH
+        let originX = rect.midX - contentWidth / 2.0
+        let originY = rect.midY - contentHeight / 2.0
         let ascent = cellAscent
 
         // Bucket every non-blank cell's glyph by colour. Adjacent cells that share
@@ -284,43 +402,33 @@ final class SceneView: NSView {
             batch.glyphs.removeAll(keepingCapacity: true)
             batch.positions.removeAll(keepingCapacity: true)
         }
-        func emit(_ ch: Character, row: Int, col: Int, color: AsciiArcadeCore.RGBColor?) {
-            guard ch != " ", let g = glyph(for: ch) else { return }
+        func emit(_ cell: RenderedCell, row: Int, col: Int) {
+            guard cell.character != " ", let g = glyph(for: cell.character) else { return }
             let batch: GlyphBatch
-            if let existing = batchPool[color] {
+            if let existing = batchPool[cell.color] {
                 batch = existing
             } else {
                 batch = GlyphBatch()
-                batchPool[color] = batch
+                batchPool[cell.color] = batch
             }
             batch.glyphs.append(g)
             batch.positions.append(CGPoint(
                 x: originX + CGFloat(col) * charW,
-                y: viewH - (originY + CGFloat(row) * lineH + ascent)
+                y: viewHeight - (originY + CGFloat(row) * lineH + ascent)
             ))
         }
 
-        if let colored = currentScene.coloredFrame(atTime: t) {
-            let chars = colored.chars, colors = colored.colors
-            for row in 0..<h {
-                let base = row * w
-                for col in 0..<w {
-                    emit(chars[base + col], row: row, col: col, color: colors[base + col])
-                }
-            }
-        } else {
-            var row = 0, col = 0
-            for ch in currentScene.frame(atTime: t) {
-                if ch == "\n" { row += 1; col = 0; continue }
-                emit(ch, row: row, col: col, color: nil)
-                col += 1
+        for row in 0..<frame.height {
+            let base = row * frame.width
+            for col in 0..<frame.width {
+                emit(frame.cells[base + col], row: row, col: col)
             }
         }
 
         // Draw. Flip into a y-up space so Core Text glyphs render upright in this
         // flipped view, then one fill + one CTFontDrawGlyphs per colour bucket.
         ctx.saveGState()
-        ctx.translateBy(x: 0, y: viewH)
+        ctx.translateBy(x: 0, y: viewHeight)
         ctx.scaleBy(x: 1, y: -1)
         ctx.textMatrix = .identity
         for (color, batch) in batchPool where !batch.glyphs.isEmpty {
@@ -328,26 +436,17 @@ final class SceneView: NSView {
             CTFontDrawGlyphs(ctFont, batch.glyphs, batch.positions, batch.glyphs.count, ctx)
         }
         ctx.restoreGState()
-
-        if instrument {
-            recordInstrumentation(scene: currentScene, w: w, h: h,
-                                  batches: batchPool.count, start: drawStart)
-        }
     }
 
     /// Paint a fixed-resolution scene (DOOM) as a scaled colour bitmap filling
     /// `rect`. Each cell becomes a rectangle; horizontally-adjacent cells of the
     /// same colour merge into one fill, and fills are batched per colour — so a
     /// dense frame is a few hundred `fill` calls, not tens of thousands.
-    private func drawBitmap(_ scene: any AsciiScene, fixed: (width: Int, height: Int),
-                            in rect: CGRect, ctx: CGContext, t: Double) {
-        guard let colored = scene.coloredFrame(atTime: t) else { return }
-        let w = fixed.width, h = fixed.height
+    private func drawBitmap(_ frame: RenderedFrame, in rect: CGRect, ctx: CGContext) {
+        let w = frame.width, h = frame.height
         guard w > 0, h > 0 else { return }
         let cellW = rect.width / CGFloat(w)
         let cellH = rect.height / CGFloat(h)
-        let chars = colored.chars, colors = colored.colors
-        guard chars.count >= w * h, colors.count >= w * h else { return }
 
         var rectsByColor: [AsciiArcadeCore.RGBColor: [CGRect]] = [:]
         // Uncolored non-blank cells (e.g. the "doom_ascii not found" message, or
@@ -363,10 +462,12 @@ final class SceneView: NSView {
             var col = 0
             while col < w {
                 let idx = base + col
-                guard chars[idx] != " " else { col += 1; continue }
-                let color = colors[idx]
+                guard frame.cells[idx].character != " " else { col += 1; continue }
+                let color = frame.cells[idx].color
                 var end = col + 1
-                while end < w, chars[base + end] != " ", colors[base + end] == color { end += 1 }
+                while end < w,
+                      frame.cells[base + end].character != " ",
+                      frame.cells[base + end].color == color { end += 1 }
                 let r = CGRect(x: rect.minX + CGFloat(col) * cellW, y: yTop,
                                width: CGFloat(end - col) * cellW, height: cellH)
                 if let color { rectsByColor[color, default: []].append(r) }
