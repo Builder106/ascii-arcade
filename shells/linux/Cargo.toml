@@ -32,5 +32,4 @@ aa-render = { workspace = true }
 # need libxkbcommon at build time.
 [target.'cfg(target_os = "linux")'.dependencies]
 x11rb = { version = "0.14", features = ["randr"], optional = true }
-smithay-client-toolkit = { version = "=0.19.2", optional = true }
 wayland-client = { version = "0.31", optional = true }
