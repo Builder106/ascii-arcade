@@ -32,7 +32,7 @@ jobs:
         os: [macos-15, ubuntu-24.04, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -89,7 +89,7 @@ jobs:
             crate: aa-linux
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -133,7 +133,7 @@ jobs:
             binary: aa-windows.exe
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -141,7 +141,7 @@ jobs:
       - name: Build release binary
         run: cargo build -p ${{ matrix.crate }} --release
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.crate }}-${{ matrix.target }}
           path: target/release/${{ matrix.binary }}
