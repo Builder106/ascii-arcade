@@ -43,7 +43,7 @@ final class AaEngine: @unchecked Sendable {
         defer { aa_scene_names_free(names, count) }
         return (0..<Int(count)).compactMap { i in
             guard let ptr = names[i] else { return nil }
-            return String(validatingUTF8: ptr)
+            return String(validatingCString: ptr)
         }
     }
 }

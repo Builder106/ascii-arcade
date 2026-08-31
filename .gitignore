@@ -33,6 +33,9 @@ logs/
 # Native iOS shell (shells/ios)
 # --- Built Rust native library (produced by scripts/build-ios.sh)
 shells/ios/Frameworks/AaEngine.xcframework/
+shells/ios/.build/
+shells/ios/.swiftpm/
+shells/ios/xtool/
 
 # --- Xcode per-developer state (regenerated locally, not shared)
 xcuserdata/

@@ -1,0 +1,4 @@
+version: 1
+bundleID: com.builder106.asciiarcade
+infoPath: Info.xtool.plist
+iconPath: ../../assets/icon-512.png

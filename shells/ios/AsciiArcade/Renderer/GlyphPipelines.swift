@@ -1,3 +1,4 @@
+import Foundation
 import Metal
 
 // Shared bg/glyph render pipeline state, used by both the live MTKView
@@ -8,8 +9,8 @@ struct GlyphPipelines {
     let sampler: MTLSamplerState
 
     static func build(device: MTLDevice, pixelFormat: MTLPixelFormat) -> GlyphPipelines? {
-        guard let lib = device.makeDefaultLibrary() else {
-            print("[GlyphPipelines] Metal library not found — check that Shaders.metal is in the target")
+        guard let lib = makeLibrary(device: device) else {
+            print("[GlyphPipelines] Metal shaders could not be loaded or compiled")
             return nil
         }
 
@@ -39,5 +40,17 @@ struct GlyphPipelines {
         guard let sampler = device.makeSamplerState(descriptor: sd) else { return nil }
 
         return GlyphPipelines(bg: bgPipeline, glyph: glyphPipeline, sampler: sampler)
+    }
+
+    private static func makeLibrary(device: MTLDevice) -> MTLLibrary? {
+#if SWIFT_PACKAGE
+        guard let shaderURL = Bundle.module.url(forResource: "Shaders", withExtension: "metal"),
+        let source = try? String(contentsOf: shaderURL, encoding: .utf8) else {
+            return nil
+        }
+        return try? device.makeLibrary(source: source, options: nil)
+#else
+        return device.makeDefaultLibrary()
+#endif
     }
 }
