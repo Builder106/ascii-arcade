@@ -8,7 +8,14 @@ import sys
 
 TARGETS = {
     "Sources/AsciiArcadeCore/DonutFrameGenerator.swift",
+    "Sources/AsciiArcadeCore/HelixFrameGenerator.swift",
+    "Sources/AsciiArcadeCore/SceneTransition.swift",
+    "Sources/AsciiArcadeCore/ColoredFrame.swift",
+    "Sources/AsciiArcadeCore/DoomScreenBuffer.swift",
+    "Sources/AsciiArcadeCore/SceneSetting.swift",
+    "Sources/AsciiArcadeCore/SteppedScene.swift",
 }
+
 
 
 def main() -> int:

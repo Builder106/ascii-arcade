@@ -51,6 +51,11 @@ jobs:
         run: cargo clippy -p aa --all-targets --features doom -- -D warnings
       - name: Test (engine crates)
         run: cargo test -p aa-core -p aa-render -p aa-doom
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Enforce core Rust crates coverage
+        run: cargo llvm-cov --package aa-core --package aa-render --package aa-doom --fail-under-lines 100
+
       - name: Test (web shell)
         run: cargo test -p aa-web
       - name: Test (web shell, doom feature)

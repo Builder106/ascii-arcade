@@ -11,7 +11,6 @@ private func advance(_ scene: AsciiScene, frames: Int = 30, dt: Double = 0.05) -
     }
     return last
 }
-
 final class ColoredFrameTests: XCTestCase {
     func testTextJoinsRowsWithNewlines() {
         let f = ColoredFrame(width: 2, height: 2,
@@ -145,5 +144,43 @@ final class SceneDefaultsTests: XCTestCase {
         var zeroSeed = SeededGenerator(seed: 0)
         var explicitDefault = SeededGenerator(seed: 0x9E37_79B9_7F4A_7C15)
         XCTAssertEqual(zeroSeed.next(), explicitDefault.next())
+    }
+
+    func testSceneOptionAndSceneSettingClamping() {
+        let opt1 = SceneOption(label: "Slow", value: 0.5)
+        let opt2 = SceneOption(label: "Fast", value: 2.0)
+        XCTAssertEqual(opt1.label, "Slow")
+        XCTAssertEqual(opt1.value, 0.5)
+        XCTAssertEqual(opt1, SceneOption(label: "Slow", value: 0.5))
+
+        let setting = SceneSetting(id: "speed", label: "Speed", options: [opt1, opt2], defaultIndex: 99)
+        XCTAssertEqual(setting.defaultIndex, 1)
+        let settingLow = SceneSetting(id: "speed", label: "Speed", options: [opt1, opt2], defaultIndex: -5)
+        XCTAssertEqual(settingLow.defaultIndex, 0)
+    }
+
+    func testSteppedSceneBaseClassBehaviors() {
+        let s = SteppedScene(displayName: "BaseStepped", initialWidth: 10, initialHeight: 5)
+        XCTAssertEqual(s.displayName, "BaseStepped")
+        XCTAssertEqual(s.width, 10)
+        XCTAssertEqual(s.height, 5)
+        XCTAssertEqual(s.settingValue("unknown", default: 42.0), 42.0)
+
+        // Invalid or identical grid dimensions are ignored
+        s.setGrid(width: 0, height: 5)
+        XCTAssertEqual(s.width, 10)
+        s.setGrid(width: 10, height: 5)
+        XCTAssertEqual(s.width, 10)
+
+        // Test frame and coloredFrame
+        let f1 = s.frame(atTime: 1.0)
+        XCTAssertFalse(f1.isEmpty)
+
+        // Advance clock backwards (dt < 0) and large dt (> 0.25)
+        _ = s.coloredFrame(atTime: 0.5)
+        _ = s.coloredFrame(atTime: 5.0)
+
+        s.start()
+        s.stop()
     }
 }
