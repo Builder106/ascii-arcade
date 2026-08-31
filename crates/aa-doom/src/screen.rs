@@ -437,6 +437,22 @@ mod tests {
         let f = buf.snapshot();
         assert_eq!(f.cells[0].ch, '█');
         assert_eq!(f.cells[1].ch, 'X');
+
+        // Erase line with cursor_row >= height and cursor_col >= width
+        let mut s_oob = ScreenBuffer::new(4, 4);
+        s_oob.cursor_row = 10;
+        s_oob.erase_line(0);
+        s_oob.erase_line(1);
+        s_oob.erase_line(2);
+        s_oob.cursor_row = 0;
+        s_oob.cursor_col = 10;
+        s_oob.erase_line(0);
+
+        // Feed OSC sequence containing ESC followed by a non-backslash byte and terminated with BEL
+        let mut s_osc = ScreenBuffer::new(10, 10);
+        s_osc.feed(b"\x1b]2;Title\x1bX\x07Remaining");
+        let text = s_osc.snapshot().text();
+        assert!(text.contains("Remaining"));
     }
 
     #[test]

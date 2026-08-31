@@ -629,10 +629,33 @@ mod tests {
         let mut s = LifeScene::new();
         // Set cell size large so logical cells extend beyond width/height
         s.apply_setting("size", 4.0);
-        s.set_grid(11, 11);
+        s.set_grid(4, 4);
         s.start();
-        let f = s.frame(0.0);
-        assert_eq!(f.width, 11);
-        assert_eq!(f.height, 11);
+        // Artificially increase rows and cols to force clipping in render()
+        s.rows = 3;
+        s.cols = 3;
+        s.alive = vec![true; 9];
+        s.age = vec![0; 9];
+        let f = s.render();
+        assert_eq!(f.width, 4);
+        assert_eq!(f.height, 4);
+
+        // Exercise stable_steps > 8 reseed branch
+        s.apply_setting("size", 1.0);
+        s.set_grid(10, 10);
+        s.start();
+        // Set a static 2x2 block (stable still-life)
+        s.alive.fill(false);
+        let idx0 = 2 * s.cols + 2;
+        let idx1 = 2 * s.cols + 3;
+        let idx2 = 3 * s.cols + 2;
+        let idx3 = 3 * s.cols + 3;
+        s.alive[idx0] = true;
+        s.alive[idx1] = true;
+        s.alive[idx2] = true;
+        s.alive[idx3] = true;
+        for _ in 0..15 {
+            s.step();
+        }
     }
 }

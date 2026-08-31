@@ -455,6 +455,8 @@ mod tests {
 
         // Step on empty grid
         s.grid.clear();
+        let f = s.render();
+        assert_eq!(f.width, 20);
         s.step();
         assert!(s.grid.is_empty());
     }
@@ -464,5 +466,16 @@ mod tests {
         // Test fallback '+' branch for out-of-range direction pairs
         assert_eq!(connector(5, 6), '+');
         assert_eq!(connector(0, 4), '+');
+
+        // Test advance on a 1x1 grid where candidate destinations are out of bounds (boxed in)
+        let mut s = PipesScene::new();
+        s.set_grid(1, 1);
+        let mut pipe = Pipe {
+            x: 0,
+            y: 0,
+            dir: 0,
+            color: RgbColor::WHITE,
+        };
+        s.advance(&mut pipe);
     }
 }

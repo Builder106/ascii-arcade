@@ -83,14 +83,12 @@ impl Scene for DonutScene {
 
                 if lum > 0.0 && xp >= 0 && yp >= 0 {
                     let (xp, yp) = (xp as usize, yp as usize);
-                    if xp < w && yp < h {
+                    if xp < w && yp < h && ooz > zbuf[yp * w + xp] {
                         let i = yp * w + xp;
-                        if ooz > zbuf[i] {
-                            zbuf[i] = ooz;
-                            let li = (lum * 8.0) as isize;
-                            let li = li.clamp(0, LUMINANCE.len() as isize - 1) as usize;
-                            frame.cells[i].ch = LUMINANCE[li] as char;
-                        }
+                        zbuf[i] = ooz;
+                        let li = (lum * 8.0) as isize;
+                        let li = li.clamp(0, LUMINANCE.len() as isize - 1) as usize;
+                        frame.cells[i].ch = LUMINANCE[li] as char;
                     }
                 }
                 phi += 0.02;
@@ -150,10 +148,10 @@ mod tests {
     #[test]
     fn various_angles_and_sizes_exercise_zbuf_and_luminance() {
         let mut d = DonutScene::new();
-        for &(w, h) in &[(5, 5), (15, 10), (40, 20), (80, 40), (120, 60)] {
+        for &(w, h) in &[(1, 1), (5, 5), (15, 10), (40, 20), (80, 40), (120, 60)] {
             d.set_grid(w, h);
-            for i in 0..50 {
-                let t = i as f64 * 0.15;
+            for i in 0..100 {
+                let t = i as f64 * 0.1;
                 let f = d.frame(t);
                 assert_eq!(f.width, w);
                 assert_eq!(f.height, h);

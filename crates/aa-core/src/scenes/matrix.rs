@@ -373,5 +373,9 @@ mod tests {
         // Setting same grid again should return early
         s.set_grid(20, 10);
         assert_eq!(s.columns.len(), 20);
+
+        // make_column with spawn_above=false
+        let col = s.make_column(false, None);
+        assert_eq!(col.head, 0.0);
     }
 }

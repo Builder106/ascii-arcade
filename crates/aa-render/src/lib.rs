@@ -516,5 +516,29 @@ mod tests {
             16,
             RgbColor::new(255, 255, 255),
         );
+
+        // Exercise out-of-bounds clipping branches (py >= bh and px >= bw) in blit_glyph
+        let mut small_buf = PixelBuffer::new(4, 4);
+        blit_glyph(
+            &mut small_buf,
+            'A',
+            2,
+            2,
+            8,
+            16,
+            RgbColor::new(255, 255, 255),
+        );
+
+        // Exercise px >= bw when bits != 0 in blit_glyph
+        let mut buf_break_x = PixelBuffer::new(4, 16);
+        blit_glyph(
+            &mut buf_break_x,
+            'A',
+            3,
+            0,
+            8,
+            16,
+            RgbColor::new(255, 255, 255),
+        );
     }
 }

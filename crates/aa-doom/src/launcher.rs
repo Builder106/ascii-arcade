@@ -83,6 +83,14 @@ fn is_executable_file(path: &Path) -> bool {
 /// Resolve the `doom_ascii` binary. `env` is the process environment (passed in
 /// so the policy is testable); `working_directory` is searched for `bin/`.
 pub fn resolve_binary(working_directory: &Path, env: &HashMap<String, String>) -> Option<PathBuf> {
+    resolve_binary_in(working_directory, env, SYSTEM_BIN_DIRS)
+}
+
+pub(crate) fn resolve_binary_in(
+    working_directory: &Path,
+    env: &HashMap<String, String>,
+    system_dirs: &[&str],
+) -> Option<PathBuf> {
     if let Some(explicit) = env.get("DOOM_ASCII_PATH") {
         let p = PathBuf::from(explicit);
         if is_executable_file(&p) {
@@ -95,7 +103,7 @@ pub fn resolve_binary(working_directory: &Path, env: &HashMap<String, String>) -
             return Some(local);
         }
     }
-    for dir in SYSTEM_BIN_DIRS {
+    for dir in system_dirs {
         for name in BINARY_NAMES {
             let p = Path::new(dir).join(name);
             if is_executable_file(&p) {
@@ -190,11 +198,7 @@ mod tests {
     fn make_fake_binary(dir: &Path) -> PathBuf {
         let bin_dir = dir.join("bin");
         fs::create_dir_all(&bin_dir).unwrap();
-        let name = if cfg!(windows) {
-            "doom_ascii.exe"
-        } else {
-            "doom_ascii"
-        };
+        let name = BINARY_NAMES[0];
         let path = bin_dir.join(name);
         fs::write(&path, b"#!/bin/sh\nexit 0\n").unwrap();
         #[cfg(unix)]
@@ -346,10 +350,18 @@ mod tests {
     #[test]
     fn resolve_binary_searches_system_dirs() {
         let dir = tmp();
-        // Missing binary anywhere
-        let got = resolve_binary(&dir, &empty_env());
-        assert!(got.is_none() || got.is_some()); // On systems where doom_ascii might exist in /usr/local/bin, handles both
+        let sys_dir = tmp();
+        let bin_path = make_fake_binary(&sys_dir);
+        let sys_dir_str = sys_dir.join("bin");
+
+        let got = resolve_binary_in(&dir, &empty_env(), &[sys_dir_str.to_str().unwrap()]);
+        assert_eq!(got, Some(bin_path));
+
+        // Default resolve_binary call
+        let _ = resolve_binary(&dir, &empty_env());
+
         fs::remove_dir_all(&dir).ok();
+        fs::remove_dir_all(&sys_dir).ok();
     }
 
     #[test]
@@ -459,6 +471,22 @@ mod tests {
                 .into_owned(),
         );
         assert_eq!(resolve_binary(&dir_non_existent, &env), None);
+
+        // Exercise all BINARY_NAMES in resolve_binary
+        for name in BINARY_NAMES {
+            let d = tmp();
+            let bin_dir = d.join("bin");
+            fs::create_dir_all(&bin_dir).unwrap();
+            let p = bin_dir.join(name);
+            fs::write(&p, b"#!/bin/sh\nexit 0\n").unwrap();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
+            }
+            assert_eq!(resolve_binary(&d, &empty_env()), Some(p));
+            fs::remove_dir_all(&d).ok();
+        }
 
         fs::remove_dir_all(&dir).ok();
         fs::remove_dir_all(&dir_non_existent).ok();
