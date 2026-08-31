@@ -369,7 +369,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn resolve_iwad_honors_doom_wad_dir_env() {
         let dir = tmp();
