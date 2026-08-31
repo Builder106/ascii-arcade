@@ -266,7 +266,7 @@ mod wayland {
         },
         shm::{slot::SlotPool, Shm, ShmHandler},
     };
-    use wayland_client::{
+    use smithay_client_toolkit::reexports::client::{
         globals::registry_queue_init,
         protocol::{wl_output, wl_shm, wl_surface},
         Connection, QueueHandle,
