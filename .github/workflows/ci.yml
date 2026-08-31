@@ -23,7 +23,7 @@ jobs:
     name: Secret scan
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v3
@@ -35,7 +35,7 @@ jobs:
     name: Open-source license compliance
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check licenses
@@ -44,7 +44,7 @@ jobs:
     name: Rust format check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -57,7 +57,7 @@ jobs:
       contents: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: rustsec/audit-check@v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -67,7 +67,7 @@ jobs:
     needs: [secrets, licenses, fmt, audit]
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Show Swift version
         run: swift --version
@@ -83,7 +83,7 @@ jobs:
     needs: [secrets, licenses, fmt, audit]
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Run core tests with coverage
         run: swift test --enable-code-coverage --parallel
       - name: Enforce 100% coverage for deterministic core targets
@@ -94,7 +94,7 @@ jobs:
     needs: [secrets, licenses, fmt, audit]
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Ensures scripts/setup.sh still clones + compiles the (GPL) doom_ascii
       # upstream. The wallpaper app needs this binary at runtime; CI just proves
@@ -110,7 +110,7 @@ jobs:
     needs: [secrets, licenses, fmt, audit]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -121,7 +121,7 @@ jobs:
     needs: [secrets, licenses, fmt, audit]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -143,7 +143,7 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: ./scripts/build-android.sh
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -180,7 +180,7 @@ jobs:
     needs: [secrets, licenses, fmt, audit]
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -189,7 +189,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.x'
 
