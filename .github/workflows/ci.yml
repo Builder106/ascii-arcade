@@ -238,3 +238,136 @@ jobs:
           echo "Found app at: $APP_PATH"
           xcrun simctl install "$DEVICE_ID" "$APP_PATH"
           xcrun simctl launch "$DEVICE_ID" com.builder106.asciiarcade
+
+  ios-xtool-macos:
+    name: iOS xtool package build (macOS)
+    needs: [secrets, licenses, fmt, audit]
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cbindgen
+        run: cargo install cbindgen --locked
+
+      - name: Build AaEngine.xcframework
+        run: ./scripts/build-ios.sh
+
+      - name: Install xtool
+        run: brew install xtool-org/tap/xtool
+
+      - name: Show tool versions
+        run: |
+          swift --version
+          xtool --version
+
+      - name: Validate SwiftPM manifest
+        run: swift package dump-package --package-path shells/ios
+
+      - name: Build with xtool
+        working-directory: shells/ios
+        run: xtool dev build --configuration release
+
+      - name: Verify xtool app bundle
+        working-directory: shells/ios
+        run: |
+          test -x xtool/AsciiArcade.app/AsciiArcade
+          test -f xtool/AsciiArcade.app/AsciiArcade_AsciiArcade.bundle/Shaders.metal
+          file xtool/AsciiArcade.app/AsciiArcade
+
+  xtool-xcode-input:
+    name: Check Linux xtool SDK input
+    runs-on: ubuntu-24.04
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          XCODE_XIP_URL: ${{ secrets.ASCII_ARCADE_XTOOL_XIP_URL }}
+          XCODE_XIP_SHA256: ${{ secrets.ASCII_ARCADE_XTOOL_XIP_SHA256 }}
+        run: |
+          if [ -n "$XCODE_XIP_URL" ] && [ -n "$XCODE_XIP_SHA256" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  ios-xtool-linux:
+    name: iOS xtool package build (Linux ARM64)
+    needs: [secrets, licenses, fmt, audit, xtool-xcode-input]
+    if: ${{ needs.xtool-xcode-input.outputs.configured == 'true' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    env:
+      SWIFT_VERSION: 6.3.3
+      XTOOL_VERSION: v1.17.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ca-certificates clang curl libfuse2t64 ripgrep
+
+      - name: Install Swiftly and Swift
+        run: |
+          curl -fL --retry 3 --retry-all-errors \
+            "https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz" \
+            -o "$RUNNER_TEMP/swiftly.tar.gz"
+          tar -zxf "$RUNNER_TEMP/swiftly.tar.gz" -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/swiftly" init --quiet-shell-followup
+          source "${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"
+          swiftly install --use "$SWIFT_VERSION"
+          echo "${SWIFTLY_BIN_DIR:-$HOME/.local/share/swiftly/bin}" >> "$GITHUB_PATH"
+          swift --version
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cbindgen
+        run: cargo install cbindgen --locked
+
+      - name: Install xtool
+        run: |
+          curl -fL --retry 3 --retry-all-errors \
+            "https://github.com/xtool-org/xtool/releases/download/${XTOOL_VERSION}/xtool-aarch64.AppImage" \
+            -o "$RUNNER_TEMP/xtool"
+          chmod +x "$RUNNER_TEMP/xtool"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          xtool --version
+
+      - name: Download and verify Xcode XIP
+        env:
+          XCODE_XIP_URL: ${{ secrets.ASCII_ARCADE_XTOOL_XIP_URL }}
+          XCODE_XIP_SHA256: ${{ secrets.ASCII_ARCADE_XTOOL_XIP_SHA256 }}
+        run: |
+          curl -fL --retry 3 --retry-all-errors \
+            "$XCODE_XIP_URL" \
+            -o "$RUNNER_TEMP/Xcode.xip"
+          echo "$XCODE_XIP_SHA256  $RUNNER_TEMP/Xcode.xip" | sha256sum --check
+
+      - name: Validate SwiftPM manifest
+        run: swift package dump-package --package-path shells/ios
+
+      - name: Build with xtool
+        env:
+          AA_XTOOL_SDK_ROOT: ${{ runner.temp }}/darwin-sdk
+          AA_XTOOL_BUILD_ROOT: ${{ runner.temp }}/xtool-build
+          AA_XTOOL_XDG_CONFIG_HOME: ${{ runner.temp }}/xtool-config
+          XTL_TMPDIR: ${{ runner.temp }}/xtool-tmp
+        run: ./scripts/build-xtool-ios.sh "$RUNNER_TEMP/Xcode.xip"
+
+      - name: Verify xtool app bundle
+        working-directory: shells/ios
+        run: |
+          test -x xtool/AsciiArcade.app/AsciiArcade
+          test -f xtool/AsciiArcade.app/AsciiArcade_AsciiArcade.bundle/Shaders.metal
+          file xtool/AsciiArcade.app/AsciiArcade
