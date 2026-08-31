@@ -484,4 +484,39 @@ mod tests {
         // A glyph with strokes is non-empty.
         assert!(glyph_bitmap('A').unwrap().iter().any(|&b| b != 0));
     }
+
+    #[test]
+    fn test_render_edge_cases() {
+        // Zero cell width/height should clamp to 1
+        let f = one_cell_frame(1, 1, 0, 0, Cell::new('A', None));
+        let opts = RenderOptions {
+            cell_w: 0,
+            cell_h: 0,
+            theme: Theme::HACKER,
+            scanlines: true,
+            glow: true,
+        };
+        let buf = render(&f, &opts);
+        assert_eq!(buf.width, 1);
+        assert_eq!(buf.height, 1);
+
+        // Empty PixelBuffer glow early return
+        let mut empty_buf = PixelBuffer::new(0, 0);
+        apply_glow(&mut empty_buf, Theme::HACKER.background);
+        assert_eq!(empty_buf.pixels.len(), 0);
+
+        // Character outside printable ASCII in blit_glyph
+        let mut buf_glyph = PixelBuffer::new(8, 16);
+        blit_glyph(
+            &mut buf_glyph,
+            '\0',
+            0,
+            0,
+            8,
+            16,
+            RgbColor::new(255, 255, 255),
+        );
+    }
 }
+
+

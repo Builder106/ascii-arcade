@@ -353,6 +353,24 @@ mod tests {
     }
 
     #[test]
+    fn test_system_directories_constants() {
+        // Verify SYSTEM_BIN_DIRS and SYSTEM_WAD_DIRS constants
+        #[cfg(not(windows))]
+        {
+            assert_eq!(SYSTEM_BIN_DIRS, &["/usr/local/bin", "/opt/homebrew/bin"]);
+            assert_eq!(
+                SYSTEM_WAD_DIRS,
+                &[
+                    "/opt/homebrew/share/games/doom",
+                    "/usr/local/share/games/doom",
+                    "/usr/share/games/doom",
+                ]
+            );
+        }
+    }
+
+
+    #[test]
     fn resolve_iwad_honors_doom_wad_dir_env() {
         let dir = tmp();
         let custom_dir = dir.join("custom_wad_dir");
