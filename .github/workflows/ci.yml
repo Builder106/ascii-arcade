@@ -307,7 +307,7 @@ jobs:
     timeout-minutes: 60
     env:
       SWIFT_VERSION: 6.3.3
-      XTOOL_VERSION: v1.17.0
+      XTOOL_VERSION: 1.17.0
     steps:
       - uses: actions/checkout@v4
 
