@@ -4,6 +4,10 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-08-31: Fixed Linux xtool release lookup and restored Swift coverage
+
+The Linux xtool job requested the `v1.17.0` release URL, but xtool publishes that release under the `1.17.0` tag, so the AppImage download returned 404. The coverage job also failed after the deterministic target list expanded without tests for the colour frame, terminal buffer, and stepped-scene paths. Changed the release tag, added tests for ANSI parsing, UTF-8 chunking, resizing, messages, cursor erasing, colour state, scene timing, and the stepped-scene fallback, and simplified the invariant checks. The complete remote Swift test and coverage gate now pass at 100% for every target.
+
 ## 2026-08-31: Restored Linux SCTK dependency after CI manifest failure #incident
 
 A config change removed `smithay-client-toolkit` from `shells/linux/Cargo.toml` while the `wayland` feature still referenced it. `cargo fmt` and cargo-deny then failed during manifest parsing, so downstream jobs never ran. Restored the exact `0.19.2` pin and regenerated `Cargo.lock`. On the ARM64 Linux host, `cargo fmt --all --check`, locked metadata, the cargo-deny license check, `cargo check -p aa-linux --all-features --locked`, and targeted clippy all pass. The full workspace test run also found an existing Linux-only `aa autostart` test failure because no autostart service is available on the host. That is separate from the CI regression.
