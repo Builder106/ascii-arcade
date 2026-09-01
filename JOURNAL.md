@@ -4,6 +4,10 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-08-31: Fixed Linux xtool script invocation
+
+The next CI run downloaded xtool, verified the Xcode XIP, and then failed because `build-xtool-ios.sh` is tracked without an executable bit. Changed the workflow to invoke the script with Bash explicitly, which keeps the repository mode unchanged and works on the Linux runner.
+
 ## 2026-08-31: Fixed Linux xtool step-local PATH
 
 The first post-fix CI run downloaded the correct xtool AppImage but stopped in the same step because writing `RUNNER_TEMP` to `GITHUB_PATH` only updates later steps. Exported the directory in the current shell before checking `xtool --version`, while keeping the persistent path update for later commands.
