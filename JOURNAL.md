@@ -4,6 +4,10 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-08-31: Restored Linux SCTK dependency after CI manifest failure #incident
+
+A config change removed `smithay-client-toolkit` from `shells/linux/Cargo.toml` while the `wayland` feature still referenced it. `cargo fmt` and cargo-deny then failed during manifest parsing, so downstream jobs never ran. Restored the exact `0.19.2` pin and regenerated `Cargo.lock`. On the ARM64 Linux host, `cargo fmt --all --check`, locked metadata, the cargo-deny license check, `cargo check -p aa-linux --all-features --locked`, and targeted clippy all pass. The full workspace test run also found an existing Linux-only `aa autostart` test failure because no autostart service is available on the host. That is separate from the CI regression.
+
 ## 2026-08-31: CI covers the xtool package build #decision
 
 CI now builds the SwiftPM iOS package with xtool on macOS and checks that the Metal shader source reaches the app bundle. The existing XcodeGen job remains the simulator smoke test. A Linux ARM64 job runs the full Darwin SDK build when the repository has the Xcode XIP URL and checksum configured as Actions secrets; forked pull requests skip that job because they cannot access those secrets.
