@@ -658,4 +658,36 @@ mod tests {
             s.step();
         }
     }
+
+    #[test]
+    fn exercises_unstable_generation_and_due_frame_step() {
+        let mut s = LifeScene::new();
+        s.set_grid(20, 20);
+        s.start();
+        s.alive.fill(false);
+        s.prev1.fill(false);
+        s.prev2.fill(false);
+        let center = s.cols + 2;
+        s.alive[center] = true;
+        s.alive[center + 1] = true;
+        s.alive[center + 2] = true;
+        s.step();
+        assert!(s.stable_steps <= 1);
+        let _ = s.frame(100.0);
+    }
+
+    #[test]
+    fn changing_size_reseeds_when_logical_grid_changes() {
+        let mut s = LifeScene::new();
+        s.set_grid(30, 30);
+        let previous = s.alive.clone();
+        s.apply_setting("size", 5.0);
+        assert_ne!(s.alive, previous);
+        assert_eq!((s.cols, s.rows), (6, 6));
+
+        s.cols = 6;
+        s.rows = 4;
+        s.apply_setting("size", 5.0);
+        assert_eq!((s.cols, s.rows), (6, 6));
+    }
 }
