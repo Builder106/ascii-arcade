@@ -4,6 +4,10 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-08-31: Fixed Linux xtool step-local PATH
+
+The first post-fix CI run downloaded the correct xtool AppImage but stopped in the same step because writing `RUNNER_TEMP` to `GITHUB_PATH` only updates later steps. Exported the directory in the current shell before checking `xtool --version`, while keeping the persistent path update for later commands.
+
 ## 2026-08-31: Fixed Linux xtool release lookup and restored Swift coverage
 
 The Linux xtool job requested the `v1.17.0` release URL, but xtool publishes that release under the `1.17.0` tag, so the AppImage download returned 404. The coverage job also failed after the deterministic target list expanded without tests for the colour frame, terminal buffer, and stepped-scene paths. Changed the release tag, added tests for ANSI parsing, UTF-8 chunking, resizing, messages, cursor erasing, colour state, scene timing, and the stepped-scene fallback, and simplified the invariant checks. The complete remote Swift test and coverage gate now pass at 100% for every target.
