@@ -55,7 +55,15 @@ if [ "$(uname -s)" = "Linux" ]; then
   export PATH="$TOOLSET_BIN:$PATH"
   export CC_aarch64_apple_ios="$DARWIN_CLANG"
   export CARGO_TARGET_AARCH64_APPLE_IOS_LINKER="$DARWIN_CLANG"
-  export CARGO_TARGET_AARCH64_APPLE_IOS_RUSTFLAGS="-C link-arg=-fuse-ld=$DARWIN_LD -C link-arg=-isysroot -C link-arg=$IOS_SDK_PATH -C link-arg=-Wl,-syslibroot,$IOS_SDK_PATH -C link-arg=-arch -C link-arg=arm64 -C link-arg=-Wl,-platform_version,ios,12.0,$IOS_SDK_VERSION"
+  DARWIN_RUSTFLAGS="-C link-arg=-fuse-ld=$DARWIN_LD -C link-arg=-isysroot -C link-arg=$IOS_SDK_PATH -C link-arg=-Wl,-syslibroot,$IOS_SDK_PATH -C link-arg=-arch -C link-arg=arm64 -C link-arg=-Wl,-platform_version,ios,12.0,$IOS_SDK_VERSION"
+  if [ -n "${CARGO_TARGET_AARCH64_APPLE_IOS_RUSTFLAGS:-}" ]; then
+    DARWIN_RUSTFLAGS="${CARGO_TARGET_AARCH64_APPLE_IOS_RUSTFLAGS} $DARWIN_RUSTFLAGS"
+  fi
+  if [ -n "${RUSTFLAGS:-}" ]; then
+    DARWIN_RUSTFLAGS="$RUSTFLAGS $DARWIN_RUSTFLAGS"
+  fi
+  unset RUSTFLAGS
+  export CARGO_TARGET_AARCH64_APPLE_IOS_RUSTFLAGS="$DARWIN_RUSTFLAGS"
 fi
 
 echo "── Installing Rust iOS targets ──────────────────────────────────"
