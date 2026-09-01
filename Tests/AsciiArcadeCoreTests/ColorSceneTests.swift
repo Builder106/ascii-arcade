@@ -11,6 +11,13 @@ private func advance(_ scene: AsciiScene, frames: Int = 30, dt: Double = 0.05) -
     }
     return last
 }
+
+private final class NilColoredFrameScene: SteppedScene {
+    override func coloredFrame(atTime t: Double) -> ColoredFrame? {
+        nil
+    }
+}
+
 final class ColoredFrameTests: XCTestCase {
     func testTextJoinsRowsWithNewlines() {
         let f = ColoredFrame(width: 2, height: 2,
@@ -25,6 +32,12 @@ final class ColoredFrameTests: XCTestCase {
         XCTAssertEqual(white.scaled(1.0), white)
         let mid = RGBColor.black.mixed(with: white, t: 0.5)
         XCTAssertEqual(mid, RGBColor(r: 128, g: 128, b: 128))
+
+        let color = RGBColor(r: 10, g: 20, b: 30)
+        XCTAssertEqual(color.scaled(-1.0), .black)
+        XCTAssertEqual(color.scaled(2.0), color)
+        XCTAssertEqual(color.mixed(with: white, t: -1.0), color)
+        XCTAssertEqual(color.mixed(with: white, t: 2.0), white)
     }
 }
 
@@ -172,6 +185,16 @@ final class SceneDefaultsTests: XCTestCase {
         s.setGrid(width: 10, height: 5)
         XCTAssertEqual(s.width, 10)
 
+        s.setGrid(width: 12, height: 6)
+        XCTAssertEqual(s.width, 12)
+        XCTAssertEqual(s.height, 6)
+
+        let color = RGBColor(r: 12, g: 34, b: 56)
+        s.applyBaseColor(color)
+        XCTAssertEqual(s.baseColor, color)
+        s.applySetting(id: "speed", value: 2.0)
+        XCTAssertEqual(s.settingValue("speed", default: 0.0), 2.0)
+
         // Test frame and coloredFrame
         let f1 = s.frame(atTime: 1.0)
         XCTAssertFalse(f1.isEmpty)
@@ -182,5 +205,8 @@ final class SceneDefaultsTests: XCTestCase {
 
         s.start()
         s.stop()
+
+        let nilScene = NilColoredFrameScene(displayName: "NilFrame", initialWidth: 2, initialHeight: 2)
+        XCTAssertEqual(nilScene.frame(atTime: 0.0), "  \n  ")
     }
 }

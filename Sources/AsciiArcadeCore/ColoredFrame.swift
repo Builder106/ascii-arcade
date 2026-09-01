@@ -47,8 +47,8 @@ public struct ColoredFrame {
     public let colors: [RGBColor?]
 
     public init(width: Int, height: Int, chars: [Character], colors: [RGBColor?]) {
-        precondition(chars.count == width * height, "chars must be width*height")
-        precondition(colors.count == width * height, "colors must be width*height")
+        precondition(chars.count == width * height)
+        precondition(colors.count == width * height)
         self.width = width
         self.height = height
         self.chars = chars
