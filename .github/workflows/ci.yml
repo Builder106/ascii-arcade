@@ -342,6 +342,7 @@ jobs:
             "https://github.com/xtool-org/xtool/releases/download/${XTOOL_VERSION}/xtool-aarch64.AppImage" \
             -o "$RUNNER_TEMP/xtool"
           chmod +x "$RUNNER_TEMP/xtool"
+          export PATH="$RUNNER_TEMP:$PATH"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
           xtool --version
 
