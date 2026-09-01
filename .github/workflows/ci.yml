@@ -365,7 +365,7 @@ jobs:
           AA_XTOOL_BUILD_ROOT: ${{ runner.temp }}/xtool-build
           AA_XTOOL_XDG_CONFIG_HOME: ${{ runner.temp }}/xtool-config
           XTL_TMPDIR: ${{ runner.temp }}/xtool-tmp
-        run: ./scripts/build-xtool-ios.sh "$RUNNER_TEMP/Xcode.xip"
+        run: bash ./scripts/build-xtool-ios.sh "$RUNNER_TEMP/Xcode.xip"
 
       - name: Verify xtool app bundle
         working-directory: shells/ios
