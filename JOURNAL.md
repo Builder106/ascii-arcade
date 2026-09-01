@@ -4,6 +4,10 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-08-31: Preserved Darwin linker flags under the CI warning policy
+
+The workflow's global `RUSTFLAGS` value took precedence over the target-specific flags that select xtool's `ld64.lld`, so Linux CI fell back to the host GNU linker and reported an unsupported `llvm` emulation mode. Moved inherited Rust flags into the Apple target setting and cleared the global value only for the cross-compilation process. The remote build now passes with `-Dwarnings`, selects `ld64.lld`, and produces the xtool app bundle.
+
 ## 2026-08-31: Fixed Linux xtool script invocation
 
 The next CI run downloaded xtool, verified the Xcode XIP, and then failed because `build-xtool-ios.sh` is tracked without an executable bit. Changed the workflow to invoke the script with Bash explicitly, which keeps the repository mode unchanged and works on the Linux runner.
