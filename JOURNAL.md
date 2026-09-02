@@ -4,6 +4,10 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-09-02: Matched the Linux Wayland source to the SCTK dependency
+
+The Linux Wayland adapter had already been migrated to Smithay Client Toolkit 0.21.1 APIs, but its manifest and lockfile still resolved 0.19.2, causing `aa-linux` CI to fail on missing dispatch symbols. Pinning both files to 0.21.1 restored the intended API pairing; the managed ARM64 verifier and fresh GitHub Rust CI now pass the complete Linux shell workflow.
+
 ## 2026-08-31: Preserved Darwin linker flags under the CI warning policy
 
 The workflow's global `RUSTFLAGS` value took precedence over the target-specific flags that select xtool's `ld64.lld`, so Linux CI fell back to the host GNU linker and reported an unsupported `llvm` emulation mode. Moved inherited Rust flags into the Apple target setting and cleared the global value only for the cross-compilation process. The remote build now passes with `-Dwarnings`, selects `ld64.lld`, and produces the xtool app bundle.
