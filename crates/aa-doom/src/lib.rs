@@ -81,13 +81,13 @@ impl DoomScene {
     }
 
     /// Spawn `doom_ascii` on a PTY sized to the character grid and start the
-    /// reader thread. Returns without spawning (leaving an on-screen message) if
-    /// the binary can't be resolved.
-    fn launch(&mut self) -> std::io::Result<()> {
+    /// reader thread. Shows an on-screen message if the binary can't be resolved
+    /// or if spawning fails.
+    fn launch(&mut self) {
         let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
         let env: std::collections::HashMap<String, String> = std::env::vars().collect();
         let config = launcher::resolve(&cwd, &env, self.scaling);
-        self.launch_with(config, &cwd)
+        let _ = self.launch_with(config, &cwd);
     }
 
     fn launch_with(
@@ -188,9 +188,7 @@ impl Scene for DoomScene {
         if self.running {
             return;
         }
-        if let Err(e) = self.launch() {
-            self.set_message(&format!("doom launch failed: {e}"));
-        }
+        self.launch();
     }
     fn stop(&mut self) {
         if let Some(mut child) = self.child.take() {
@@ -268,6 +266,16 @@ mod tests {
         // Calling stop() cleans up state
         s.stop();
         assert!(!s.running);
+
+        let missing = std::env::temp_dir().join("aa-doom-definitely-missing");
+        std::env::set_var("DOOM_ASCII_PATH", &missing);
+        let mut missing_scene = DoomScene::new(2);
+        missing_scene.start();
+        std::env::remove_var("DOOM_ASCII_PATH");
+        assert!(missing_scene
+            .frame(0.0)
+            .text()
+            .contains("doom_ascii not found"));
     }
 
     #[test]
@@ -296,6 +304,34 @@ mod tests {
         assert_eq!(f_fallback.width, 320);
         assert_eq!(f_fallback.height, 100);
         assert!(f_fallback.cells.iter().all(|c| *c == aa_core::Cell::BLANK));
+    }
+
+    #[test]
+    fn doom_scene_set_message_ignores_poisoned_screen_lock() {
+        let scene = DoomScene::new(2);
+        let screen = Arc::clone(&scene.screen);
+        let _ = std::thread::spawn(move || {
+            let _lock = screen.lock().unwrap();
+            panic!("poisoning mutex");
+        })
+        .join();
+        scene.set_message("ignored after poison");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn doom_scene_start_handles_unavailable_current_directory() {
+        let original = std::env::current_dir().unwrap();
+        let transient =
+            std::env::temp_dir().join(format!("aa-doom-missing-cwd-{}", std::process::id()));
+        std::fs::create_dir_all(&transient).unwrap();
+        std::env::set_current_dir(&transient).unwrap();
+        std::fs::remove_dir(&transient).unwrap();
+
+        let mut scene = DoomScene::new(2);
+        scene.start();
+
+        std::env::set_current_dir(original).unwrap();
     }
 
     #[test]
@@ -347,14 +383,14 @@ mod tests {
         // Exercise send_key with active Some(writer)
         scene.send_key(b"hello world\n");
 
-        // Give reader thread a moment to read and feed the screen buffer
-        for _ in 0..100 {
-            std::thread::sleep(std::time::Duration::from_millis(10));
-            if let Ok(s) = scene.screen.lock() {
-                if s.snapshot().cells[0].ch == 'T' {
-                    break;
-                }
-            }
+        // Wait for child and reader thread to finish reading
+        if let Some(mut c) = scene.child.take() {
+            let _ = c.wait();
+        }
+        scene.writer = None;
+        scene.master = None;
+        if let Some(h) = scene.reader.take() {
+            let _ = h.join();
         }
 
         let f = scene.frame(0.0);
@@ -446,20 +482,19 @@ mod tests {
         let text = f.text();
         assert!(text.contains("doom launch failed"));
 
-        // Trigger start() failure when binary fails to launch
+        // Trigger start() failure after resolve succeeds, exercising the
+        // ignored launch error path.
         let dir = std::env::temp_dir().join(format!("aa-doom-start-err-{}", std::process::id()));
-        let bin_dir = dir.join("bin");
-        std::fs::create_dir_all(&bin_dir).unwrap();
-        let unspawnable = bin_dir.join("unspawnable");
-        std::fs::write(&unspawnable, b"").unwrap();
+        let unspawnable = dir.join("unspawnable");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&unspawnable, b"hello").unwrap();
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&unspawnable, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
-        std::env::set_var("DOOM_ASCII_PATH", &unspawnable);
+        std::env::set_var("DOOM_ASCII_PATH", unspawnable.as_os_str());
         let mut fail_scene = DoomScene::new(2);
-        let _ = fail_scene.launch();
         fail_scene.start();
         std::env::remove_var("DOOM_ASCII_PATH");
         std::fs::remove_dir_all(&dir).ok();

@@ -54,7 +54,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Enforce core Rust crates coverage
-        run: cargo llvm-cov --package aa-core --package aa-render --package aa-doom --fail-under-lines 99
+        run: cargo llvm-cov --package aa-core --package aa-render --package aa-doom --fail-under-lines 100
 
       - name: Test (web shell)
         run: cargo test -p aa-web
