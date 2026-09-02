@@ -415,6 +415,23 @@ mod tests {
     }
 
     #[test]
+    fn resolve_with_existing_binary_and_empty_wad_dir_does_not_set_doomwaddir() {
+        let dir = tmp();
+        make_fake_binary(&dir);
+        let mut env = empty_env();
+        env.insert(
+            "DOOM_WAD_DIR".into(),
+            dir.join("missing").to_string_lossy().into_owned(),
+        );
+        let cfg = resolve(&dir, &env, 1).unwrap();
+        assert_eq!(
+            cfg.env.get("DOOMWADDIR").map(String::as_str),
+            Some(env.get("DOOM_WAD_DIR").unwrap().as_str())
+        );
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
     fn resolve_scaling_clamped_to_minimum_one() {
         let dir = tmp();
         make_fake_binary(&dir);
@@ -432,6 +449,19 @@ mod tests {
         let got = resolve_iwad(&dir, &env);
         assert_eq!(got, None);
         fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn resolve_iwad_checks_every_supported_candidate() {
+        for candidate in IWAD_CANDIDATES {
+            let dir = tmp();
+            let wad_dir = dir.join("wad");
+            fs::create_dir_all(&wad_dir).unwrap();
+            let wad = wad_dir.join(candidate);
+            fs::write(&wad, b"IWAD").unwrap();
+            assert_eq!(resolve_iwad(&dir, &empty_env()), Some((wad, wad_dir)));
+            fs::remove_dir_all(&dir).ok();
+        }
     }
 
     #[test]
@@ -457,7 +487,7 @@ mod tests {
         #[cfg(unix)]
         {
             let got = resolve_binary(&dir, &empty_env());
-            assert!(got.is_none() || got != Some(non_exec.clone()));
+            assert_eq!(got, None);
         }
 
         // Test explicit DOOM_ASCII_PATH pointing to a non-existent file or directory
