@@ -257,8 +257,8 @@ mod wayland {
         Connection, QueueHandle,
     };
     use smithay_client_toolkit::{
-        compositor::{CompositorHandler, CompositorState},
-        delegate_compositor, delegate_layer, delegate_output, delegate_registry, delegate_shm,
+        compositor::{CompositorHandler, CompositorState, FrameCallbackData},
+        delegate_dispatch2, delegate_registry,
         output::{OutputHandler, OutputState},
         registry::{ProvidesRegistryState, RegistryState},
         registry_handlers,
@@ -384,7 +384,7 @@ mod wayland {
 
             let surface = self.layer.wl_surface();
             // Ask for the next frame before committing so animation continues.
-            surface.frame(qh, surface.clone());
+            surface.frame(qh, FrameCallbackData(surface.clone()));
             if buffer.attach_to(surface).is_err() {
                 return;
             }
@@ -494,11 +494,8 @@ mod wayland {
         registry_handlers![OutputState];
     }
 
-    delegate_compositor!(State);
-    delegate_output!(State);
-    delegate_shm!(State);
-    delegate_layer!(State);
     delegate_registry!(State);
+    delegate_dispatch2!(State);
 }
 
 #[cfg(test)]
