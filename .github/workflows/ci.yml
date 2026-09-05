@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -515,3 +515,45 @@ jobs:
           name: ${{ matrix.crate }}-${{ matrix.target }}
           path: target/release/${{ matrix.binary }}
           retention-days: 30
+
+  deploy:
+    name: Deploy to Vercel
+    needs: [build-test, coverage, doom-binary, wasm, android, ios, ios-xtool-macos, ios-xtool-linux, artifacts]
+    if: always() && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check required terminal checks passed
+        run: |
+          for res in \
+            "${{ needs['build-test'].result }}" \
+            "${{ needs.coverage.result }}" \
+            "${{ needs['doom-binary'].result }}" \
+            "${{ needs.wasm.result }}" \
+            "${{ needs.android.result }}" \
+            "${{ needs.ios.result }}" \
+            "${{ needs['ios-xtool-macos'].result }}" \
+            "${{ needs.artifacts.result }}"; do
+            if [[ "$res" != "success" ]]; then
+              echo "Required CI check failed ($res)"
+              exit 1
+            fi
+          done
+          # ios-xtool-linux is conditional (skipped if secrets not present)
+          if [[ "${{ needs['ios-xtool-linux'].result }}" != "success" && "${{ needs['ios-xtool-linux'].result }}" != "skipped" ]]; then
+            echo "ios-xtool-linux failed (${{ needs['ios-xtool-linux'].result }})"
+            exit 1
+          fi
+          echo "All required terminal CI checks passed"
+      - name: Trigger Vercel Deploy Hook
+        env:
+          VERCEL_DEPLOY_HOOK_PROD: ${{ secrets.VERCEL_DEPLOY_HOOK_PROD }}
+          VERCEL_DEPLOY_HOOK_STAGING: ${{ secrets.VERCEL_DEPLOY_HOOK_STAGING }}
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "Deploying to production..."
+            curl -sS -f -X POST "$VERCEL_DEPLOY_HOOK_PROD"
+          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
+            echo "Deploying to staging..."
+            curl -sS -f -X POST "$VERCEL_DEPLOY_HOOK_STAGING"
+          fi
