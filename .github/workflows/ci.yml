@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -383,3 +383,135 @@ jobs:
           test -x xtool/AsciiArcade.app/AsciiArcade
           test -f xtool/AsciiArcade.app/AsciiArcade_AsciiArcade.bundle/Shaders.metal
           file xtool/AsciiArcade.app/AsciiArcade
+
+  # Portable engine crates: test + lint on every OS so the shared core is
+  # provably platform-neutral.
+  core:
+    name: core (${{ matrix.os }})
+    needs: [secrets, licenses, fmt, audit]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Format check
+        run: cargo fmt --all --check
+      - name: Clippy (engine crates + web shell)
+        run: cargo clippy -p aa-core -p aa-render -p aa-doom -p aa-web --all-targets -- -D warnings
+      - name: Clippy (web shell, doom feature)
+        run: cargo clippy -p aa-web --all-targets --features doom -- -D warnings
+      - name: Clippy (CLI — no native deps on macOS/Windows)
+        if: matrix.os != 'ubuntu-24.04'
+        run: cargo clippy -p aa --all-targets -- -D warnings
+      - name: Clippy (CLI, doom feature)
+        if: matrix.os != 'ubuntu-24.04'
+        run: cargo clippy -p aa --all-targets --features doom -- -D warnings
+      - name: Test (engine crates)
+        run: cargo test -p aa-core -p aa-render -p aa-doom
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Enforce core Rust crates coverage
+        if: matrix.os != 'windows-latest'
+        run: cargo llvm-cov --package aa-core --package aa-render --package aa-doom --fail-under-lines 100
+
+      - name: Test (web shell)
+        run: cargo test -p aa-web
+      - name: Test (web shell, doom feature)
+        run: cargo test -p aa-web --features doom
+      - name: Test (CLI — no native deps on macOS/Windows)
+        if: matrix.os != 'ubuntu-24.04'
+        run: cargo test -p aa
+      - name: Test (CLI, doom feature)
+        if: matrix.os != 'ubuntu-24.04'
+        run: cargo test -p aa --features doom
+      - name: Build headless example
+        run: cargo build -p aa-core --example play
+      - name: Build web shell
+        run: cargo build -p aa-web
+      - name: Build web shell (doom feature)
+        run: cargo build -p aa-web --features doom
+
+  # Native wallpaper shells: each builds only on its own OS (Win32 / X11 +
+  # Wayland). This is the real gate for the shell code, which can't link on the
+  # author's macOS dev machine.
+  shells:
+    name: shell ${{ matrix.crate }} (${{ matrix.os }})
+    needs: core
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            crate: aa-windows
+          - os: ubuntu-24.04
+            crate: aa-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Linux wallpaper deps
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libwayland-dev libxkbcommon-dev libxcb1-dev
+      - name: Build shell
+        run: cargo build -p ${{ matrix.crate }}
+      - name: Clippy shell
+        run: cargo clippy -p ${{ matrix.crate }} -- -D warnings
+      - name: Build CLI
+        run: cargo build -p aa
+      - name: Build CLI (doom feature)
+        run: cargo build -p aa --features doom
+      - name: Clippy CLI
+        run: cargo clippy -p aa -- -D warnings
+      - name: Clippy CLI (doom feature)
+        run: cargo clippy -p aa --features doom -- -D warnings
+      - name: Test CLI
+        run: cargo test -p aa
+      - name: Test CLI (doom feature)
+        run: cargo test -p aa --features doom
+
+  # Build release binaries and upload as downloadable artifacts. Runs on every
+  # push to main and on manual dispatch so the Windows .exe is always available
+  # for on-device testing without a 35-minute VM build.
+  artifacts:
+    name: release artifact (${{ matrix.target }})
+    needs: [core, shells]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            crate: aa-windows
+            binary: aa-windows.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build release binary
+        run: cargo build -p ${{ matrix.crate }} --release
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.crate }}-${{ matrix.target }}
+          path: target/release/${{ matrix.binary }}
+          retention-days: 30
