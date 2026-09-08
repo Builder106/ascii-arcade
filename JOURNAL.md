@@ -4,6 +4,10 @@
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.
 
+## 2026-09-07: Kept browser QA assets inside one CI boundary #incident #decision
+
+The generated `site/pkg/` and `site/doom-wasm/` trees are gitignored, so a fresh source-only verification checkout after the build does not carry them into the later browser-QA invocation; the static server then returns 404 for both Wasm entrypoints. The build scripts already put the files in the correct site paths. Combined the build, non-empty artifact checks, and QA run in one CI step, leaving the production Vercel output and the separate demo/video workflow unchanged.
+
 ## 2026-09-02: Matched the Linux Wayland source to the SCTK dependency
 
 The Linux Wayland adapter had already been migrated to Smithay Client Toolkit 0.21.1 APIs, but its manifest and lockfile still resolved 0.19.2, causing `aa-linux` CI to fail on missing dispatch symbols. Pinning both files to 0.21.1 restored the intended API pairing; the managed ARM64 verifier and fresh GitHub Rust CI now pass the complete Linux shell workflow.
