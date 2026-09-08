@@ -45,17 +45,6 @@ updates:
           - "minor"
           - "patch"
 
-  - package-ecosystem: "swift"
-    directory: "/Server"
-    schedule:
-      interval: "weekly"
-    groups:
-      minor-and-patch:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
 
   - package-ecosystem: "gradle"
     directory: "/shells/android"
