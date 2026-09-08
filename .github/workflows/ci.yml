@@ -132,8 +132,6 @@ jobs:
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
-      - name: Build site Wasm bundle
-        run: bash scripts/build-wasm.sh
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -142,9 +140,13 @@ jobs:
       - name: Install browser test dependencies
         working-directory: e2e
         run: npm ci
-      - name: Run QA suite
-        working-directory: e2e
-        run: npm run test:qa
+      - name: Build browser Wasm bundles and run QA
+        run: |
+          bash scripts/vercel-build.sh
+          test -s site/pkg/aa_wasm.js
+          test -s site/doom-wasm/doom.js
+          cd e2e
+          npm run test:qa
 
   android:
     name: Android build + emulator smoke test
