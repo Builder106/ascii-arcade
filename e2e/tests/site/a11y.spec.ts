@@ -1,5 +1,12 @@
+import { existsSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+
+const hasDoomWasm = existsSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), "../../../site/doom-wasm/doom.js"),
+);
 
 const THEMES = ["hacker", "amber", "ice", "ghost"];
 
@@ -33,6 +40,7 @@ test("the page is reachable by keyboard from the skip link", async ({ page }) =>
 });
 
 test("the live DOOM canvas and its controls pass axe once a session is active", async ({ page }) => {
+  test.skip(!hasDoomWasm, "doom-wasm not built (requires Emscripten + WAD)");
   await page.goto("/site/");
   await page.getByRole("button", { name: /play it/i }).click();
   await expect(page.locator("#doomPlayCanvas")).toBeVisible({ timeout: 15000 });

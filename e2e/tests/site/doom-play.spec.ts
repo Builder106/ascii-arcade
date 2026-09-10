@@ -1,4 +1,13 @@
+import { existsSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { test, expect } from "@playwright/test";
+
+const hasDoomWasm = existsSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), "../../../site/doom-wasm/doom.js"),
+);
+
+test.skip(!hasDoomWasm, "doom-wasm not built (requires Emscripten + WAD)");
 
 test("keyboard input reaches doom-wasm's key queue", async ({ page }) => {
   await page.goto("/site/");
