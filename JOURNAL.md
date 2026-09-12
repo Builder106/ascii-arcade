@@ -1,5 +1,12 @@
 # JOURNAL — ASCII Arcade
 
+## 2026-09-12 — Standardized source-only Android CI #decision
+
+The Mac checkout remains source-only. Android CI builds the ARM64 Rust library
+and debug APK on x86_64 Linux, then uses an x86_64 emulator for install and
+launch smoke coverage; the emulator does not claim ARM64 native-runtime
+coverage.
+
 > Dated log of decisions, pivots, incidents, and quotes. Add entries as
 > things happen — retrospectives need this raw material to land.
 > Reverse-chronological; one paragraph max per entry.

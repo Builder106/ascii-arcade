@@ -14,6 +14,13 @@ adding them.
 **What exists:** `shells/android/` builds against the Rust core through
 `scripts/build-android.sh`. No release job.
 
+Development Android CI is separate from release packaging: it builds the
+`arm64-v8a` native library, assembles a debug APK on x86_64 Linux, smoke-tests
+installation and launch on an x86_64 emulator, and publishes a seven-day
+`ascii-arcade-debug-apk` artifact. The emulator smoke test does not execute the
+ARM64 native library. The Mac checkout remains source-only; do not run the
+Android Gradle build, NDK build, or emulator locally.
+
 **What's missing to ship a downloadable APK/AAB:**
 
 - **Signing.** An unsigned release build installs nowhere outside a
