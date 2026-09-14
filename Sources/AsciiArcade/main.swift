@@ -778,7 +778,7 @@ final class SettingChoice {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var windows: [NSWindow] = []
     var views: [SceneView] = []
-    var globalMonitor: Any?
+    var globalMonitor: AnyObject?
     var statusItem: NSStatusItem?
     var currentThemeIndex = 0
     var currentSceneIndex = 0
