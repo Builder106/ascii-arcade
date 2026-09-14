@@ -18,8 +18,8 @@ enum LivePhotoMetadata {
         let output = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(output, type, 1, nil) else { return nil }
 
-        let makerNote: [String: Any] = ["17": assetIdentifier]
-        let metadata: [String: Any] = [kCGImagePropertyMakerAppleDictionary as String: makerNote]
+        let makerNote: [String: String] = ["17": assetIdentifier]
+        let metadata: [String: [String: String]] = [kCGImagePropertyMakerAppleDictionary as String: makerNote]
         CGImageDestinationAddImageFromSource(destination, source, 0, metadata as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { return nil }
         return output as Data
@@ -39,7 +39,7 @@ enum LivePhotoMetadata {
     // A dedicated metadata-track input marking which frame is the "key photo"
     // moment. Must be added to the AVAssetWriter alongside the video track.
     static func makeStillImageTimeAdaptor() -> AVAssetWriterInputMetadataAdaptor {
-        let spec: [NSString: Any] = [
+        let spec: [NSString: NSString] = [
             kCMMetadataFormatDescriptionMetadataSpecificationKey_Identifier as NSString:
                 "mdta/com.apple.quicktime.still-image-time",
             kCMMetadataFormatDescriptionMetadataSpecificationKey_DataType as NSString:

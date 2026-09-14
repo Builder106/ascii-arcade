@@ -4,6 +4,11 @@ import PTYBridge
 import AsciiArcadeCore
 import NIOCore
 
+private struct ResizePayload: Decodable {
+	let cols: Int?
+	let rows: Int?
+}
+
 public func routes(_ app: Application) throws {
 	app.get { req async in
 		return req.fileio.streamFile(at: req.application.directory.publicDirectory + "index.html")
@@ -40,9 +45,9 @@ public func routes(_ app: Application) throws {
 		ws.onText { ws, text in
 			if text.hasPrefix("__resize__:") {
 				let json = String(text.dropFirst("__resize__:".count))
-				if let data = json.data(using: .utf8), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-					let cols = (obj["cols"] as? Int) ?? 100
-					let rows = (obj["rows"] as? Int) ?? 40
+				if let data = json.data(using: .utf8), let payload = try? JSONDecoder().decode(ResizePayload.self, from: data) {
+					let cols = payload.cols ?? 100
+					let rows = payload.rows ?? 40
 					proc.resize(columns: Int32(cols), rows: Int32(rows))
 				}
 				return
