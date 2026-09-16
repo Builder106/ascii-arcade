@@ -1,5 +1,9 @@
 # JOURNAL — ASCII Arcade
 
+## 2026-09-16: Fixed Linux ARM64 Swiftly installation dependencies in CI #incident #decision
+
+The Linux ARM64 xtool job failed during Swift toolchain installation because `libcurl4-openssl-dev` was missing on the Ubuntu runner, causing `swiftly install` to reject the toolchain dependency check. In addition, `swiftly init` defaulted to downloading an unpinned latest Swift release before installing the pinned version. Adding `gnupg2` and `libcurl4-openssl-dev` to the Linux prerequisites and passing `--skip-install --assume-yes` to `swiftly init` ensures only the pinned Swift version is downloaded and installed cleanly.
+
 ## 2026-09-12 — Standardized source-only Android CI #decision
 
 The Mac checkout remains source-only. Android CI builds the ARM64 Rust library

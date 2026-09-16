@@ -356,7 +356,8 @@ jobs:
       - name: Install Linux prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ca-certificates clang curl libfuse2t64 ripgrep
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates clang curl gnupg2 libcurl4-openssl-dev libfuse2t64 ripgrep
 
       - name: Install Swiftly and Swift
         run: |
@@ -364,9 +365,9 @@ jobs:
             "https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz" \
             -o "$RUNNER_TEMP/swiftly.tar.gz"
           tar -zxf "$RUNNER_TEMP/swiftly.tar.gz" -C "$RUNNER_TEMP"
-          "$RUNNER_TEMP/swiftly" init --quiet-shell-followup
+          "$RUNNER_TEMP/swiftly" init --quiet-shell-followup --skip-install --assume-yes
           source "${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"
-          swiftly install --use "$SWIFT_VERSION"
+          swiftly install --use "$SWIFT_VERSION" --assume-yes
           echo "${SWIFTLY_BIN_DIR:-$HOME/.local/share/swiftly/bin}" >> "$GITHUB_PATH"
           swift --version
 
