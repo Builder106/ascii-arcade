@@ -34,7 +34,7 @@ jobs:
 
   licenses:
     name: Open-source license compliance
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
@@ -43,7 +43,7 @@ jobs:
 
   fmt:
     name: Rust format check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@v1
@@ -54,7 +54,7 @@ jobs:
 
   audit:
     name: Security audit (cargo-audit)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       checks: write
@@ -113,7 +113,7 @@ jobs:
   wasm:
     name: Build Wasm target
     needs: [secrets, licenses, fmt, audit]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@v1
@@ -125,7 +125,7 @@ jobs:
   site-qa:
     name: Marketing site QA (mobile and accessibility)
     needs: [secrets, licenses, fmt, audit]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@v1
@@ -554,7 +554,7 @@ jobs:
     name: Deploy to Vercel
     needs: [build-test, coverage, doom-binary, wasm, android, ios, ios-xtool-macos, ios-xtool-linux, artifacts]
     if: always() && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Check required terminal checks passed
