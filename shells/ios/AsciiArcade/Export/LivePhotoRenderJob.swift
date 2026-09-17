@@ -79,7 +79,7 @@ enum LivePhotoRenderJob {
         let writer = try AVAssetWriter(outputURL: videoURL, fileType: .mov)
         writer.metadata = [LivePhotoMetadata.contentIdentifierItem(assetIdentifier: assetIdentifier)]
 
-        let videoSettings: [String: Any] = [
+        let videoSettings: [String: Sendable] = [
             AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: width,
             AVVideoHeightKey: height
@@ -87,7 +87,7 @@ enum LivePhotoRenderJob {
         let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         videoInput.expectsMediaDataInRealTime = false
 
-        let pixelBufferAttributes: [String: Any] = [
+        let pixelBufferAttributes: [String: Sendable] = [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
             kCVPixelBufferWidthKey as String: width,
             kCVPixelBufferHeightKey as String: height,

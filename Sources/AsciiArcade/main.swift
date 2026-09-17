@@ -672,7 +672,7 @@ final class ScreenRecorder {
             do {
                 try? FileManager.default.removeItem(at: url)
                 let aw = try AVAssetWriter(outputURL: url, fileType: .mp4)
-                let vs: [String: Any] = [
+                let vs: [String: Sendable] = [
                     AVVideoCodecKey: AVVideoCodecType.h264,
                     AVVideoWidthKey: seed.width,
                     AVVideoHeightKey: seed.height
@@ -778,7 +778,7 @@ final class SettingChoice {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var windows: [NSWindow] = []
     var views: [SceneView] = []
-    var globalMonitor: Any?
+    var globalMonitor: AnyObject?
     var statusItem: NSStatusItem?
     var currentThemeIndex = 0
     var currentSceneIndex = 0
@@ -879,7 +879,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     for view in self.views { view.forwardKey(bytes) }
                 }
             }
-        }
+        } as AnyObject?
 
         // Pause/resume rendering when the displays sleep, to save power.
         let nc = NSWorkspace.shared.notificationCenter
