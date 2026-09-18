@@ -1,5 +1,9 @@
 # JOURNAL — ASCII Arcade
 
+## 2026-09-17: Bound the 3-second clip recorder to ⌘⌥E
+
+The menu labels and README have advertised ⌘⌥E for Record 3-Sec Clip since the capture feature landed, but the global NSEvent monitor still checked for "v", so the real hotkey was ⌘⌥V and the documented one did nothing. The handler now checks for "e", so the binding, the menu, and the README agree — and the shortcut starts (or early-stops) the 3-second MP4 recording from any app.
+
 ## 2026-09-16: Fixed Linux ARM64 Swiftly installation dependencies in CI #incident #decision
 
 The Linux ARM64 xtool job failed during Swift toolchain installation because `libcurl4-openssl-dev` was missing on the Ubuntu runner, causing `swiftly install` to reject the toolchain dependency check. In addition, `swiftly init` defaulted to downloading an unpinned latest Swift release before installing the pinned version. Adding `gnupg2` and `libcurl4-openssl-dev` to the Linux prerequisites and passing `--skip-install --assume-yes` to `swiftly init` ensures only the pinned Swift version is downloaded and installed cleanly.

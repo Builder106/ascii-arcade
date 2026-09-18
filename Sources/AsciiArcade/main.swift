@@ -866,7 +866,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             if flags == [.command, .option],
-               event.charactersIgnoringModifiers?.lowercased() == "v" {
+               event.charactersIgnoringModifiers?.lowercased() == "e" {
                 DispatchQueue.main.async { self.toggleRecording() }
                 return
             }
