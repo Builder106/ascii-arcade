@@ -1,5 +1,12 @@
 # JOURNAL — ASCII Arcade
 
+## 2026-09-21: Removed unfinished landing-page QA from CI #decision
+
+The marketing-site mobile and accessibility job tested an unfinished landing
+page and blocked otherwise valid dependency updates. Removed only that
+`site-qa` job; platform builds, security checks, artifact builds, and deploy
+gating remain in the workflow.
+
 ## 2026-09-17: Bound the 3-second clip recorder to ⌘⌥E
 
 The menu labels and README have advertised ⌘⌥E for Record 3-Sec Clip since the capture feature landed, but the global NSEvent monitor still checked for "v", so the real hotkey was ⌘⌥V and the documented one did nothing. The handler now checks for "e", so the binding, the menu, and the README agree — and the shortcut starts (or early-stops) the 3-second MP4 recording from any app.
