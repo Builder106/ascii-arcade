@@ -7,8 +7,9 @@ e2e/
 # README-only demo assets (site has its own at site/assets/)
 assets/
 
-# Native platform shells (Android, iOS, Windows, Linux)
-shells/
+# Native non-Cargo platform shells (iOS demo bundle and Android Gradle tree)
+shells/android/
+shells/ios/
 
 # macOS Swift app sources
 Sources/
