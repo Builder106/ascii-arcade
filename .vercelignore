@@ -1,0 +1,28 @@
+# Unused game data — only freedoom1.wad is needed for the web build
+wad/freedoom2.wad
+
+# Test suite and video recordings
+e2e/
+
+# README-only demo assets (site has its own at site/assets/)
+assets/
+
+# Native platform shells (Android, iOS, Windows, Linux)
+shells/
+
+# macOS Swift app sources
+Sources/
+Package.swift
+Package.resolved
+
+# Vapor backend server
+Server/
+
+# Swift tests
+Tests/
+
+# Internal documentation and specs
+docs/
+
+# macOS LaunchAgent templates
+LaunchAgents/
