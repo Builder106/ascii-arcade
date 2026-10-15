@@ -1,5 +1,9 @@
 # JOURNAL — ASCII Arcade
 
+## 2026-10-13: Replace the README Mermaid diagram #decision
+
+The README now uses a static scene graph with an editable HTML source at `assets/architecture.html`. The graph separates pure-math frames from the DOOM PTY path. PTY process, ANSI parsing, and the screen-buffer snapshot are grouped in the DOOM scene node; the adjacent text explains the return to the scene.
+
 ## 2026-09-21: Removed unfinished landing-page QA from CI #decision
 
 The marketing-site mobile and accessibility job tested an unfinished landing

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASCII Arcade scene flow</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+<style>html,body{margin:0;background:#fafafa}.diagram-container{width:100%;overflow-x:auto}svg{display:block;width:100%;min-width:960px}@media print{.diagram-container{overflow-x:visible}svg{min-width:0}}</style>
+<div class="diagram-container">
+<svg viewBox="0 0 960 600" role="img" aria-labelledby="architecture-title architecture-desc" xmlns="http://www.w3.org/2000/svg">
+<title id="architecture-title">ASCII Arcade scene flow</title>
+<desc id="architecture-desc">The menu bar and global key monitor control SceneView. SceneView asks the selected AsciiScene for a frame. Donut and helix use a pure-math generator; DOOM launches doom_ascii through a PTY, parses its ANSI stream, and returns a character grid snapshot.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#718096"/></marker></defs>
+<rect width="960" height="600" fill="#fafafa"/>
+<text x="40" y="64" fill="#1c1c1e" font-family="'Instrument Serif', Georgia, serif" font-size="32">ASCII Arcade scene flow</text>
+<path d="M 40 88 H 920" stroke="#1c1c1e" stroke-opacity=".17"/>
+<path d="M 210 308 H 260" fill="none" stroke="#718096" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M 430 308 H 480" fill="none" stroke="#718096" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M 660 286 H 690 Q 698 286 698 278 V 203 Q 698 195 706 195 H 730" fill="none" stroke="#718096" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M 660 326 H 690 Q 698 326 698 334 V 423 Q 698 431 706 431 H 730" fill="none" stroke="#718096" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M 825 508 V 540 Q 825 548 817 548 H 578 Q 570 548 570 540 V 368" fill="none" stroke="#c43b2e" stroke-width="1.6" marker-end="url(#arrow)"/>
+<rect x="40" y="260" width="170" height="108" rx="6" fill="#ffffff" stroke="#c9d2dc" stroke-width="1"/>
+<text x="56" y="288" fill="#1c1c1e" font-family="'Geist', Arial, sans-serif" font-size="16" font-weight="600">Desktop controls</text>
+<path d="M 56 300 H 194" stroke="#c9d2dc" stroke-width=".8"/>
+<text x="56" y="320" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">menu / theme picker</text>
+<text x="56" y="339" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">global DOOM keys</text>
+<rect x="260" y="260" width="170" height="108" rx="6" fill="#ffffff" stroke="#c43b2e" stroke-width="2"/>
+<text x="276" y="288" fill="#1c1c1e" font-family="'Geist', Arial, sans-serif" font-size="16" font-weight="600">SceneView</text>
+<path d="M 276 300 H 414" stroke="#c43b2e" stroke-width=".8"/>
+<text x="276" y="320" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">desktop-level window</text>
+<text x="276" y="339" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">CRT text rendering</text>
+<rect x="480" y="260" width="180" height="108" rx="6" fill="#ffffff" stroke="#c9d2dc" stroke-width="1"/>
+<text x="496" y="288" fill="#1c1c1e" font-family="'Geist', Arial, sans-serif" font-size="16" font-weight="600">AsciiScene</text>
+<path d="M 496 300 H 644" stroke="#c9d2dc" stroke-width=".8"/>
+<text x="496" y="320" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">selected scene supplies</text>
+<text x="496" y="339" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">each frame</text>
+<rect x="730" y="145" width="190" height="108" rx="6" fill="#ffffff" stroke="#c9d2dc" stroke-width="1"/>
+<text x="746" y="173" fill="#1c1c1e" font-family="'Geist', Arial, sans-serif" font-size="16" font-weight="600">Donut / helix</text>
+<path d="M 746 185 H 904" stroke="#c9d2dc" stroke-width=".8"/>
+<text x="746" y="205" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">ShapeFrameGenerator</text>
+<text x="746" y="224" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">pure math</text>
+<rect x="730" y="380" width="190" height="128" rx="6" fill="#eef5f7" stroke="#c9d2dc" stroke-width="1"/>
+<text x="746" y="408" fill="#1c1c1e" font-family="'Geist', Arial, sans-serif" font-size="16" font-weight="600">DOOM scene</text>
+<path d="M 746 420 H 904" stroke="#c9d2dc" stroke-width=".8"/>
+<text x="746" y="440" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">PTYProcess → doom_ascii</text>
+<text x="746" y="459" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">ANSI → screen buffer</text>
+<text x="746" y="478" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">snapshot → scene</text>
+
+</svg>
+</div>
+</html>

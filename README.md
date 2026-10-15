@@ -182,24 +182,13 @@ Recorded by the [playwright-bdd demo suite](e2e/) against the `aa-web` server:
 
 ```bash
 cd e2e && npm install && npm run demo   # writes e2e/recordings/*.mp4
-```bash
+```
 
 ## How it works
 
-```mermaid
-flowchart LR
-    Menu["Menu bar ◎<br/>scene + theme"] --> View
-    Keys["Global key monitor"] -->|DOOM active| View
-    subgraph App["AsciiArcade desktop-level window"]
-        View["SceneView<br/>CRT text drawing"]
-    end
-    View -->|each frame| Scene{AsciiScene}
-    Scene -->|donut or helix| Gen["ShapeFrameGenerator<br/>pure math"]
-    Scene -->|DOOM| Doom["DoomScene"]
-    Doom -->|spawn + keys| PTY["PTYProcess<br/>doom_ascii"]
-    PTY -->|ANSI stream| Buf["DoomScreenBuffer<br/>parse to char grid"]
-    Buf -->|snapshot| Doom
-```bash
+![ASCII Arcade scene flow](assets/architecture.png)
+
+The menu bar selects a scene and theme. SceneView renders each frame. Donut and helix frames come from pure math; the DOOM scene launches doom_ascii in a PTY, parses its ANSI stream into a character grid, and returns a snapshot. Global keys feed DOOM when that scene is active.
 
 - **`AsciiArcadeCore`** — the frame generators, the `AsciiScene` protocol, and the
 
