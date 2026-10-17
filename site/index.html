@@ -1,165 +1,140 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="hacker">
+<!doctype html>
+<html lang="en" data-theme="Hacker">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ASCII Arcade — live ASCII wallpapers for macOS</title>
-<meta name="description" content="A macOS live wallpaper that renders ASCII scenes onto your desktop, behind your windows. Donut, Matrix rain, Game of Life, pipes, and playable text-mode DOOM.">
-
-<meta property="og:title" content="ASCII Arcade — live ASCII wallpapers for macOS">
-<meta property="og:description" content="Renders ASCII scenes onto your desktop, behind your windows. Donut, Matrix rain, Game of Life, pipes, and playable text-mode DOOM.">
-<meta property="og:type" content="website">
-<meta property="og:image" content="assets/social-card.png">
-<meta name="twitter:card" content="summary_large_image">
-
-<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASCII Arcade: live ASCII wallpaper for your Mac</title>
+  <meta name="description" content="Live ASCII animation and playable DOOM for your Mac desktop. It runs under every window and never takes a click. Free and open source.">
+  <link rel="canonical" href="https://ascii-arcade-doom.vercel.app/">
+  <meta name="theme-color" content="#030805">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ascii-arcade-doom.vercel.app/">
+  <meta property="og:title" content="ASCII Arcade">
+  <meta property="og:description" content="Live ASCII animation and playable DOOM for your Mac desktop, running under every window.">
+  <meta property="og:image" content="https://ascii-arcade-doom.vercel.app/assets/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/fonts/IBMPlexMono-400-subset.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/PixelifySans-subset.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/Handjet-subset.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "ASCII Arcade",
+    "operatingSystem": "macOS 13 or later",
+    "applicationCategory": "DesktopEnhancementApplication",
+    "description": "Live ASCII animation and playable DOOM for your Mac desktop, running under every window.",
+    "url": "https://ascii-arcade-doom.vercel.app/",
+    "downloadUrl": "https://github.com/Builder106/ascii-arcade/releases/latest/download/ASCII-Arcade.dmg",
+    "license": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.html",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+  <script>
+    document.documentElement.classList.add("js");
+    try {
+      const theme = localStorage.getItem("aa-theme");
+      if (theme) document.documentElement.dataset.theme = theme;
+    } catch {}
+    // Power on every load, unless motion is reduced or the link goes
+    // straight to a station.
+    if (!location.hash && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.documentElement.classList.add("booting");
+    }
+  </script>
+  <script type="module" src="/main.js"></script>
 </head>
 <body>
+  <a class="skip" href="#stations">Skip to the content</a>
+  <div id="power" aria-hidden="true"><i class="beam"></i></div>
+  <canvas id="wall" aria-hidden="true"></canvas>
 
-<a class="skip" href="#main">Skip to content</a>
+  <header class="top">
+    <a class="brand" href="#title">ASCII Arcade</a>
+    <a class="out" href="https://github.com/Builder106/ascii-arcade">Source on GitHub ↗</a>
+  </header>
 
-<canvas id="grid" aria-hidden="true"></canvas>
+  <main id="stations" tabindex="-1">
+    <section class="station" id="title" aria-labelledby="title-h">
+      <h1 id="title-h">ASCII Arcade</h1>
+      <p class="lede">Live ASCII animation on your Mac desktop, under every window.</p>
+      <p><a class="cta" href="https://github.com/Builder106/ascii-arcade/releases/latest/download/ASCII-Arcade.dmg">Download for macOS</a></p>
+      <p class="note">Free and open source. macOS 13 or later.</p>
+    </section>
 
-<nav class="rail" aria-label="Sections">
-  <a href="#stack"    data-mark="."><span class="vh">macOS can't screenshot this</span></a>
-  <a href="#layer"    data-mark="~"><span class="vh">It lives under everything</span></a>
-  <a href="#scenes"   data-mark=":"><span class="vh">DOOM was the sideshow</span></a>
-  <a href="#gallery"  data-mark="+"><span class="vh">Five scenes, running at once</span></a>
-  <a href="#palette-section" data-mark="="><span class="vh">Every glyph keys off one colour</span></a>
-  <a href="#surfaces" data-mark="*"><span class="vh">It doesn't need a desktop</span></a>
-  <a href="#install"  data-mark="@"><span class="vh">Put it on yours</span></a>
-</nav>
+    <section class="station" id="demo" aria-labelledby="demo-h">
+      <h2 id="demo-h">DOOM, behind your work</h2>
+      <p>Switch it on in the menu and play it as your wallpaper.</p>
+      <p class="note" id="doom-note">This one is a recording. Everything else here runs live.</p>
+      <div class="play">
+        <button type="button" id="play-doom">Play DOOM here</button>
+        <p class="note" id="doom-status" role="status">28 MB download.</p>
+      </div>
+      <p class="note touch-only">Playing DOOM needs a keyboard.</p>
+      <p class="fine">doom-ascii is GPL-2.0: <a href="https://github.com/wojciech-graj/doom-ascii">source</a>, <a href="https://github.com/Builder106/ascii-arcade/tree/main/patches/doom-wasm">patches</a>. Freedoom levels, BSD.</p>
+    </section>
 
-<section class="open" id="open">
-  <canvas class="open__doom" id="doomFrame" aria-hidden="true"></canvas>
-  <h1 class="open__claim">This is a desktop background.</h1>
-  <p class="open__sub">It is also DOOM, and you can play it.</p>
-  <div class="open__acts">
-    <button class="btn btn--go" id="playDoom" type="button">Play it</button>
-    <button class="btn" id="stopDoom" type="button" hidden>Stop</button>
-    <a class="btn" href="https://github.com/Builder106/ascii-arcade/releases/latest/download/ASCII-Arcade.dmg">Download</a>
-  </div>
-</section>
+    <section class="station" id="scenes" aria-labelledby="scenes-h">
+      <h2 id="scenes-h">Five scenes, one engine</h2>
+      <ul class="picker" aria-label="Scene">
+        <li><button type="button" data-scene="donut" aria-pressed="false"><b>Donut</b></button></li>
+        <li><button type="button" data-scene="helix" aria-pressed="false"><b>Helix</b></button></li>
+        <li><button type="button" data-scene="matrix" aria-pressed="false"><b>Matrix</b></button></li>
+        <li><button type="button" data-scene="life" aria-pressed="false"><b>Life</b></button></li>
+        <li><button type="button" data-scene="pipes" aria-pressed="false"><b>Pipes</b></button></li>
+      </ul>
+      <div class="themes" role="group" aria-labelledby="themes-label">
+        <span id="themes-label">Theme</span>
+        <button type="button" data-theme-name="Hacker" aria-pressed="false">Hacker</button>
+        <button type="button" data-theme-name="Amber" aria-pressed="false">Amber</button>
+        <button type="button" data-theme-name="Ice" aria-pressed="false">Ice</button>
+        <button type="button" data-theme-name="Ghost" aria-pressed="false">Ghost</button>
+      </div>
+      <p class="note">The app’s own Rust engine, running here in WebAssembly.</p>
+    </section>
 
-<aside class="dock" aria-label="Progress">
-  <span class="dock__depth" data-depth aria-hidden="true">.</span>
-  <a class="dock__go" href="https://github.com/Builder106/ascii-arcade/releases/latest/download/ASCII-Arcade.dmg">Download</a>
-</aside>
+    <section class="station" id="rules" aria-labelledby="rules-h">
+      <h2 id="rules-h">How it behaves</h2>
+      <ul class="rules">
+        <li>Sits under every window. Clicks go straight through.</li>
+        <li>Can draw over your own desktop picture.</li>
+        <li>Cycles scenes when you’re away, and snaps back when you return. 90 seconds in the app, 10 here.</li>
+        <li>⌘⇧3 can’t see it, so ⌘⌥S and ⌘⌥E capture it.</li>
+        <li>Quit, and your old wallpaper comes back.</li>
+      </ul>
+    </section>
 
-<main id="main">
+    <section class="station" id="install" aria-labelledby="install-h">
+      <h2 id="install-h">Put it on your Mac</h2>
+      <ol class="steps">
+        <li><a class="cta" href="https://github.com/Builder106/ascii-arcade/releases/latest/download/ASCII-Arcade.dmg">Download ASCII-Arcade.dmg</a> and drag it to Applications.</li>
+        <li>
+          <p>It’s unsigned, so the first time, Control-click it and choose Open. Or in Terminal:</p>
+          <div class="cmd"><code id="cmd-xattr" tabindex="0">xattr -dr com.apple.quarantine "/Applications/ASCII Arcade.app"</code><button type="button" data-copy="cmd-xattr">Copy</button></div>
+        </li>
+        <li>Find ◎ in your menu bar.</li>
+      </ol>
+      <h3>Not on a Mac</h3>
+      <div class="cmd"><code id="cmd-play" tabindex="0">cargo run -p aa -- play donut</code><button type="button" data-copy="cmd-play">Copy</button></div>
+    </section>
+  </main>
 
-<section class="sec" id="stack" data-scene="matrix">
-  <h2>macOS can't screenshot this</h2>
-  <p>
-    ASCII Arcade draws into the desktop layer, underneath every window you have
-    open. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>3</kbd> samples the wallpaper compositor
-    and skips that window entirely, so the app carries its own capture path
-    built on <code>CGWindowListCreateImage</code>. Press
-    <kbd>⌘</kbd><kbd>⌥</kbd><kbd>S</kbd> and you get a PNG on the Desktop and a
-    copy on the clipboard.
-  </p>
-</section>
-
-<section class="sec" id="layer" data-scene="donut">
-  <h2>It lives under everything</h2>
-  <p>
-    Not a screensaver that takes over, and not a still image. A live process
-    painting characters behind your work. The torus behind this text is Andy
-    Sloane's original donut maths, the same Rust the app runs on your desktop,
-    compiled to WebAssembly and drawing in this page.
-  </p>
-  <a class="btn btn--go" href="https://github.com/Builder106/ascii-arcade/releases/latest/download/ASCII-Arcade.dmg">Download the DMG</a>
-</section>
-
-<section class="sec" id="scenes" data-scene="life">
-  <h2>DOOM was the sideshow</h2>
-  <p>
-    There are six scenes and DOOM is the one that is off by default. The donut
-    and its precessing helix variant are pure projection maths. Matrix rain
-    keeps bright heads with trails fading behind them. Conway's Game of Life
-    reseeds itself whenever it stalls. Pipes is the old screensaver in
-    box-drawing glyphs.
-  </p>
-  <p>
-    A playable shooter is not what everyone wants greeting them on a shared or
-    school machine, so DOOM stays out of the scene list, out of
-    <kbd>⌘</kbd><kbd>⌥</kbd><kbd>C</kbd> cycling and out of the idle rotation
-    until you turn it on.
-  </p>
-  <a class="btn btn--go" href="https://github.com/Builder106/ascii-arcade/releases/latest/download/ASCII-Arcade.dmg">Download the DMG</a>
-</section>
-
-<section class="sec" id="gallery" data-scene="helix">
-  <h2>Five scenes, running at once</h2>
-  <p>
-    Every tile below is live, not a screenshot — the same WebAssembly build
-    running five times over. Click one to make it the background here, and
-    on your desktop it is one menu-bar click away.
-  </p>
-  <div class="gallery" id="sceneGallery" role="group" aria-label="Preview and choose a scene"></div>
-</section>
-
-<section class="sec" id="palette-section" data-scene="pipes">
-  <h2>Every glyph keys off one colour</h2>
-  <p>
-    Matrix, Life and the maths scenes take their colour from the theme's text
-    colour, so the rain turns amber under Amber. DOOM keeps its own palette.
-    Pick one and this page retints with it, grid included.
-  </p>
-  <div class="palette" id="palette" role="group" aria-label="Choose a palette"></div>
-</section>
-
-<section class="sec" id="surfaces" data-scene="helix">
-  <h2>It doesn't need a desktop</h2>
-  <p>
-    The scenes are a Rust core with more than one front end, which is handy for
-    sharing or for machines with no wallpaper to draw on.
-  </p>
-  <pre class="code"><code>cargo run -p aa -- play donut</code></pre>
-  <pre class="code"><code>cargo run -p aa-web</code></pre>
-  <p>
-    The first plays any scene straight into your terminal. The second streams
-    ANSI truecolor frames at 30 fps over a WebSocket into an xterm.js terminal
-    at <code>127.0.0.1:8788</code>.
-  </p>
-</section>
-
-<section class="sec" id="install" data-scene="matrix">
-  <h2>Put it on yours</h2>
-  <p>
-    Download <code>ASCII-Arcade.dmg</code>, open it, and drag ASCII Arcade
-    onto Applications. Look for the <code>◎</code> in your menu bar.
-  </p>
-  <p>
-    There is no paid Apple Developer account behind this, so the app is not
-    notarized and Gatekeeper blocks the first launch. Control-click it, choose
-    Open, then confirm. macOS remembers from then on.
-  </p>
-  <pre class="code"><code>xattr -dr com.apple.quarantine "/Applications/ASCII Arcade.app"</code></pre>
-  <a class="btn btn--go" href="https://github.com/Builder106/ascii-arcade/releases/latest/download/ASCII-Arcade.dmg">Download the DMG</a>
-  <p class="fine">macOS 13 or newer. GPL-2.0. No account, no telemetry.</p>
-</section>
-
-</main>
-
-<footer class="foot">
-  <nav aria-label="Footer">
-    <a href="https://github.com/Builder106/ascii-arcade">GitHub</a>
-    <a href="https://github.com/Builder106/ascii-arcade/releases">Releases</a>
-    <a href="https://github.com/Builder106/ascii-arcade/blob/main/CONTRIBUTING.md">Contributing</a>
-    <a href="https://github.com/Builder106/ascii-arcade/blob/main/LICENSE">Licence</a>
-  </nav>
-  <p class="fine">
-    DOOM runs via a WebAssembly build of
-    <a href="https://github.com/wojciech-graj/doom-ascii/tree/b5188d7c9c4da6c81264a7803e8725ac3df2cfea">doom-ascii</a>,
-    GPL-2.0 licensed. The exact patches applied to that pinned commit are in
-    <a href="https://github.com/Builder106/ascii-arcade/tree/main/patches/doom-wasm">patches/doom-wasm</a>
-    in this repo — together with the pin, that is the corresponding source.
-  </p>
-</footer>
-
-<script type="module" src="main.js"></script>
+  <footer class="strip">
+    <p class="status" id="status"></p>
+    <nav aria-label="Stations">
+      <ol>
+        <li><a href="#title" data-station="title">Title<span class="bar" aria-hidden="true"></span></a></li>
+        <li><a href="#demo" data-station="demo">DOOM<span class="bar" aria-hidden="true"></span></a></li>
+        <li><a href="#scenes" data-station="scenes">Scenes<span class="bar" aria-hidden="true"></span></a></li>
+        <li><a href="#rules" data-station="rules">Rules<span class="bar" aria-hidden="true"></span></a></li>
+        <li><a href="#install" data-station="install">Install<span class="bar" aria-hidden="true"></span></a></li>
+      </ol>
+    </nav>
+    <button type="button" id="cycle" aria-pressed="true"><span class="tick" aria-hidden="true">✓</span>Auto-cycle<span class="long"> when idle</span></button>
+    <a class="cta" href="https://github.com/Builder106/ascii-arcade/releases/latest/download/ASCII-Arcade.dmg">Download for macOS</a>
+  </footer>
 </body>
 </html>

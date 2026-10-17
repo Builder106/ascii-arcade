@@ -1,195 +1,122 @@
 /*
- * Canvas character-grid painter.
- *
- * Each frame paints up to ~20k cells. The previous implementation batched
- * same-colour runs into `fillText` calls, which works for scenes whose
- * colour is shared across large regions (Donut, Helix) but not for ones
- * whose colour varies almost every cell — Matrix's per-column fade trail
- * degenerates to nearly one `fillText` call per character. Measured at
- * ~1,500 calls a frame, enough to drop frames during scroll, since fillText
- * re-shapes and re-rasterizes glyphs from the vector font on every call.
- *
- * Glyphs are rasterized once into a monochrome atlas instead. Painting a
- * frame blits tinted copies of that atlas into one shared pixel buffer in
- * plain typed-array writes, then hands the canvas a single putImageData —
- * one canvas call a frame regardless of how many distinct colours are on
- * screen.
+ * One canvas of character cells behind the whole page. Frames come from
+ * sources (aa-core scenes, or DOOM's bitmap), and switching source dissolves
+ * cell by cell over a stable random threshold per cell, the way the Mac app's
+ * SceneView hands one scene to the next.
  */
 
-// The exact glyph set every scene emits (grepped from aa-core's scene
-// sources) and the exact set scripts/subset-font.sh bakes into the shipped
-// font — the two have to agree, since a glyph outside the font's coverage
-// would already have been falling back to a system font under the old
-// fillText path. Fixed and closed, so the atlas can be built once.
-const GLYPHSET = (() => {
-  const chars = [];
-  for (let c = 0x20; c <= 0x7e; c++) chars.push(String.fromCharCode(c));
-  chars.push("█", "─", "│", "┌", "┐", "└", "┘");
-  return chars;
-})();
+const FONT = '"IBM Plex Mono", ui-monospace, Menlo, monospace';
+const BLOCK = "█";
 
-/** Cell metrics for the current font, measured rather than assumed. */
-export function measureCell(ctx, fontPx) {
-  const m = ctx.measureText("M");
-  return { w: m.width, h: fontPx * 1.2 };
-}
-
-/** How many whole cells fit, never zero. */
-export function gridSize(pxW, pxH, cell) {
-  return {
-    cols: Math.max(1, Math.floor(pxW / cell.w)),
-    rows: Math.max(1, Math.floor(pxH / cell.h)),
-  };
-}
-
-export class Renderer {
+export class Grid {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d", { alpha: false });
     this.cols = 0;
     this.rows = 0;
-    this.cell = { w: 8, h: 16 };
-    this.background = "#000";
-
-    // Off-canvas: measuring text, reading back the background colour, and
-    // building the glyph atlas. Never drawn to the page.
-    this.probe = document
-      .createElement("canvas")
-      .getContext("2d", { willReadFrequently: true });
-
-    this.cellPx = { w: 8, h: 16 };
-    this.atlas = null;
-    this.glyphIndex = new Map();
-    this.frame = null;
-    this.frame32 = null;
+    this.cell = { w: 8, h: 16, ascent: 12 };
+    this.thresholds = new Float32Array(0);
+    this.mask = new Uint8Array(0);
+    this.hexes = new Map();
   }
 
-  /** Device pixel ratio is capped at 2; beyond that costs fill rate for nothing. */
-  resize(cssW, cssH, fontPx) {
-    const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
-    this.canvas.width = Math.floor(cssW * dpr);
-    this.canvas.height = Math.floor(cssH * dpr);
-    this.canvas.style.width = `${cssW}px`;
-    this.canvas.style.height = `${cssH}px`;
+  resize(width, height, fontPx, dpr = Math.min(window.devicePixelRatio || 1, 2)) {
+    const { ctx, canvas } = this;
+    ctx.font = `400 ${fontPx}px ${FONT}`;
+    const m = ctx.measureText("M");
+    const ascent = m.fontBoundingBoxAscent || fontPx * 0.8;
+    const descent = m.fontBoundingBoxDescent || fontPx * 0.25;
+    this.cell = { w: m.width, h: Math.ceil(ascent + descent), ascent };
+    this.cols = Math.ceil(width / this.cell.w);
+    this.rows = Math.ceil(height / this.cell.h);
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = `400 ${fontPx}px ${FONT}`;
 
-    // The buffer this paints into is raw device pixels (ImageData ignores
-    // any transform), so the canvas's own CTM stays identity from here on.
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-    this.probe.font = `${fontPx}px "IBM Plex Mono", monospace`;
-    this.cell = measureCell(this.probe, fontPx);
-    const g = gridSize(cssW, cssH, this.cell);
-    this.cols = g.cols;
-    this.rows = g.rows;
-
-    this.cellPx = {
-      w: Math.max(1, Math.round(this.cell.w * dpr)),
-      h: Math.max(1, Math.round(this.cell.h * dpr)),
-    };
-    this.buildAtlas(fontPx * dpr);
-
-    this.frame = this.ctx.createImageData(this.canvas.width, this.canvas.height);
-    this.frame32 = new Uint32Array(this.frame.data.buffer);
-    return g;
+    const n = this.cols * this.rows;
+    this.thresholds = new Float32Array(n);
+    let s = 0x9e3779b9;
+    for (let i = 0; i < n; i++) {
+      s ^= s << 13;
+      s ^= s >>> 17;
+      s ^= s << 5;
+      this.thresholds[i] = (s >>> 0) / 4294967296;
+    }
+    this.mask = new Uint8Array(n);
   }
 
-  /** Rasterizes every glyph the app can emit once, in white, at device-pixel size. */
-  buildAtlas(devicePx) {
-    const { w: cw, h: ch } = this.cellPx;
-    const atlasCanvas = document.createElement("canvas");
-    atlasCanvas.width = cw * GLYPHSET.length;
-    atlasCanvas.height = ch;
-    const actx = atlasCanvas.getContext("2d", { willReadFrequently: true });
-    actx.font = `${devicePx}px "IBM Plex Mono", monospace`;
-    actx.textBaseline = "top";
-    actx.fillStyle = "#fff";
-
-    this.glyphIndex.clear();
-    GLYPHSET.forEach((glyph, i) => {
-      this.glyphIndex.set(glyph, i);
-      if (glyph !== " ") actx.fillText(glyph, i * cw, 0);
-    });
-
-    this.atlas = actx.getImageData(0, 0, atlasCanvas.width, atlasCanvas.height);
-  }
-
-  /** The current `background` CSS colour string, resolved to RGB by the browser's own parser. */
-  backgroundRGB() {
-    const p = this.probe;
-    p.fillStyle = this.background;
-    p.fillRect(0, 0, 1, 1);
-    const d = p.getImageData(0, 0, 1, 1).data;
-    return [d[0], d[1], d[2]];
+  /** Keeps the cells under these rects (CSS px) empty, so copy sits in a clean hole. */
+  setMask(rects) {
+    const { w, h } = this.cell;
+    this.mask.fill(0);
+    for (const r of rects) {
+      if (!r.width || !r.height) continue;
+      const c0 = Math.max(0, Math.floor(r.left / w));
+      const c1 = Math.min(this.cols, Math.ceil(r.right / w));
+      const r0 = Math.max(0, Math.floor(r.top / h));
+      const r1 = Math.min(this.rows, Math.ceil(r.bottom / h));
+      for (let y = r0; y < r1; y++) this.mask.fill(1, y * this.cols + c0, y * this.cols + c1);
+    }
   }
 
   /**
-   * `glyphs` is row-major and `cols * rows` long, indexable as a string or an
-   * array. A `colors` entry of 0 means paint in `themeColor`, matching the
-   * sentinel aa-wasm packs.
+   * Paints frame `a`, with frame `b` holding every cell whose threshold is
+   * below `p`. A bitmap frame (DOOM) is drawn whole first, and every cell that
+   * belongs to a text frame, or to the mask, is cleared back to ground on top.
    */
-  paint(glyphs, colors, themeColor) {
-    const { cols, rows, cellPx, atlas, glyphIndex, frame, frame32 } = this;
-    if (!frame) return;
+  paint(a, b, p, ground, ink) {
+    const { ctx, cols, rows, mask, thresholds } = this;
+    const { w, h, ascent } = this.cell;
+    ctx.fillStyle = ground;
+    ctx.fillRect(0, 0, cols * w, rows * h);
 
-    const out = frame.data;
-    const canvasW = this.canvas.width;
-    const canvasH = this.canvas.height;
-    const [bgR, bgG, bgB] = this.backgroundRGB();
-    // Fits one native, optimized fill instead of cols*rows*cellPx.w*cellPx.h
-    // individual writes. Little-endian byte order (R at the lowest address)
-    // is universal on browser-capable hardware, so this is not a portability
-    // gap in practice.
-    frame32.fill((255 << 24) | (bgB << 16) | (bgG << 8) | bgR);
-
-    const atlasW = atlas.width;
-    const atlasData = atlas.data;
-
-    for (let y = 0; y < rows; y++) {
-      const destY0 = y * cellPx.h;
-      const maxDy = Math.min(cellPx.h, canvasH - destY0);
-      if (maxDy <= 0) continue;
-
-      for (let x = 0; x < cols; x++) {
-        const i = y * cols + x;
-        const ch = glyphs[i];
-        if (ch === " " || ch === undefined) continue;
-        const slot = glyphIndex.get(ch);
-        if (slot === undefined) continue;
-
-        const destX0 = x * cellPx.w;
-        const maxDx = Math.min(cellPx.w, canvasW - destX0);
-        if (maxDx <= 0) continue;
-
-        const packed = colors[i];
-        const r = packed === 0 ? themeColor.r : (packed >>> 16) & 0xff;
-        const g = packed === 0 ? themeColor.g : (packed >>> 8) & 0xff;
-        const b = packed === 0 ? themeColor.b : packed & 0xff;
-
-        const atlasX0 = slot * cellPx.w;
-
-        for (let dy = 0; dy < maxDy; dy++) {
-          const atlasRow = (dy * atlasW + atlasX0) * 4;
-          const destRow = ((destY0 + dy) * canvasW + destX0) * 4;
-          for (let dx = 0; dx < maxDx; dx++) {
-            const a = atlasData[atlasRow + dx * 4 + 3];
-            if (a === 0) continue;
-            const o = destRow + dx * 4;
-            if (a === 255) {
-              out[o] = r;
-              out[o + 1] = g;
-              out[o + 2] = b;
-            } else {
-              const t = a / 255;
-              out[o] = bgR + (r - bgR) * t;
-              out[o + 1] = bgG + (g - bgG) * t;
-              out[o + 2] = bgB + (b - bgB) * t;
-            }
-            out[o + 3] = 255;
-          }
-        }
-      }
+    const bm = a?.bitmap ? a : b?.bitmap ? b : null;
+    if (bm) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(bm.bitmap, bm.rect.x, bm.rect.y, bm.rect.w, bm.rect.h);
     }
 
-    this.ctx.putImageData(frame, 0, 0);
+    const cleared = [];
+    const buckets = new Map();
+    for (let i = 0; i < cols * rows; i++) {
+      const f = b && thresholds[i] < p ? b : a;
+      if (mask[i] || (bm && f && !f.bitmap)) {
+        if (bm) cleared.push(i);
+        if (mask[i]) continue;
+      }
+      if (!f || f.bitmap) continue;
+      const color = f.colors[i] || 0;
+      const ch = f.glyphs ? f.glyphs[i] : color ? BLOCK : " ";
+      if (!ch || ch === " ") continue;
+      let list = buckets.get(color);
+      if (!list) buckets.set(color, (list = []));
+      list.push(i, ch);
+    }
+
+    ctx.fillStyle = ground;
+    for (const i of cleared) ctx.fillRect((i % cols) * w, Math.floor(i / cols) * h, w + 0.5, h + 0.5);
+
+    for (const [color, list] of buckets) {
+      ctx.fillStyle = color ? this.hex(color) : ink;
+      for (let k = 0; k < list.length; k += 2) {
+        const i = list[k];
+        const x = (i % cols) * w;
+        const y = Math.floor(i / cols) * h;
+        if (list[k + 1] === BLOCK) ctx.fillRect(x, y, w + 0.5, h + 0.5);
+        else ctx.fillText(list[k + 1], x, y + ascent);
+      }
+    }
+  }
+
+  hex(color) {
+    let s = this.hexes.get(color);
+    if (!s) {
+      s = `#${(color & 0xffffff).toString(16).padStart(6, "0")}`;
+      this.hexes.set(color, s);
+    }
+    return s;
   }
 }

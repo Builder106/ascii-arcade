@@ -1,52 +1,39 @@
-import { test, expect } from "@playwright/test";
-import { statSync, readdirSync, existsSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { brotliCompressSync } from "node:zlib";
+import { test, expect, built, SITE_DIR } from "./fixtures";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const SITE = join(__dirname, "../../../site");
-const LIMIT = 150 * 1024;
+// docs/landing-page-design.md: HTML, CSS, JavaScript, fonts and the aa-core
+// WebAssembly stay under 150 kB. Everything that loads after the page is up
+// sits outside that: DOOM's recording, its playable build (on request only),
+// and the cabinet with its three.js subset, which has its own ceiling below.
+const BUDGET = 150 * 1024;
+// Measured as Brotli, which is how Vercel serves it.
+const CABINET_BUDGET = 160 * 1024;
+const OUTSIDE = [/\/assets\/doom-attract\.json$/, /\/doom-wasm\//, /\/vendor\/three\.min\.js$/, /\/cabinet\.js$/, /\/models\//];
 
-test("the page stays inside its 150 kB budget", () => {
-  const counted = [
-    "index.html",
-    "styles.css",
-    "main.js",
-    "renderer.js",
-    "dissolve.js",
-    "engine.js",
-    "doom.js",
-    "motion.js",
-    "enhance.js",
-  ];
+test("the page weighs under its budget", async ({ page }) => {
+  test.skip(!built("pkg/aa_wasm_bg.wasm"), "needs scripts/build-wasm.sh");
+  const sizes = new Map<string, number>();
+  page.on("response", async (r) => {
+    const url = r.url();
+    if (!url.startsWith("http://127.0.0.1") || OUTSIDE.some((re) => re.test(url))) return;
+    sizes.set(url, (await r.body().catch(() => Buffer.alloc(0))).length);
+  });
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-scene", /.+/, { timeout: 30_000 });
+  await page.waitForLoadState("networkidle");
+  const total = [...sizes.values()].reduce((a, b) => a + b, 0);
+  expect(total, JSON.stringify(Object.fromEntries(sizes), null, 1)).toBeLessThan(BUDGET);
+});
 
-  let total = counted.reduce((n, f) => {
-    const p = join(SITE, f);
-    return existsSync(p) ? n + statSync(p).size : n;
-  }, 0);
+test("the cabinet model stays under 1.5 MB", () => {
+  expect(readFileSync(resolve(SITE_DIR, "models/cabinet.glb")).length).toBeLessThan(1.5 * 1024 * 1024);
+});
 
-  const vendorMotion = join(SITE, "vendor/motion.min.js");
-  if (existsSync(vendorMotion)) {
-    total += statSync(vendorMotion).size;
-  }
-
-  const fontsDir = join(SITE, "fonts");
-  if (existsSync(fontsDir)) {
-    for (const f of readdirSync(fontsDir)) {
-      if (f.endsWith(".woff2")) total += statSync(join(fontsDir, f)).size;
-    }
-  }
-
-  const pkgDir = join(SITE, "pkg");
-  if (existsSync(pkgDir)) {
-    for (const f of readdirSync(pkgDir)) {
-      if (f.endsWith(".wasm") || f.endsWith(".js")) {
-        total += statSync(join(pkgDir, f)).size;
-      }
-    }
-  }
-
-  // DOOM payloads are deliberately outside this: they load only on request.
-  expect(total).toBeLessThan(LIMIT);
+test("the cabinet and its three.js subset stay under their own ceiling, as Brotli", () => {
+  const br = ["cabinet.js", "vendor/three.min.js"]
+    .map((f) => brotliCompressSync(readFileSync(resolve(SITE_DIR, f))).length)
+    .reduce((a, b) => a + b, 0);
+  expect(br).toBeLessThan(CABINET_BUDGET);
 });

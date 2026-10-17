@@ -1,55 +1,42 @@
-import { existsSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { test, expect, open, STATIONS, THEMES } from "./fixtures";
 
-const hasDoomWasm = existsSync(
-  resolve(dirname(fileURLToPath(import.meta.url)), "../../../site/doom-wasm/doom.js"),
-);
+// The wall is aria-hidden decoration; every fact it shows is also in text.
+async function scan(page: import("@playwright/test").Page) {
+  const { violations } = await new AxeBuilder({ page }).exclude("#wall").analyze();
+  return violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
+}
 
-const THEMES = ["hacker", "amber", "ice", "ghost"];
+test.use({ contextOptions: { reducedMotion: "reduce" } });
 
-// Contrast is the reason this is automated. The previous marketing site
-// shipped muted tones at 4.09:1 and 2.32:1 because a person eyeballed them.
 for (const theme of THEMES) {
-  test(`no accessibility violations under the ${theme} palette`, async ({ page }) => {
-    await page.goto("/site/");
-    await page.evaluate((t) => {
-      document.documentElement.dataset.theme = t;
-    }, theme);
-
-    const results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa"])
-      .exclude("#doomFrame")
-      .analyze();
-
-    expect(results.violations).toEqual([]);
+  test(`every station passes axe in ${theme}`, async ({ page }) => {
+    await page.addInitScript((t) => localStorage.setItem("aa-theme", t), theme);
+    for (const id of STATIONS) {
+      await open(page, `/#${id}`);
+      await expect(page.locator(`#${id}`)).toBeVisible();
+      expect(await scan(page), `${theme} #${id}`).toEqual([]);
+    }
   });
 }
 
-test("the canvas is hidden from assistive technology", async ({ page }) => {
-  await page.goto("/site/");
-  await expect(page.locator("#grid")).toHaveAttribute("aria-hidden", "true");
+test("the 404 passes axe", async ({ page }) => {
+  await page.goto("/404.html");
+  expect(await scan(page)).toEqual([]);
 });
 
-test("the page is reachable by keyboard from the skip link", async ({ page }) => {
-  await page.goto("/site/");
+test("the skip link comes first and lands on the content", async ({ page }) => {
+  await open(page);
   await page.keyboard.press("Tab");
-  await expect(page.locator("a.skip")).toBeFocused();
+  await expect(page.locator(".skip")).toBeFocused();
+  await expect(page.locator(".skip")).toBeInViewport();
 });
 
-test("the live DOOM canvas and its controls pass axe once a session is active", async ({ page }) => {
-  test.skip(!hasDoomWasm, "doom-wasm not built (requires Emscripten + WAD)");
-  await page.goto("/site/");
-  await page.getByRole("button", { name: /play it/i }).click();
-  await expect(page.locator("#doomPlayCanvas")).toBeVisible({ timeout: 15000 });
-
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa"])
-    .include("#doomPlayCanvas")
-    .include("#stopDoom")
-    .analyze();
-
-  expect(results.violations).toEqual([]);
+test("every station's copy is in the HTML without JavaScript", async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto("/");
+  for (const id of STATIONS) await expect(page.locator(`#${id}`)).toBeVisible();
+  await expect(page.locator("h1")).toHaveCount(1);
+  await context.close();
 });
