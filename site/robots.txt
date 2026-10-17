@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ascii-arcade-doom.vercel.app/sitemap.xml
