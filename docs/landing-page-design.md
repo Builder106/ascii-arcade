@@ -15,7 +15,236 @@ user to the DMG. Narrative sites usually pay for their ambition by burying the
 call to action, so this one puts a real action at the end of each movement
 instead.
 
-## The conceit
+## Attract mode (what got built)
+
+Two concepts came before this one. The descent below was the first proposal.
+A second build, "the desk", made the page a Mac desktop buried under windows.
+A blind review found three faults in it: the windows covered the wallpaper
+they described, the reduced-motion form still read as stacked cards, and the
+phone version was weak. Both are superseded. Everything from "The conceit
+(first proposal)" through "The index is the luminance ramp" stays as history
+only. The sections after that still apply, except where noted at the end of
+this one.
+
+### Concept card
+
+```text
+Idea:         The page plays its own demo, like an arcade machine nobody is using,
+              and hands you the controls the moment you touch it.
+Anchor:       The app already has an attract mode. Auto-cycle when idle starts after
+              90 s without input, moves on every 20 s, and snaps back to your scene
+              on the next input. site/assets/doom-attract.json is DOOM's own demo.
+Signature:    The snap-back. Leave the page alone and the camera starts touring the
+              cabinet again. Move the mouse and it swings straight back to the
+              station and scene you chose.
+Motion verb:  Cycle and snap. Scenes change only through the app's 0.9 s cell
+              dissolve, input interrupts in 0.25 s, and a station's copy repaints
+              top to bottom in rows, the way a terminal redraws.
+Screenshot:   DOOM's demo full-bleed, the station strip lit at DOOM, and the copy
+              sitting in a hole cut out of the grid.
+Structure:    One screen and five stations: Title, DOOM, Scenes, Rules, Install. The
+              strip along the bottom replaces a navbar and shows the loop's
+              progress. A station is one unit, with its own #hash.
+Escape hatch: The strip itself: every station is a real link with its own #hash,
+              reachable by keyboard. No-JS visitors and crawlers get every
+              station stacked as plain HTML. A separate "all on one page" view
+              was built and removed once the copy was short.
+```
+
+### How it behaves
+
+- On load the loop runs. Only a key, click, tap or wheel ends that first demo.
+  A pointer passing over the page doesn't.
+- After that, 10 s without input resumes the loop at the next station, and any
+  input, pointer movement included, snaps back. The page says the app waits 90.
+- The Scenes station gives each scene 4 s and says the app gives 20.
+- "Auto-cycle when idle" in the strip mirrors the app's menu item. Switching it
+  off is the page's pause control for WCAG 2.2.2: the loop stays stopped until
+  it is switched back on.
+- Deep links and the back button land on that station, ready to read.
+  Navigating counts as input.
+- Reduced motion starts with Auto-cycle off. Each scene paints one still frame
+  and dissolves become swaps.
+- On a phone the strip becomes a scrolling row of stations, and Play DOOM
+  gives way to a note that it needs a keyboard.
+- Copy stays short: a heading, a line or two and the action per station.
+  The first build carried scene descriptions, eight behaviour rules and an
+  "all on one page" view, and all of it read as too much text.
+
+| Station | Wallpaper during the loop | Time |
+| --- | --- | --- |
+| Title | Donut | 9 s |
+| DOOM | The recorded demo | 7 s |
+| Scenes | All five, in menu order | 4 s each |
+| Rules | Life | 14 s |
+| Install | Matrix | 14 s |
+
+### Power-on
+
+A first visit opens like an arcade machine being switched on. A bright line
+crosses the middle of the screen and the picture opens out from it (CSS, in
+the page from the first paint, so it ends even if the script never runs).
+Then the board's power-on test runs in the character grid: an alignment
+grid, colour bars, and a memory test sweeping hex down the screen. After
+that the block-letter ASCII ARCADE logo wipes in, over a framed status box
+that types the page's real loading steps (`aa-core`, `scenes`, `cabinet`)
+and fills a progress bar as each one finishes. A result appears only when
+its step is done (`ok`, a count, or `flat` when the cabinet isn't coming),
+then PRESS START blinks. When the steps are done, or after 2.4 s at most,
+the logo and box dissolve cell by cell into the donut. The rest of the
+title copy and the strip redraw in, and the camera pulls back out of the
+glass while the marquee, trim, buttons and coin slots flicker on.
+
+- The headline is the sign on the machine: dim while it boots, then it
+  flickers on as the boot hands over. It stays painted throughout, so the
+  largest paint isn't held back.
+- Any key, click, tap or wheel skips straight to the end.
+- It plays on every load, including reloads, but never on a deep link and
+  never under reduced motion. Specs skip it with a key press, as a visitor
+  can.
+- The cabinet's shaders compile with `compileAsync` where the browser
+  supports parallel compilation, so the log keeps typing while it loads.
+
+### The cabinet
+
+The cabinet is the stage for the whole page. A machine built in code
+(`site/cabinet.js`) stands in a dark room, and its screen is the live grid:
+the same `aa-core` scenes and the DOOM recording, painted into an 800 by 600
+canvas that becomes the screen's texture. Each station frames its own part
+of the machine, and the loop, the strip and the snap-back all move the
+camera between them, orbiting the cabinet rather than cutting through it.
+
+| Station | Camera |
+| --- | --- |
+| Title | The whole cabinet, three-quarter view |
+| DOOM | Close on the screen and marquee |
+| Scenes | Down over the control panel and screen |
+| Rules | The side, showing the ASCII side art and the silhouette |
+| Install | The coin door, lit "INSERT COIN" |
+
+Only "Play DOOM here" goes through the glass. The camera pushes in until the
+screen covers the window, the flat page takes over with DOOM full size, and
+Esc pulls back out to the cabinet with DOOM still running on its screen.
+
+The cabinet is also the controller:
+
+- ← → (or A and D) tilt the joystick and step through the stations. A
+  horizontal swipe does the same on a phone. Arrows go to DOOM instead
+  while it has the keyboard.
+- With a mouse, the stick itself is a handle. Hovering shows a grab cursor
+  and leans the stick toward the pointer; pressing grabs it. The tilt
+  follows the pointer's sideways travel from where it was pressed, reaching
+  the stop at 60 px, and 36 px of travel steps one station. The stick has
+  to come back toward centre before the next push counts, like an arcade
+  menu. Measuring travel rather than the stick's angle on screen keeps the
+  push deliberate: at the title view the stick is only about 15 px tall, so
+  a shaky click used to step. Letting go springs it back, and the release
+  never counts as a click on whatever part is under it. The camera stops
+  drifting with the mouse while the stick is under the pointer. A click on
+  the stick goes nowhere; the rest of the panel still leads to Scenes.
+- Getting around keeps a few promises. A held arrow key steps once. Arrows
+  leave a focused command line alone so it can scroll, and Shift+arrow is
+  left for selecting. An arrow or cabinet step moves focus to the new
+  station when focus would otherwise be lost in the one just hidden. The
+  skip link's `#stations` doesn't count as a station, so it keeps the
+  current one. Taking over from the loop records the station in history
+  state without touching a plain address, so Back returns there and a
+  reload still powers on. DOOM finishing its download doesn't pull back a
+  visitor who has moved on. The cursor and part glow are worked out again
+  whenever the camera lands, the view goes flat, or the mouse leaves.
+- Clicking a part of the cabinet goes to its station, and the part under
+  the pointer lifts toward the theme colour: marquee for Title, screen for
+  DOOM, control panel for Scenes, a side for Rules, the coin door for
+  Install. The coin slots themselves drop a coin and start the DMG download.
+- The screen talks the way an arcade machine does: `PRESS START` during the
+  demo, `PLAYER 1` on taking over, and a `CONTINUE?` countdown before the
+  loop comes back. Picking a scene presses the cabinet's button.
+- The strip stays as the plain route through the same stations, for the
+  keyboard, screen readers and the flat page. With the cabinet up, its
+  status line becomes the instruction card.
+
+- Modelled in Blender (`assets/cabinet/arcade-cabinet.blend`, built through
+  the Blender MCP) on the same side profile: a laminate body recessed
+  between side panels with T-trim edges, a hood over a chrome-framed
+  marquee, a deep bezel around a bulging CRT with a glass layer and a
+  speaker grille, a printed control panel with the stick, two buttons in
+  chrome rings and a 1P button, a coin door with lit slots, FREE PLAY
+  windows, coin returns, screws and a lock, a brushed kick plate on
+  levelling feet, and a vented service door at the back. About 16,000
+  triangles.
+- `scripts/optimize-cabinet.sh` compresses the exported GLB with meshopt to
+  `site/models/cabinet.glb` (about 150 kB). It joins and prunes nothing: the
+  page finds `SCREEN`, `STICK`, `BUTTON_0`/`BUTTON_1`, `COIN_SLOT_L`/`_R`,
+  the `SCREEN_CENTER`/`_UP`/`_OUT` empties and the `PART_<station>` groups by
+  name, and paints its own canvases onto UVs no material in the file uses.
+- The page swaps in its own materials by name: the live grid on
+  `MAT_Screen`, and the marquee, side art, panel art, price windows and
+  coin label painted in the theme colour. `MAT_Trim` and `MAT_Button` take
+  the theme colour too. Every mesh gets its own material copy, so a hovered
+  part can glow alone.
+- Studio reflections go only on the chrome, steel and gloss. On every
+  surface they tripled the cost of a frame on a software GPU. At rest the
+  cabinet renders 30 times a second, matching the screen, and every frame
+  while anything moves. Camera moves run on real time, so a slow device
+  finishes them on schedule.
+- The page never waits for it. The flat page renders first, then the
+  cabinet loads, starts with the camera at the glass, and pulls out. Without
+  WebGL 2, under reduced motion, or if the module fails, the flat page is the
+  whole site.
+- Copy fades out while the camera passes through the glass (`--glass`), and
+  sits on a ground-coloured scrim when it overlaps the cabinet on a phone.
+- three.js 0.186.1 is vendored as a tree-shaken subset,
+  `site/vendor/three.min.js`, built by `scripts/vendor-three.sh` on the build
+  host. It is MIT licensed. The subset and `cabinet.js` load after the page
+  is up and have their own ceiling of 160 kB as Brotli, the encoding Vercel serves,
+  which an e2e spec enforces, so the 150 kB first-load budget still holds.
+  With the glTF loader and meshopt decoder they come to about 139 kB (168 kB
+  gzipped). The model itself is about 150 kB raw and 41 kB as Brotli, with
+  its own 1.5 MB ceiling. scripts/check-cabinet-model.mjs fails the optimise
+  script, and an e2e spec, if the model loses a node, UV set or material the
+  page needs.
+
+### System
+
+- Palette: the four `aa-core` themes as CSS tokens (`--ground`, `--ink`), with
+  `--muted` (72% ink) and `--line` (40% ink) mixed from them. Hacker's ground
+  is tinted to `#030805`. An e2e spec fails if a theme's ink drifts from
+  `themes_json()`.
+- Type: three self-hosted subsets. Pixelify Sans (variable, 400 to 700) is the
+  display face: the headline, station headings, buttons, the header brand,
+  scene names, the strip's station labels, the cabinet's small labels, and
+  the messages on its screen. The marquee title and the coin label are drawn
+  in the boot logo's 5×5 block letters instead: Pixelify's capital C closes
+  into an O once a sign is small and glowing, at every weight. Its pixel letters match the boot logo and
+  the grid, and they keep their natural spacing, since negative tracking
+  merges the pixel steps. Handjet, the LED dot-matrix face, sets the body
+  copy, notes and the status line: one static cut drawn from weight 500
+  (at 400 its elements run together at body size), with `size-adjust: 125%`
+  so its x-height sits a little above Plex Mono's, and 0.02em tracking. It
+  is about 3 kB. IBM Plex Mono 400 sets the character grid and the copyable
+  commands, and stands in for symbols Handjet lacks (`× ← → ✓ ↗`). There is
+  no bold Plex: anything bold is Pixelify. Body is 16px at 1.55. Glyphs
+  outside the subsets (`◎ ⌘ ⌥ ⇧`) fall back to the system monospace.
+  Handjet is the most on-theme choice and the hardest to read; the owner
+  took that trade knowingly.
+- Shape: square corners everywhere. Hover floods a control with ink, like a
+  selected menu row.
+- Copy sits in a hole. The grid leaves the cells under the current station,
+  the strip and the header links empty, snapped to whole cells, so the scene
+  runs right up to the text.
+- DOOM is a scaled colour bitmap under the grid, as the scene-interface
+  section below asks. Text scenes dissolve into and out of it cell by cell.
+- One `requestAnimationFrame` loop owns the station clock, the idle check and
+  the canvas, capped at 30 fps like the app.
+
+### Deviations from the sections below
+
+- No Motion library and no pinned pull-back. The loop and CSS cover it.
+- "Play DOOM here" loads the real `doom-ascii` WebAssembly build (28 MB) on
+  request. The DOOM station links its source and this build's patches, which
+  is the source offer that distributing it requires.
+
+## The conceit (first proposal)
 
 Three things about this product are worth a story, and the old page spent all
 three as bullet points.
@@ -227,8 +456,9 @@ The site is no longer zero-build. Compiling `aa-core` adds a Rust and
 repository's working rules. Motion is vendored as a committed file rather than
 installed, so there's still no package manager and no `node_modules`.
 
-The site ships one self-hosted typeface, IBM Plex Mono, subset to the glyphs it
-actually uses. That comes to printable ASCII plus exactly seven characters: `█`
+The grid's typeface is IBM Plex Mono, self-hosted and subset to the glyphs it
+actually uses. (The display face, Pixelify Sans, is a separate 6 kB subset;
+see System above.) That comes to printable ASCII plus exactly seven characters: `█`
 from Life and `─ │ ┌ ┐ └ ┘` from Pipes. Around 102 glyphs, which lands well
 under 10 kB as woff2. Subsetting follows the `font-workflow` process.
 
@@ -243,11 +473,14 @@ Ten kilobytes buys the same grid on every machine, and it lets canvas cell
 metrics be tuned once against a known face instead of measured against whatever
 turned up.
 
-The same face sets the body copy, which keeps the page consistent with its own
-claim about being made of characters.
+The body copy is set in Handjet, not Plex Mono (see System above). The grid
+and the copyable commands keep Plex Mono.
 
 HTML, CSS, JavaScript, and the WebAssembly module together stay under roughly
 150 kB. DOOM payloads sit outside that budget and load only on request.
+`scripts/build-wasm.sh` runs binaryen's `wasm-opt -O3` after `wasm-bindgen`,
+which takes the module from about 74 kB to 56 kB without trading away speed;
+that headroom is what the fonts live in.
 
 There's no GitHub Pages workflow in the repository today, so deployment needs
 adding as part of this work.
