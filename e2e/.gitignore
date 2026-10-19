@@ -3,3 +3,4 @@ test-results/
 .features-gen/
 playwright-report/
 recordings/*.webm
+recordings/footage/
