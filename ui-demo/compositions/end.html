@@ -14,7 +14,6 @@
           flex-direction: column;
           justify-content: center;
           align-items: center;
-          padding: 0 90px;
           background: #030805;
           text-align: center;
         }
@@ -25,32 +24,32 @@
           opacity: 0;
         }
         .line {
-          margin: 48px 0 0;
-          font: 500 64px/1.1 "Handjet", monospace;
+          margin: 40px 0 0;
+          font: 500 60px/1.1 "Handjet", monospace;
           color: #e9f5ec;
           opacity: 0;
         }
         .note {
-          margin: 18px 0 0;
-          font: 500 46px/1.15 "Handjet", monospace;
+          margin: 14px 0 0;
+          font: 500 42px/1.15 "Handjet", monospace;
           color: #1f8a3a;
           opacity: 0;
         }
         .url {
-          margin: 80px 0 0;
-          font: 400 40px/1 "IBM Plex Mono", monospace;
+          margin: 56px 0 0;
+          font: 400 38px/1 "IBM Plex Mono", monospace;
           color: #30d158;
           opacity: 0;
         }
         .insert {
-          margin: 150px 0 0;
-          font: 700 64px/1 "Pixelify Sans", monospace;
+          margin: 72px 0 0;
+          font: 700 56px/1 "Pixelify Sans", monospace;
           color: #30d158;
           opacity: 0;
         }
       </style>
 
-      <div id="root" data-composition-id="end" data-width="1080" data-height="1920">
+      <div id="root" data-composition-id="end" data-width="1920" data-height="1080">
         <h1>ASCII Arcade</h1>
         <p class="line">Live ASCII wallpaper for your Mac.</p>
         <p class="note">Free and open source. macOS 13 or later.</p>
@@ -59,17 +58,17 @@
       </div>
 
       <script>
-        // Local time: 0 is 25.94 s in the social cut. INSERT COIN is lit for
-        // 0.8 s of every 1.2, like PRESS START on the cabinet's screen.
+        // Local time: 0 is 37.08 s in the demo. INSERT COIN is lit for 0.8 s
+        // of every 1.2, like PRESS START on the site's cabinet.
         window.__timelines = window.__timelines || {};
         const tl = gsap.timeline({ paused: true });
         const scope = document.querySelector('[data-composition-id="end"]');
         const $ = (s) => scope.querySelector(s);
-        tl.fromTo($("h1"), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, 0.11)
-          .fromTo($(".line"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.41)
-          .fromTo($(".note"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.56)
-          .fromTo($(".url"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.76);
-        for (let t = 0.96; t < 3.4; t += 1.2) tl.set($(".insert"), { opacity: 1 }, t).set($(".insert"), { opacity: 0 }, Math.min(t + 0.8, 3.56));
+        tl.fromTo($("h1"), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, 0.1)
+          .fromTo($(".line"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.4)
+          .fromTo($(".note"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.55)
+          .fromTo($(".url"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.75);
+        for (let t = 0.92; t < 3.8; t += 1.2) tl.set($(".insert"), { opacity: 1 }, t).set($(".insert"), { opacity: 0 }, Math.min(t + 0.8, 3.92));
         window.__timelines["end"] = tl;
       </script>
     </template>

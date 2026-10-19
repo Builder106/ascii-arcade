@@ -1,20 +1,31 @@
-# ASCII Arcade social cut
+# ASCII Arcade UI demo
 
 <p align="center">
-  <a href="ascii-arcade-ui-demo.mp4"><img src="preview.gif" alt="The ASCII Arcade site on a phone: tapping to play, swiping between stations, switching scenes" width="360"></a>
+  <a href="ascii-arcade-ui-demo.mp4"><img src="preview.gif" alt="The ASCII Arcade wallpaper on a Mac switching from Donut to Helix to Matrix" width="800"></a>
 </p>
 
-<p align="center"><a href="ascii-arcade-ui-demo.mp4"><b>Watch the full video (29.5 s, with sound)</b></a></p>
+<p align="center"><a href="ascii-arcade-ui-demo.mp4"><b>Watch the full video (41 s, with sound)</b></a></p>
 
-A vertical cut of the real site on a phone: the power-on, a tap to take over,
-swipes through the stations, scenes and themes repainting the cabinet, and
-DOOM.
+The real macOS app as a wallpaper: the five scenes, the four themes, and DOOM
+running its own demo, each switched from the ◎ menu. Nothing here is mocked
+up. It's the app's wallpaper window, recorded on its own.
 
 ## How it's made
 
-It's built in HyperFrames from the same footage as the [trailer](../trailer/),
-and that README covers recording it again. The shot list is in
-[STORYBOARD.md](STORYBOARD.md).
+`scripts/record-mac-wallpaper.sh` records the take on a Mac with the app
+running. It presses the ◎ menu's items through Accessibility, so the menu
+never opens and no keys get sent, and `screencapture -l` grabs only the
+wallpaper window, so nothing else on screen ends up in the video. Your scene,
+theme and auto-cycle setting go back the way they were afterwards. It needs
+Accessibility and Screen Recording permission for whatever runs it.
+
+```console
+bash scripts/record-mac-wallpaper.sh
+bash scripts/cut-video-clips.sh
+```
+
+The clips are cropped from the Mac's 16:10 screen to 16:9. The shot list is in
+[STORYBOARD.md](STORYBOARD.md). Then render with HyperFrames:
 
 ```console
 npx --yes hyperframes@0.8.116 check
@@ -28,4 +39,4 @@ above is a 720p copy for GitHub.
 
 "Pixel Peeker Polka - faster" by Kevin MacLeod (CC BY 4.0), in
 `public/audio.mp3`. Keep the credit from `public/CREDITS.md` with anything you
-publish. The sound effects come from `scripts/video-sfx.py`.
+publish. The menu blip and coin come from `scripts/video-sfx.py`.
