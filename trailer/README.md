@@ -25,7 +25,7 @@ cd e2e && npm run footage
 cd .. && bash scripts/cut-video-clips.sh
 ```
 
-The cut list for this and the [social cut](../ui-demo/) lives in
+The cut list for this and the [UI demo](../ui-demo/) lives in
 `scripts/cut-video-clips.sh`. To render:
 
 ```console

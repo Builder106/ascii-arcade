@@ -54,8 +54,8 @@ the joystick.
 
 </details>
 
-There's a [trailer](trailer/) and a vertical [social cut](ui-demo/) too, made
-in HyperFrames from the same footage.
+There's a [trailer](trailer/) of the site, and a [UI demo](ui-demo/) of the real
+Mac app running as the wallpaper, both made in HyperFrames.
 
 ## Scenes
 
