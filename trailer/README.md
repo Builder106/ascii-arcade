@@ -1,14 +1,19 @@
-# ASCII Arcade Tier 3 trailer
+# ASCII Arcade trailer
 
-The Tier 3 video: a 39.5-second, 1920×1080 trailer built in HyperFrames.
-It borrows the site's idea. The cabinet plays its own demo like an arcade
-machine nobody's using: power-on, the cabinet, the wallpaper under your
-windows, the scenes, DOOM, and the snap-back when you come back.
+<p align="center">
+  <a href="ascii-arcade-trailer.mp4"><img src="preview.gif" alt="ASCII Arcade trailer excerpt: the scenes cycling through the Amber, Ice, Ghost and Hacker themes" width="800"></a>
+</p>
 
-Anything on the cabinet or the wall is real footage of the site. The Mac
-desktop and the end card are HTML and GSAP.
+<p align="center"><a href="ascii-arcade-trailer.mp4"><b>Watch the full trailer (39.5 s, with sound)</b></a></p>
 
-## Footage
+The cabinet plays its own demo like an arcade machine nobody's using:
+power-on, the cabinet, the wallpaper under your windows, the scenes, DOOM, and
+the snap-back when you come back. Anything on the cabinet or the wall is real
+footage of the site; the Mac desktop and the end card are HTML and GSAP.
+
+## How it's made
+
+It's built in HyperFrames. The shot list is in [STORYBOARD.md](STORYBOARD.md).
 
 The clips in `public/clips/` are cut from takes recorded by
 `e2e/capture/footage.mjs`. It steps the page on a fake clock and screenshots
@@ -20,19 +25,19 @@ cd e2e && npm run footage
 cd .. && bash scripts/cut-video-clips.sh
 ```
 
-The cut list for both videos lives in `scripts/cut-video-clips.sh`.
-
-## Render
+The cut list for this and the [social cut](../ui-demo/) lives in
+`scripts/cut-video-clips.sh`. To render:
 
 ```console
 npx --yes hyperframes@0.8.116 check
 npx --yes hyperframes@0.8.116 render --quality high --strict -o renders/ascii-arcade-trailer.mp4
 ```
 
-Don't commit the render.
+The full-quality render stays out of git (`renders/` is ignored). The MP4
+above is a 720p copy for GitHub.
 
 ## Music
 
-`public/audio.mp3` is "Pixelland" by Kevin MacLeod (CC BY 4.0). Keep the
+"Pixelland" by Kevin MacLeod (CC BY 4.0), in `public/audio.mp3`. Keep the
 credit from `public/CREDITS.md` with anything you publish. The sound effects
 come from `scripts/video-sfx.py`.
