@@ -2,189 +2,31 @@
   <picture>
     <source media="(prefers-color-scheme: dark)"  srcset="assets/banner-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="assets/banner-light.svg">
-    <img alt="ASCII Arcade — live ASCII wallpapers for macOS" src="assets/banner-dark.svg" width="100%">
+    <img alt="ASCII Arcade: live ASCII wallpapers for macOS" src="assets/banner-dark.svg" width="100%">
   </picture>
 </p>
 
 <p align="center">
-  <a href="<https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml>"><img alt="CI" src="<https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml/badge.svg>"></a>
-  <a href="<https://swift.org>"><img alt="Swift" src="<https://img.shields.io/badge/Swift-5.10%2B-orange.svg>"></a>
-  <img alt="Platform" src="<https://img.shields.io/badge/macOS-13%2B-black.svg>">
-  <a href="#license"><img alt="License" src="<https://img.shields.io/badge/license-GPL--2.0-blue.svg>"></a>
+  <a href="https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://swift.org"><img alt="Swift 6" src="https://img.shields.io/badge/Swift-6-orange.svg"></a>
+  <a href="https://www.rust-lang.org"><img alt="Rust" src="https://img.shields.io/badge/Rust-stable-b7410e.svg"></a>
+  <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-black.svg">
+  <a href="#license"><img alt="License: GPL-2.0" src="https://img.shields.io/badge/license-GPL--2.0-blue.svg"></a>
 </p>
 
-> **Live ASCII animations and playable retro scenes for your Mac desktop background.** Render Matrix digital rain, rotating 3D geometry, Conway's Game of Life, or retro DOOM directly on your desktop.
+ASCII Arcade puts live ASCII animation on your Mac desktop, under every window.
+Pick Matrix rain, a spinning donut, Conway's Life or a pipes screensaver from
+the menu bar, or switch on DOOM and play it as your wallpaper. Clicks go
+straight through to whatever's underneath, and quitting brings your old
+wallpaper back.
 
-## 💡 What is ASCII Arcade?
-
-ASCII Arcade turns your macOS desktop background into an animated retro computer terminal. Instead of a static picture, your desktop comes alive with dynamic text-art animations running smoothly behind your open application windows.
-
-You can switch between classic visual scenes (like glowing green Matrix rain, rotating 3D shapes, or vintage pipe screensavers) from your Mac menu bar. It even includes an optional retro DOOM mode that lets you play the classic game directly on your desktop using your keyboard.
-
-## Scenes
-
-| Scene | Description | Color Scheme | Interactive |
-| ------- | ------------ | -------- | ------------- |
-| **Donut** | Classic rotating 3D ASCII donut | Theme color | No |
-| **Helix** | Rotating DNA double-helix spiral | Theme color | No |
-| **Matrix** | Falling digital code rain with glowing trails | Green / Amber | No |
-| **Life** | Conway's Game of Life cell simulation | Theme color | No |
-| **Pipes** | Retro 3D pipe maze screensaver | Multi-color | No |
-| **DOOM** *(optional)* | Playable classic DOOM rendered in ASCII characters | Full color | Yes (Keyboard) |
-
-Switch scenes and themes from the menu bar icon, or cycle scenes quickly with **⌘⌥C**.
-
-**Optional DOOM mode:** To keep the wallpaper suitable for all environments, the playable game is disabled by default. Enable it anytime under *"Enable DOOM Scene"* in the menu.
-
-**Capture.** macOS's native ⌘⇧3/⌘⇧4 skips the wallpaper layer — use the in-app shortcuts instead: **⌘⌥S** saves a PNG to ~/Desktop and copies it to the clipboard; **⌘⌥E** records a 3-second MP4 clip and opens it in Finder when done. Both commands are also in the `◎` menu under *Capture*.
-
-**Colour.** Scenes can paint each glyph individually: DOOM uses its own native
-palette, while Matrix, Life, and the math scenes key off the theme's text colour
-(green rain under Hacker, amber rain under Amber, …). Themes: Hacker (green),
-Amber, Ice, Ghost.
-
-**Scene Settings.** Each scene exposes a few knobs under *Scene Settings* in the
-menu — Matrix speed/density, Life speed/cell-size, Pipes speed/count.
-
-**Auto-cycle when idle.** Toggle *Auto-cycle when idle* and ASCII Arcade rotates
-through the scenes like a slideshow after ~90 s with no input, advancing to the
-next scene every 20 s, then snaps back to your chosen scene the moment you touch
-the keyboard or mouse. DOOM is skipped by the rotation unless you've opted into
-it. Rendering also pauses while the displays sleep.
-
-## DOOM controls
-
-Needs *"Enable DOOM Scene"* turned on first (see [Scenes](#scenes) above).
-Forwarded to `doom_ascii` while DOOM is the active wallpaper (toggle with
-*"Capture keys for DOOM"* in the menu):
-
-| Action | Key |
-| -------- | ----- |
-| Move / turn | Arrow keys |
-| Strafe | `,` `.` |
-| Fire | Space |
-| Use / open | `E` |
-| Run | `]` |
-| Weapons | `1`–`7` |
-| Confirm / menu | Return / Esc |
-
-> Playing DOOM as a wallpaper needs **Accessibility** permission (System Settings →
-> Privacy & Security → Accessibility) so the app can read keystrokes globally. While
-> capture is on, keystrokes drive DOOM regardless of which app is focused.
-
-## Install
-
-ASCII Arcade ships as a normal macOS app — it lives in your menu bar (the `◎`
-icon), remembers your scene/theme/settings between launches, and can start at
-login. Grab `ASCII-Arcade.dmg` from the [releases page](https://github.com/Builder106/ascii-arcade/releases),
-then:
-
-1. Open the DMG and drag **ASCII Arcade**onto**Applications**.
-2. Because it isn't notarized (no paid Apple Developer account), Gatekeeper
-
-   blocks the first launch — **right-click (Control-click) the app → Open**,
-   then click **Open** in the dialog. macOS remembers it from then on.
-
-- Terminal equivalent: `xattr -dr com.apple.quarantine "/Applications/ASCII Arcade.app"`
-
-1. Look for the `◎` icon in your menu bar to pick a scene/theme.
-
-The donut and the other math/colour scenes work immediately. **DOOM** is the one
-piece that isn't bundled — `doom_ascii` is GPL-2.0, so it's fetched and built
-separately (see below); until then the DOOM scene shows a hint.
-
-## Build & run from source
-
-Requires macOS 13+ and a Swift 6 toolchain (Xcode 16+) — the pinned Vapor
-release declares Swift tools 6.0.
-
-```bash
-./scripts/setup.sh        # fetch + build the GPL doom_ascii binary into ./bin
-swift build               # build everything
-swift run AsciiArcade     # run the wallpaper app
-```bash
-
-The Freedoom IWADs ship in `wad/`, so DOOM works out of the box. Quitting the app
-restores your original wallpaper.
-
-### Package the app yourself
-
-```bash
-./scripts/make-app.sh     # assemble dist/ASCII Arcade.app (release build + icon + WADs)
-./scripts/make-dmg.sh     # wrap it in dist/ASCII-Arcade.dmg
-```bash
-
-`make-app.sh` ad-hoc signs the bundle and bundles the BSD Freedoom WADs. It does
-**not** bundle the GPL `doom_ascii`by default; set`INCLUDE_DOOM=1` to include
-it (you then must also redistribute its source). On a cloud-synced checkout, set
-`SCRATCH_PATH=/tmp/aa-build`so SwiftPM's`build.db` doesn't choke.
-
-## Browser
-
-Any built-in scene streams to a browser tab via the Rust `aa-web` shell —
-handy for sharing or for machines without a wallpaper target:
-
-```bash
-cargo run -p aa-web   # http://127.0.0.1:8788
-```bash
-
-Pick a scene from the dropdown; the server streams ANSI truecolor frames at
-30 fps over a WebSocket to an xterm.js terminal.
-
-Optionally, `scripts/install_agent.sh` installs a LaunchAgent that watches for the
-hotword `doom` typed anywhere and pops the browser up automatically.
-
-## Terminal (Rust CLI)
-
-The unified `aa` binary (`shells/cli`) plays scenes directly in a terminal —
-no wallpaper, no browser — and doubles as the browser/autostart entry point on
-Linux and Windows:
-
-```bash
-cargo run -p aa -- play donut     # render live in this terminal (q to quit)
-cargo run -p aa -- web            # same server as aa-web, via a subcommand
-cargo run -p aa -- scenes         # list built-in scene ids
-```bash
-
-DOOM is opt-in here too, and more strictly than on macOS: it isn't even
-compiled in unless you build with `--features doom` (an optional dependency,
-so a normal build doesn't pull in the PTY-spawning GPL code at all), and even
-then `aa scenes`/`aa play`/`aa web` won't reveal or accept it without
-`--enable-doom`(or`AA_WEB_ENABLE_DOOM=1`for the standalone`aa-web`
-binary):
-
-```bash
-cargo run -p aa --features doom -- play doom --enable-doom
-```bash
-
-`aa run` (the actual desktop-wallpaper mode on Linux/Windows) doesn't offer
-DOOM at all — playing DOOM as your literal wallpaper needs fixed-grid bitmap
-compositing and global keyboard capture that only the macOS shell implements
-today.
+**Try it in the browser:** [ascii-arcade-doom.vercel.app](https://ascii-arcade-doom.vercel.app/)
+runs the same engine in WebAssembly, on a 3D arcade cabinet you can drive with
+the joystick.
 
 ## Demo
 
-<details>
-<summary>Donut — rotating ASCII torus (browser)</summary>
-
-![Donut rotating in the browser terminal](assets/demo/donut.gif)
-
-</details>
-
-<details>
-<summary>Matrix rain — digital rain + scene switcher (browser)</summary>
-
-![Matrix rain with scene picker in the browser terminal](assets/demo/matrix.gif)
-
-</details>
-
-Recorded by the [playwright-bdd demo suite](e2e/) against the `aa-web` server:
-
-```bash
-cd e2e && npm install && npm run demo   # writes e2e/recordings/*.mp4
-```
-
-<details>
+<details open>
 <summary>The site: power-on and attract mode</summary>
 
 ![The landing page powering on, then the cabinet pulling out of the glass](assets/demo/attract.gif)
@@ -198,50 +40,203 @@ cd e2e && npm install && npm run demo   # writes e2e/recordings/*.mp4
 
 </details>
 
-The site GIFs are recorded by `e2e/capture/footage.mjs`. It steps the page on
-a fake clock and screenshots every frame, so the cabinet comes out smooth even
-on a machine without a GPU. The [trailer](trailer/) and the vertical
-[social cut](ui-demo/) are cut from the same takes:
+<details>
+<summary>Donut in the browser terminal</summary>
+
+![Donut rotating in the browser terminal](assets/demo/donut.gif)
+
+</details>
+
+<details>
+<summary>Matrix rain and the scene picker in the browser terminal</summary>
+
+![Matrix rain with scene picker in the browser terminal](assets/demo/matrix.gif)
+
+</details>
+
+There's also a [trailer](trailer/) and a vertical [social cut](ui-demo/), both
+built in HyperFrames from the same footage as the site GIFs.
+
+## Scenes
+
+| Scene | What it is | Colour | Interactive |
+| --- | --- | --- | --- |
+| **Donut** | The classic rotating 3D ASCII donut | Theme | No |
+| **Helix** | A rotating DNA double helix | Theme | No |
+| **Matrix** | Falling code rain with glowing trails | Theme | No |
+| **Life** | Conway's Game of Life | Theme | No |
+| **Pipes** | The 3D pipes screensaver | Multi-colour | No |
+| **DOOM** *(off by default)* | Playable DOOM, drawn in ASCII | Full colour | Yes, keyboard |
+
+Switch scenes and themes from the `◎` menu, or cycle scenes with **⌘⌥C**.
+
+**Themes.** Hacker (green), Amber, Ice and Ghost. Scenes paint each glyph
+separately: DOOM keeps its own palette, and the rest take their colour from the
+theme, so Matrix rain turns amber under Amber.
+
+**Scene settings.** Each scene has a few knobs under *Scene Settings*: Matrix
+speed and density, Life speed and cell size, Pipes speed and count.
+
+**Auto-cycle when idle.** Turn it on and the wallpaper works like a slideshow.
+After about 90 s with no input it moves to the next scene every 20 s, then
+snaps back to the scene you picked as soon as you touch the keyboard or mouse.
+DOOM stays out of the rotation unless you've enabled it. Rendering pauses while
+the displays sleep.
+
+**Capture.** macOS's ⌘⇧3 and ⌘⇧4 skip the wallpaper layer, so the app has its
+own shortcuts: **⌘⌥S** saves a PNG to `~/Desktop` and copies it to the
+clipboard, and **⌘⌥E** records a 3-second MP4 and shows it in Finder. Both are
+also in the menu under *Capture*.
+
+## DOOM
+
+DOOM is off by default so the wallpaper stays safe for any screen. Turn on
+*Enable DOOM Scene* in the menu to unlock it. While it's the wallpaper and
+*Capture keys for DOOM* is on, these keys go to the game:
+
+| Action | Key |
+| --- | --- |
+| Move and turn | Arrow keys |
+| Strafe | `,` `.` |
+| Fire | Space |
+| Use / open | `E` |
+| Run | `]` |
+| Weapons | `1` to `7` |
+| Confirm / menu | Return / Esc |
+
+> Capturing keys needs **Accessibility** permission (System Settings → Privacy &
+> Security → Accessibility). While capture is on, keystrokes drive DOOM no matter
+> which app has focus.
+
+## Install
+
+Download `ASCII-Arcade.dmg` from the
+[latest release](https://github.com/Builder106/ascii-arcade/releases/latest).
+The app lives in your menu bar, remembers your scene, theme and settings, and
+can start at login.
+
+1. Open the DMG and drag **ASCII Arcade** onto **Applications**.
+2. The app isn't notarized, so Gatekeeper blocks the first launch. Control-click
+   the app, choose **Open**, then click **Open** again. macOS remembers after
+   that. Or run this in Terminal:
+
+   ```bash
+   xattr -dr com.apple.quarantine "/Applications/ASCII Arcade.app"
+   ```
+
+3. Find `◎` in your menu bar and pick a scene.
+
+Every scene except DOOM works straight away. `doom_ascii` is GPL-2.0, so it
+isn't bundled; build it with `./scripts/setup.sh` (below). Until then the DOOM
+scene shows a hint.
+
+## Build from source (macOS)
+
+You need macOS 13 or later and a Swift 6 toolchain (Xcode 16 or later).
 
 ```bash
-cd e2e && npm run footage               # writes e2e/recordings/footage/*.mp4
+./scripts/setup.sh        # fetch and build the GPL doom_ascii binary into ./bin
+swift build               # build everything
+swift run AsciiArcade     # run the wallpaper app
 ```
+
+The Freedoom IWADs are committed in `wad/`, so DOOM works once `doom_ascii` is
+built.
+
+To package the app yourself:
+
+```bash
+./scripts/make-app.sh     # dist/ASCII Arcade.app (release build, icon, WADs)
+./scripts/make-dmg.sh     # dist/ASCII-Arcade.dmg
+```
+
+`make-app.sh` ad-hoc signs the bundle and includes the BSD-licensed Freedoom
+WADs. It leaves out the GPL `doom_ascii` unless you set `INCLUDE_DOOM=1`, and if
+you do, you have to distribute its source too. If your checkout is on a synced
+drive (iCloud, Google Drive), set `SCRATCH_PATH=/tmp/aa-build` so SwiftPM's
+`build.db` doesn't fail.
+
+## Linux, Windows and the terminal
+
+The Rust port shares one engine, `aa-core`, across every other platform. The
+`aa` binary plays scenes in a terminal and runs the wallpaper on Linux (X11 or
+wlr-layer-shell) and Windows:
+
+```bash
+cargo run -p aa -- play donut                 # in this terminal (q to quit)
+cargo run -p aa -- run matrix --theme amber   # as the desktop wallpaper
+cargo run -p aa -- scenes                     # list scene ids
+cargo run -p aa -- autostart enable           # start at login
+```
+
+Any scene can also stream to a browser tab, which is handy for sharing:
+
+```bash
+cargo run -p aa-web       # http://127.0.0.1:8788
+```
+
+The server sends ANSI truecolour frames at 30 fps over a WebSocket to an
+xterm.js terminal; pick the scene from the dropdown.
+
+DOOM is stricter here than on macOS. It isn't compiled in unless you build with
+`--features doom`, and even then `aa scenes`, `aa play` and `aa web` hide it
+without `--enable-doom` (or `AA_WEB_ENABLE_DOOM=1` for the standalone `aa-web`):
+
+```bash
+cargo run -p aa --features doom -- play doom --enable-doom
+```
+
+`aa run` doesn't offer DOOM at all. Playing it as your wallpaper needs bitmap
+compositing and global key capture, and only the macOS app has those so far.
 
 ## How it works
 
 ![ASCII Arcade scene flow](assets/architecture.png)
 
-The menu bar selects a scene and theme. SceneView renders each frame. Donut and helix frames come from pure math; the DOOM scene launches doom_ascii in a PTY, parses its ANSI stream into a character grid, and returns a snapshot. Global keys feed DOOM when that scene is active.
+The menu bar picks a scene and theme, and SceneView renders each frame. Donut
+and Helix are pure math. DOOM runs `doom_ascii` in a pseudo-terminal, parses its
+ANSI output into a character grid, and hands back a snapshot. Global key capture
+feeds DOOM while it's the active scene.
 
-- **`AsciiArcadeCore`** — the frame generators, the `AsciiScene` protocol, and the
+On macOS:
 
-  DOOM glue (`DoomScreenBuffer` parses the ANSI stream into a char grid;
-  `DoomScene`owns the PTY;`DoomLauncher` resolves the binary + IWAD). Colour
-  scenes return a `ColoredFrame` (a glyph grid plus a parallel grid of optional
-  per-cell `RGBColor`); the stateful ones (Matrix, Life, Pipes) share a
-  `SteppedScene` base that runs a fixed-timestep simulation off the render clock.
-
-- **`PTYBridge`** — spawns `doom_ascii` in a pseudo-terminal and pipes its output.
-- **`AsciiArcade`** — the AppKit wallpaper host (scene picker, themes, key forwarding).
-- **`Server`**/**`Hotword`**/**`WatcherCLI`** — the optional browser path.
+- **`AsciiArcadeCore`** has the frame generators, the `AsciiScene` protocol and
+  the DOOM glue. `DoomScreenBuffer` parses the ANSI stream, `DoomScene` owns the
+  PTY, and `DoomLauncher` finds the binary and IWAD. Colour scenes return a
+  `ColoredFrame`, a glyph grid with a matching grid of optional per-cell
+  `RGBColor`. Matrix, Life and Pipes share `SteppedScene`, which runs a
+  fixed-timestep simulation off the render clock.
+- **`PTYBridge`** spawns `doom_ascii` in a pseudo-terminal and pipes its output.
+- **`AsciiArcade`** is the AppKit wallpaper host: scene picker, themes, key
+  forwarding.
+- **`Hotword`** and **`WatcherCLI`**, with `scripts/install_agent.sh`, install a
+  LaunchAgent that opens the browser when you type `doom` anywhere.
 
 ## Layout
 
-```bash
-Sources/AsciiArcadeCore   frame generators + scene/DOOM glue
-Sources/PTYBridge         pseudo-terminal wrapper
-Sources/AsciiArcade       wallpaper app (executable)
-Sources/Hotword           hotword detector
-Sources/WatcherCLI        hotword → browser daemon (executable, bonus)
-Server/                   Vapor browser server, its own SwiftPM package
-                          (keeps Vapor out of the wallpaper app's build)
-wad/                      committed Freedoom IWADs
-bin/                      doom_ascii binary (built by setup.sh)
-```bash
+```text
+Sources/            macOS app (Swift): AsciiArcadeCore, PTYBridge, AsciiArcade,
+                    Hotword, WatcherCLI
+Server/             Vapor browser server, its own SwiftPM package
+crates/aa-core      Rust engine: scenes, frames, themes, DOOM ANSI buffer
+crates/aa-render    software rasteriser from frames to RGBA pixels
+crates/aa-doom      DOOM over a portable PTY
+crates/aa-ffi       C ABI for the iOS and Android shells
+crates/aa-wasm      WebAssembly wrapper for the site
+shells/             cli, linux, windows, web, ios, android
+site/               the landing page (no build step besides the WASM)
+e2e/                Playwright: site specs, demo recordings, footage capture
+trailer/, ui-demo/  HyperFrames videos
+wad/                Freedoom IWADs
+bin/                doom_ascii, built by scripts/setup.sh
+```
+
+To record the README GIFs again, use `cd e2e && npm run demo` for the terminal
+ones and `npm run footage` for the site ones.
 
 ## License
 
-This project is GPL-2.0 — see [LICENSE](LICENSE). `doom_ascii`
+GPL-2.0, see [LICENSE](LICENSE). `doom_ascii`
 ([wojciech-graj/doom-ascii](https://github.com/wojciech-graj/doom-ascii)) is
-also GPL-2.0 and is fetched and built by `setup.sh`; the bundled
+also GPL-2.0 and is fetched and built by `setup.sh`. The bundled
 [Freedoom](https://freedoom.github.io/) IWADs are BSD-licensed.
