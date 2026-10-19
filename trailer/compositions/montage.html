@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Montage labels</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        /* One label per cut, in that shot's theme, sitting in a hole cut out
+           of the grid the way the site's copy does. */
+        #root {
+          position: absolute;
+          inset: 0;
+        }
+        .label {
+          position: absolute;
+          left: 96px;
+          bottom: 110px;
+          margin: 0;
+          padding: 20px 30px 24px;
+          background: #030805;
+          opacity: 0;
+        }
+        .label b {
+          display: block;
+          font: 600 96px/1 "Pixelify Sans", monospace;
+          color: #30d158;
+        }
+        .label span {
+          display: block;
+          margin-top: 10px;
+          font: 500 40px/1 "Handjet", monospace;
+          color: #1f8a3a;
+        }
+        .amber { background: #1a0800; }
+        .amber b { color: #ffa600; }
+        .amber span { color: #b87700; }
+        .ice { background: #000d1a; }
+        .ice b { color: #00ffff; }
+        .ice span { color: #00a3a3; }
+        .ghost { background: #f5f5f5; }
+        .ghost b { color: #1c1c1e; }
+        .ghost span { color: #5a5a5e; }
+      </style>
+
+      <div id="root" data-composition-id="montage" data-width="1920" data-height="1080">
+        <p class="label amber"><b>Matrix</b><span>Amber</span></p>
+        <p class="label ice"><b>Donut</b><span>Ice</span></p>
+        <p class="label ghost"><b>Helix</b><span>Ghost</span></p>
+        <p class="label amber"><b>Life</b><span>Amber</span></p>
+        <p class="label ice"><b>Pipes</b><span>Ice</span></p>
+        <p class="label"><b>Matrix</b><span>Hacker</span></p>
+      </div>
+
+      <script>
+        // Local time: 0 is 13.79 s in the trailer. A cut every two beats.
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+        const CUTS = [0, 1.05, 2.09, 3.14, 4.16, 5.21, 6.25];
+        const labels = document.querySelector('[data-composition-id="montage"]').querySelectorAll(".label");
+        labels.forEach((label, i) => {
+          tl.set(label, { opacity: 1 }, CUTS[i])
+            .fromTo(label, { x: -28 }, { x: 0, duration: 0.25, ease: "power3.out" }, CUTS[i]);
+          if (i < labels.length - 1) tl.set(label, { opacity: 0 }, CUTS[i + 1]);
+        });
+        window.__timelines["montage"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

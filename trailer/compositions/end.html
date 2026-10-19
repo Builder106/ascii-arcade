@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>End card</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        /* The end card, beside the coin door. */
+        #root {
+          position: absolute;
+          inset: 0;
+        }
+        .panel {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 1080px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          padding: 0 120px;
+          background: linear-gradient(90deg, #030805 72%, rgba(3, 8, 5, 0));
+        }
+        h1 {
+          margin: 0;
+          font: 700 150px/0.95 "Pixelify Sans", monospace;
+          color: #30d158;
+          opacity: 0;
+        }
+        .line {
+          margin: 34px 0 0;
+          font: 500 56px/1.1 "Handjet", monospace;
+          color: #e9f5ec;
+          opacity: 0;
+        }
+        .note {
+          margin: 14px 0 0;
+          font: 500 40px/1.1 "Handjet", monospace;
+          color: #1f8a3a;
+          opacity: 0;
+        }
+        .url {
+          margin: 56px 0 0;
+          font: 400 36px/1 "IBM Plex Mono", monospace;
+          color: #30d158;
+          opacity: 0;
+        }
+      </style>
+
+      <div id="root" data-composition-id="end" data-width="1920" data-height="1080">
+        <div class="panel">
+          <h1>ASCII Arcade</h1>
+          <p class="line">Live ASCII wallpaper for your Mac.</p>
+          <p class="note">Free and open source. macOS 13 or later.</p>
+          <p class="url">ascii-arcade-doom.vercel.app</p>
+        </div>
+      </div>
+
+      <script>
+        // Local time: 0 is 33.62 s in the trailer. The coin door beside the
+        // card already reads INSERT COIN, so the card doesn't repeat it.
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+        const scope = document.querySelector('[data-composition-id="end"]');
+        const $ = (s) => scope.querySelector(s);
+        tl.fromTo($("h1"), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0.18)
+          .fromTo($(".line"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.53)
+          .fromTo($(".note"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.73)
+          .fromTo($(".url"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.98);
+        window.__timelines["end"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

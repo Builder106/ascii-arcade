@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Captions</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        /* Copy sits in a hole cut out of the grid, as on the site, and
+           redraws top to bottom in rows as the cover slides off it. */
+        #root {
+          position: absolute;
+          inset: 0;
+        }
+        .caption {
+          position: absolute;
+          left: 96px;
+          bottom: 132px;
+          max-width: 1600px;
+          margin: 0;
+          padding: 18px 30px 22px;
+          overflow: hidden;
+          background: #030805;
+          color: #30d158;
+          font: 500 68px/1.05 "Pixelify Sans", monospace;
+          opacity: 0;
+        }
+        .caption span {
+          display: block;
+        }
+        /* Over the site's own stations, captions keep to the empty top left. */
+        .top {
+          top: 96px;
+          bottom: auto;
+        }
+        .rows {
+          position: absolute;
+          inset: 0;
+          display: block;
+          background: #030805;
+        }
+      </style>
+
+      <div id="root" data-composition-id="captions" data-width="1920" data-height="1080">
+        <p class="caption c-under"><span>Live ASCII, under every window.</span><i class="rows" data-layout-allow-overflow></i></p>
+        <p class="caption c-menu"><span>Pick a scene from the menu bar.</span><i class="rows" data-layout-allow-overflow></i></p>
+        <p class="caption top c-away"><span>Walk away, and the demo comes back.</span><i class="rows" data-layout-allow-overflow></i></p>
+        <p class="caption top c-back"><span>Move the mouse. It snaps back.</span><i class="rows" data-layout-allow-overflow></i></p>
+      </div>
+
+      <script>
+        // Times are on the trailer's clock; this scene starts at 7.01 s.
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+        const START = 7.01;
+        const scope = document.querySelector('[data-composition-id="captions"]');
+        function caption(selector, from, to) {
+          const el = scope.querySelector(selector);
+          tl.set(el, { opacity: 1 }, from - START)
+            .to(el.querySelector(".rows"), { yPercent: 101, duration: 0.38, ease: "steps(5)" }, from - START)
+            .to(el, { opacity: 0, duration: 0.18, ease: "none" }, to - START - 0.18);
+        }
+        caption(".c-under", 7.5, 9.7);
+        caption(".c-menu", 10.5, 13.6);
+        caption(".c-away", 27.5, 31.4);
+        caption(".c-back", 31.65, 33.55);
+        window.__timelines["captions"] = tl;
+      </script>
+    </template>
+  </body>
+</html>
