@@ -184,6 +184,29 @@ Recorded by the [playwright-bdd demo suite](e2e/) against the `aa-web` server:
 cd e2e && npm install && npm run demo   # writes e2e/recordings/*.mp4
 ```
 
+<details>
+<summary>The site: power-on and attract mode</summary>
+
+![The landing page powering on, then the cabinet pulling out of the glass](assets/demo/attract.gif)
+
+</details>
+
+<details>
+<summary>The site: scenes and themes on the cabinet</summary>
+
+![Scene and theme buttons repainting the cabinet's screen and trim](assets/demo/cabinet.gif)
+
+</details>
+
+The site GIFs are recorded by `e2e/capture/footage.mjs`. It steps the page on
+a fake clock and screenshots every frame, so the cabinet comes out smooth even
+on a machine without a GPU. The [trailer](trailer/) and the vertical
+[social cut](ui-demo/) are cut from the same takes:
+
+```bash
+cd e2e && npm run footage               # writes e2e/recordings/footage/*.mp4
+```
+
 ## How it works
 
 ![ASCII Arcade scene flow](assets/architecture.png)
