@@ -30,13 +30,13 @@ trailer  doom-play doom           7.00   5.74
 trailer  snap      player         31.83  6.26
 trailer  coin      attract        55.00  5.88
 ui-demo  donut     mac-wallpaper  2.00   7.50   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
-ui-demo  matrix    mac-wallpaper  11.90  3.74   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
-ui-demo  life      mac-wallpaper  17.90  3.67   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
-ui-demo  pipes     mac-wallpaper  23.90  4.41   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
-ui-demo  amber     mac-wallpaper  29.90  3.30   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
-ui-demo  ice       mac-wallpaper  35.90  3.32   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
-ui-demo  ghost     mac-wallpaper  41.90  3.29   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
-ui-demo  doom-in   mac-wallpaper  55.00  2.49   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
+ui-demo  matrix    mac-wallpaper  11.10  3.74   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
+ui-demo  life      mac-wallpaper  17.10  3.67   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
+ui-demo  pipes     mac-wallpaper  23.10  4.41   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
+ui-demo  amber     mac-wallpaper  29.10  3.30   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
+ui-demo  ice       mac-wallpaper  35.10  3.32   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
+ui-demo  ghost     mac-wallpaper  41.10  3.29   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
+ui-demo  doom-in   mac-wallpaper  54.10  2.49   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
 ui-demo  doom-play mac-wallpaper  60.30  5.36   crop=2880:1620:0:90,scale=1920:1080:flags=lanczos
 "
 
@@ -51,3 +51,17 @@ while read -r project clip take start length filter; do
     -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p -movflags +faststart "$out"
   echo "$project/public/clips/$clip.mp4"
 done <<<"$shots"
+
+# The UI demo's desktop stills from scripts/capture-mac-desktop.sh, cropped
+# to the menu bar, the Dock, the open ◎ icon and each menu (Retina pixels).
+stills="$footage/mac-desktop"
+if [ -d "$stills" ]; then
+  desk="$root/ui-demo/public/desktop"
+  mkdir -p "$desk"
+  crop() { ffmpeg -nostdin -y -loglevel error -i "$stills/$1" -vf "crop=$2" "$desk/$3"; echo "ui-demo/public/desktop/$3"; }
+  cp "$stills/menubar.png" "$desk/menubar.png"
+  crop dock-strip.png 1656:173:612:97 dock.png
+  crop menu-helix.png 110:48:30:0 status-open.png
+  for m in helix matrix life pipes amber ice ghost; do crop "menu-$m.png" 506:1116:38:62 "menu-$m.png"; done
+  crop menu-doom.png 506:1212:38:62 menu-doom.png
+fi
