@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Desktop</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        /* The rest of the Mac around the wallpaper: the real menu bar and
+           Dock, and the real ◎ menu, all captured as stills from the same
+           Mac. Screen points scale by 4/3 to this frame; the Retina stills
+           scale by 2/3. */
+        #root {
+          position: absolute;
+          inset: 0;
+        }
+        .menubar {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 1920px;
+          height: 32px;
+        }
+        .status-open {
+          position: absolute;
+          left: 1260px;
+          top: 0;
+          width: 73.33px;
+          height: 32px;
+          opacity: 0;
+        }
+        .dock {
+          position: absolute;
+          left: 408px;
+          bottom: 7px;
+          width: 1104px;
+          height: 115.33px;
+          border-radius: 26px;
+        }
+        .menu {
+          position: absolute;
+          left: 1265.33px;
+          top: 41.33px;
+          width: 337.33px;
+          height: 744px;
+          border-radius: 13px;
+          box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+          opacity: 0;
+        }
+        .menu-doom {
+          height: 808px;
+        }
+        .cursor {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 34px;
+          height: 34px;
+          opacity: 0;
+        }
+        .cursor path {
+          fill: #000;
+          stroke: #fff;
+          stroke-width: 1.6;
+          stroke-linejoin: round;
+        }
+      </style>
+
+      <div id="root" data-composition-id="desktop" data-width="1920" data-height="1080">
+        <img class="menubar" src="public/desktop/menubar.png" alt="" />
+        <img class="status-open" src="public/desktop/status-open.png" alt="" />
+        <img class="dock" src="public/desktop/dock.png" alt="" />
+        <img class="menu m-helix" src="public/desktop/menu-helix.png" alt="" />
+        <img class="menu m-matrix" src="public/desktop/menu-matrix.png" alt="" />
+        <img class="menu m-life" src="public/desktop/menu-life.png" alt="" />
+        <img class="menu m-pipes" src="public/desktop/menu-pipes.png" alt="" />
+        <img class="menu m-amber" src="public/desktop/menu-amber.png" alt="" />
+        <img class="menu m-ice" src="public/desktop/menu-ice.png" alt="" />
+        <img class="menu m-ghost" src="public/desktop/menu-ghost.png" alt="" />
+        <img class="menu menu-doom m-doom" src="public/desktop/menu-doom.png" alt="" />
+        <svg class="cursor" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 2 L3 19 L7.5 14.8 L10.4 21.5 L13.4 20.2 L10.6 13.7 L16.8 13.7 Z" /></svg>
+      </div>
+
+      <script>
+        // Starts at 0, so local time is the demo's time. Each menu opens 1.1 s
+        // before its click, the pointer travels from ◎ to the item, and the
+        // menu closes on the frame the app starts its dissolve.
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+        const scope = document.querySelector('[data-composition-id="desktop"]');
+        const $ = (s) => scope.querySelector(s);
+        const cursor = $(".cursor");
+        const status = $(".status-open");
+        // [menu, click time, item centre y in this frame]
+        const picks = [
+          [".m-helix", 4.4, 128.6],
+          [".m-matrix", 8.8, 160.6],
+          [".m-life", 12.54, 192.6],
+          [".m-pipes", 16.21, 224.6],
+          [".m-amber", 20.62, 652.6],
+          [".m-ice", 23.92, 684.6],
+          [".m-ghost", 27.24, 716.6],
+          [".m-doom", 30.53, 256.6],
+        ];
+        for (const [menu, click, y] of picks) {
+          const open = click - 1.1;
+          tl.set($(menu), { opacity: 1 }, open)
+            .set(status, { opacity: 1 }, open)
+            .set(cursor, { x: 1288, y: 6, opacity: 1 }, open - 0.25)
+            .to(cursor, { x: 1322, y: y - 6, duration: 0.6, ease: "power2.inOut" }, open + 0.15)
+            .set($(menu), { opacity: 0 }, click)
+            .set(status, { opacity: 0 }, click)
+            .to(cursor, { opacity: 0, duration: 0.3, ease: "none" }, click + 0.5);
+        }
+        window.__timelines["desktop"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

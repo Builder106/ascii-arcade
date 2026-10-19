@@ -1,14 +1,15 @@
 # ASCII Arcade UI demo
 
 <p align="center">
-  <a href="ascii-arcade-ui-demo.mp4"><img src="preview.gif" alt="The ASCII Arcade wallpaper on a Mac switching from Donut to Helix to Matrix" width="800"></a>
+  <a href="ascii-arcade-ui-demo.mp4"><img src="preview.gif" alt="A Mac desktop running ASCII Arcade: Helix and then Matrix picked from the menu bar's ◎ menu, with the Dock below" width="800"></a>
 </p>
 
 <p align="center"><a href="ascii-arcade-ui-demo.mp4"><b>Watch the full video (41 s, with sound)</b></a></p>
 
 The real macOS app as a wallpaper: the five scenes, the four themes, and DOOM
-running its own demo, each switched from the ◎ menu. Nothing here is mocked
-up. It's the app's wallpaper window, recorded on its own.
+running its own demo, each picked from the ◎ menu. Nothing here is mocked up.
+The wallpaper is the app's window recorded on its own, and the menu bar, Dock
+and ◎ menu are stills captured from the same Mac.
 
 ## How it's made
 
@@ -19,8 +20,13 @@ wallpaper window, so nothing else on screen ends up in the video. Your scene,
 theme and auto-cycle setting go back the way they were afterwards. It needs
 Accessibility and Screen Recording permission for whatever runs it.
 
+`scripts/capture-mac-desktop.sh` grabs the menu bar, the Dock and the ◎ menu
+open in each state, with the next pick highlighted. It slides your windows
+aside with Show Desktop while it works and puts them back after.
+
 ```console
 bash scripts/record-mac-wallpaper.sh
+bash scripts/capture-mac-desktop.sh
 bash scripts/cut-video-clips.sh
 ```
 

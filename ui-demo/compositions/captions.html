@@ -8,8 +8,7 @@
     <template>
       <style>
         /* Captions sit in a hole cut out of the grid, as on the site, and
-           redraw top to bottom in rows. Each menu switch gets a label at the
-           top right, named after the real ◎ menu item. */
+           redraw top to bottom in rows. They sit above the Dock. */
         #root {
           position: absolute;
           inset: 0;
@@ -17,7 +16,7 @@
         .caption {
           position: absolute;
           left: 96px;
-          bottom: 110px;
+          bottom: 170px;
           max-width: 1500px;
           margin: 0;
           padding: 18px 30px 22px;
@@ -36,24 +35,6 @@
           display: block;
           background: #030805;
         }
-        .pick {
-          position: absolute;
-          top: 56px;
-          right: 64px;
-          margin: 0;
-          padding: 14px 24px 16px 20px;
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          border-radius: 12px;
-          background: rgba(22, 24, 23, 0.9);
-          color: #eef2f0;
-          font: 400 34px/1 "IBM Plex Mono", monospace;
-          opacity: 0;
-        }
-        .pick b {
-          margin-right: 16px;
-          font-weight: 400;
-          color: #30d158;
-        }
       </style>
 
       <div id="root" data-composition-id="captions" data-width="1920" data-height="1080">
@@ -61,19 +42,10 @@
         <p class="caption c-menu"><span>Pick a scene from the ◎ menu.</span><i class="rows" data-layout-allow-overflow></i></p>
         <p class="caption c-theme"><span>Themes switch the same way.</span><i class="rows" data-layout-allow-overflow></i></p>
         <p class="caption c-doom"><span>DOOM runs as your wallpaper too.</span><i class="rows" data-layout-allow-overflow></i></p>
-        <p class="pick p-helix"><b>◎</b>Helix</p>
-        <p class="pick p-matrix"><b>◎</b>Matrix</p>
-        <p class="pick p-life"><b>◎</b>Life</p>
-        <p class="pick p-pipes"><b>◎</b>Pipes</p>
-        <p class="pick p-amber"><b>◎</b>Amber</p>
-        <p class="pick p-ice"><b>◎</b>Ice</p>
-        <p class="pick p-ghost"><b>◎</b>Ghost</p>
-        <p class="pick p-doom"><b>◎</b>DOOM</p>
       </div>
 
       <script>
-        // Starts at 0, so local time is the demo's time. Each label lands on
-        // the frame the app starts its dissolve.
+        // Starts at 0, so local time is the demo's time.
         window.__timelines = window.__timelines || {};
         const tl = gsap.timeline({ paused: true });
         const scope = document.querySelector('[data-composition-id="captions"]');
@@ -83,23 +55,10 @@
             .to(el.querySelector(".rows"), { yPercent: 101, duration: 0.38, ease: "steps(5)" }, from)
             .to(el, { opacity: 0, duration: 0.18, ease: "none" }, to - 0.18);
         }
-        function pick(selector, at) {
-          const el = scope.querySelector(selector);
-          tl.fromTo(el, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.14, ease: "power2.out" }, at)
-            .to(el, { opacity: 0, duration: 0.25, ease: "none" }, at + 1.8);
-        }
         caption(".c-live", 0.4, 7.3);
-        caption(".c-menu", 8.1, 14.8);
-        caption(".c-theme", 19.9, 29.1);
-        caption(".c-doom", 29.8, 36.9);
-        pick(".p-helix", 4.4);
-        pick(".p-matrix", 8.0);
-        pick(".p-life", 11.74);
-        pick(".p-pipes", 15.41);
-        pick(".p-amber", 19.82);
-        pick(".p-ice", 23.12);
-        pick(".p-ghost", 26.44);
-        pick(".p-doom", 29.63);
+        caption(".c-menu", 9.0, 15.0);
+        caption(".c-theme", 20.8, 29.1);
+        caption(".c-doom", 30.7, 36.9);
         window.__timelines["captions"] = tl;
       </script>
     </template>
