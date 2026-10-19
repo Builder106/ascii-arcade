@@ -28,6 +28,11 @@ trailer  doom-in   doom           2.62   1.58
 trailer  doom-play doom           7.00   5.74
 trailer  snap      player         31.83  6.26
 trailer  coin      attract        55.00  5.88
+ui-demo  boot      phone-attract  0.00   8.75
+ui-demo  play      phone-player   2.90   5.37
+ui-demo  pick      phone-player   9.30   6.85
+ui-demo  doom      phone-attract  12.30  4.97
+ui-demo  backdrop  wall           0.00   25.94   crop=608:1080
 "
 
 while read -r project clip take start length filter; do

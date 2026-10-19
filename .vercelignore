@@ -7,8 +7,9 @@ e2e/
 # README-only demo assets (site has its own at site/assets/)
 assets/
 
-# HyperFrames video projects
+# HyperFrames video projects (trailer and social cut)
 trailer/
+ui-demo/
 
 # Native non-Cargo platform shells (iOS demo bundle and Android Gradle tree)
 shells/android/

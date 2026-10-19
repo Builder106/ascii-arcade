@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>End card</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          padding: 0 90px;
+          background: #030805;
+          text-align: center;
+        }
+        h1 {
+          margin: 0;
+          font: 700 150px/0.95 "Pixelify Sans", monospace;
+          color: #30d158;
+          opacity: 0;
+        }
+        .line {
+          margin: 48px 0 0;
+          font: 500 64px/1.1 "Handjet", monospace;
+          color: #e9f5ec;
+          opacity: 0;
+        }
+        .note {
+          margin: 18px 0 0;
+          font: 500 46px/1.15 "Handjet", monospace;
+          color: #1f8a3a;
+          opacity: 0;
+        }
+        .url {
+          margin: 80px 0 0;
+          font: 400 40px/1 "IBM Plex Mono", monospace;
+          color: #30d158;
+          opacity: 0;
+        }
+        .insert {
+          margin: 150px 0 0;
+          font: 700 64px/1 "Pixelify Sans", monospace;
+          color: #30d158;
+          opacity: 0;
+        }
+      </style>
+
+      <div id="root" data-composition-id="end" data-width="1080" data-height="1920">
+        <h1>ASCII Arcade</h1>
+        <p class="line">Live ASCII wallpaper for your Mac.</p>
+        <p class="note">Free and open source. macOS 13 or later.</p>
+        <p class="url">ascii-arcade-doom.vercel.app</p>
+        <p class="insert">INSERT COIN</p>
+      </div>
+
+      <script>
+        // Local time: 0 is 25.94 s in the social cut. INSERT COIN is lit for
+        // 0.8 s of every 1.2, like PRESS START on the cabinet's screen.
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+        const scope = document.querySelector('[data-composition-id="end"]');
+        const $ = (s) => scope.querySelector(s);
+        tl.fromTo($("h1"), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, 0.11)
+          .fromTo($(".line"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.41)
+          .fromTo($(".note"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.56)
+          .fromTo($(".url"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.76);
+        for (let t = 0.96; t < 3.4; t += 1.2) tl.set($(".insert"), { opacity: 1 }, t).set($(".insert"), { opacity: 0 }, Math.min(t + 0.8, 3.56));
+        window.__timelines["end"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

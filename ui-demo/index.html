@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ASCII Arcade social cut</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      /* The site's type, declared here so every scene can use it. */
+      @font-face {
+        font-family: "Pixelify Sans";
+        src: url("public/fonts/PixelifySans-400-700.woff2") format("woff2");
+        font-weight: 400 700;
+      }
+      @font-face {
+        font-family: "Handjet";
+        src: url("public/fonts/Handjet-500.woff2") format("woff2");
+        font-weight: 500;
+      }
+      @font-face {
+        font-family: "IBM Plex Mono";
+        src: url("public/fonts/IBMPlexMono-400.woff2") format("woff2");
+        font-weight: 400;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #030805;
+      }
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+      }
+      .ground {
+        position: absolute;
+        inset: 0;
+        background: #030805;
+      }
+      /* The scenes as a wallpaper, dimmed behind the phone. */
+      #backdrop {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.22;
+        z-index: 1;
+      }
+      /* The phone: an 810 by 1440 screen, the capture's own 9:16, in a bezel. */
+      .phone {
+        position: absolute;
+        left: 117px;
+        top: 402px;
+        width: 846px;
+        height: 1476px;
+        border: 3px solid #1f2a22;
+        border-radius: 72px;
+        background: #050806;
+        box-shadow: 0 40px 120px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(48, 209, 88, 0.18);
+        z-index: 2;
+      }
+      .screen {
+        position: absolute;
+        left: 135px;
+        top: 420px;
+        width: 810px;
+        height: 1440px;
+        border-radius: 56px;
+        object-fit: cover;
+        z-index: 3;
+      }
+      [data-composition-src] {
+        position: absolute;
+        inset: 0;
+      }
+      #captions { z-index: 4; }
+      #end { z-index: 5; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="AsciiArcadeUiDemo"
+      data-width="1080"
+      data-height="1920"
+      data-fps="30"
+      data-start="0"
+      data-duration="29.5"
+    >
+      <div class="ground"></div>
+      <video id="backdrop" src="public/clips/backdrop.mp4" data-start="0" data-duration="25.94" data-track-index="0" muted playsinline></video>
+      <div class="phone"></div>
+
+      <!-- The real site on a phone. Cuts sit on beats of the music. -->
+      <video id="boot" class="screen" src="public/clips/boot.mp4" data-start="0" data-duration="8.75" data-track-index="1" muted playsinline></video>
+      <video id="play" class="screen" src="public/clips/play.mp4" data-start="8.75" data-duration="5.37" data-track-index="1" muted playsinline></video>
+      <video id="pick" class="screen" src="public/clips/pick.mp4" data-start="14.12" data-duration="6.85" data-track-index="1" muted playsinline></video>
+      <video id="doom" class="screen" src="public/clips/doom.mp4" data-start="20.97" data-duration="4.97" data-track-index="1" muted playsinline></video>
+
+      <div id="captions" data-track-kind="captions" data-composition-id="captions" data-composition-src="compositions/captions.html" data-start="0" data-duration="25.94" data-track-index="2" data-width="1080" data-height="1920"></div>
+      <div id="end" data-composition-id="end" data-composition-src="compositions/end.html" data-start="25.94" data-duration="3.56" data-track-index="3" data-width="1080" data-height="1920"></div>
+
+      <audio id="music" src="public/audio.mp3" data-start="0" data-duration="29.5" data-track-index="20"></audio>
+      <audio id="sfx-power" src="public/sfx_power.wav" data-start="0.05" data-duration="0.9" data-track-index="21" data-volume="0.6"></audio>
+      <audio id="sfx-swipe-1" src="public/sfx_whoosh.wav" data-start="11.05" data-duration="0.6" data-track-index="22" data-volume="0.35"></audio>
+      <audio id="sfx-swipe-2" src="public/sfx_whoosh.wav" data-start="13.25" data-duration="0.6" data-track-index="22" data-volume="0.35"></audio>
+      <audio id="sfx-coin" src="public/sfx_coin.wav" data-start="26.9" data-duration="0.55" data-track-index="21" data-volume="0.6"></audio>
+    </div>
+    <script>
+      // "Pixel Peeker Polka - faster" from its start, fading over the end card.
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#music", { volume: 1 }, { volume: 0, duration: 1.5, ease: "none" }, 28.0);
+      window.__timelines.AsciiArcadeUiDemo = tl;
+    </script>
+  </body>
+</html>

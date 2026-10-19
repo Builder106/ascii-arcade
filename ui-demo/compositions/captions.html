@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Captions</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        /* Captions sit in the band above the phone, in a hole cut out of
+           the grid, and redraw top to bottom in rows. */
+        #root {
+          position: absolute;
+          inset: 0;
+        }
+        .caption {
+          position: absolute;
+          left: 60px;
+          right: 60px;
+          top: 92px;
+          margin: 0;
+          padding: 22px 30px 26px;
+          overflow: hidden;
+          background: #030805;
+          color: #30d158;
+          font: 600 76px/1.08 "Pixelify Sans", monospace;
+          text-align: center;
+          opacity: 0;
+        }
+        /* Each phrase is a line of its own. */
+        .caption span {
+          display: block;
+        }
+        .rows {
+          position: absolute;
+          inset: 0;
+          display: block;
+          background: #030805;
+        }
+      </style>
+
+      <div id="root" data-composition-id="captions" data-width="1080" data-height="1920">
+        <p class="caption c-live"><span>Your Mac desktop,</span><span>running live ASCII.</span><i class="rows" data-layout-allow-overflow></i></p>
+        <p class="caption c-demo"><span>Nobody playing?</span><span>It runs its own demo.</span><i class="rows" data-layout-allow-overflow></i></p>
+        <p class="caption c-play"><span>Tap to play.</span><span>Swipe the stations.</span><i class="rows" data-layout-allow-overflow></i></p>
+        <p class="caption c-pick"><span>Five scenes.</span><span>Four themes.</span><i class="rows" data-layout-allow-overflow></i></p>
+        <p class="caption c-doom"><span>Play DOOM</span><span>as your wallpaper.</span><i class="rows" data-layout-allow-overflow></i></p>
+      </div>
+
+      <script>
+        // Starts at 0, so local time is the social cut's time.
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+        const scope = document.querySelector('[data-composition-id="captions"]');
+        function caption(selector, from, to) {
+          const el = scope.querySelector(selector);
+          tl.set(el, { opacity: 1 }, from)
+            .to(el.querySelector(".rows"), { yPercent: 101, duration: 0.38, ease: "steps(5)" }, from)
+            .to(el, { opacity: 0, duration: 0.15, ease: "none" }, to - 0.15);
+        }
+        caption(".c-live", 0.4, 3.37);
+        caption(".c-demo", 3.5, 8.75);
+        caption(".c-play", 8.85, 14.12);
+        caption(".c-pick", 14.2, 20.97);
+        caption(".c-doom", 21.05, 25.94);
+        window.__timelines["captions"] = tl;
+      </script>
+    </template>
+  </body>
+</html>
