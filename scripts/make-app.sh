@@ -40,7 +40,7 @@ BIN_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
 BIN="$BIN_DIR/$EXEC_NAME"
 [ -x "$BIN" ] || { echo "build did not produce $BIN" >&2; exit 1; }
 
-echo "Assembling $APP…"
+echo "Assembling ${APP}…"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/$EXEC_NAME"
