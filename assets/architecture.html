@@ -1,50 +1,166 @@
 <!doctype html>
 <html lang="en">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ASCII Arcade scene flow</title>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
-<style>html,body{margin:0;background:#fafafa}.diagram-container{width:100%;overflow-x:auto}svg{display:block;width:100%;min-width:960px}@media print{.diagram-container{overflow-x:visible}svg{min-width:0}}</style>
-<div class="diagram-container">
-<svg viewBox="0 0 960 600" role="img" aria-labelledby="architecture-title architecture-desc" xmlns="http://www.w3.org/2000/svg">
-<title id="architecture-title">ASCII Arcade scene flow</title>
-<desc id="architecture-desc">The menu bar and global key monitor control SceneView. SceneView asks the selected AsciiScene for a frame. Donut and helix use a pure-math generator; DOOM launches doom_ascii through a PTY, parses its ANSI stream, and returns a character grid snapshot.</desc>
-<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#718096"/></marker></defs>
-<rect width="960" height="600" fill="#fafafa"/>
-<text x="40" y="64" fill="#1c1c1e" font-family="'Instrument Serif', Georgia, serif" font-size="32">ASCII Arcade scene flow</text>
-<path d="M 40 88 H 920" stroke="#1c1c1e" stroke-opacity=".17"/>
-<path d="M 210 308 H 260" fill="none" stroke="#718096" stroke-width="1.6" marker-end="url(#arrow)"/>
-<path d="M 430 308 H 480" fill="none" stroke="#718096" stroke-width="1.6" marker-end="url(#arrow)"/>
-<path d="M 660 286 H 690 Q 698 286 698 278 V 203 Q 698 195 706 195 H 730" fill="none" stroke="#718096" stroke-width="1.6" marker-end="url(#arrow)"/>
-<path d="M 660 326 H 690 Q 698 326 698 334 V 423 Q 698 431 706 431 H 730" fill="none" stroke="#718096" stroke-width="1.6" marker-end="url(#arrow)"/>
-<path d="M 825 508 V 540 Q 825 548 817 548 H 578 Q 570 548 570 540 V 368" fill="none" stroke="#c43b2e" stroke-width="1.6" marker-end="url(#arrow)"/>
-<rect x="40" y="260" width="170" height="108" rx="6" fill="#ffffff" stroke="#c9d2dc" stroke-width="1"/>
-<text x="56" y="288" fill="#1c1c1e" font-family="'Geist', Arial, sans-serif" font-size="16" font-weight="600">Desktop controls</text>
-<path d="M 56 300 H 194" stroke="#c9d2dc" stroke-width=".8"/>
-<text x="56" y="320" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">menu / theme picker</text>
-<text x="56" y="339" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">global DOOM keys</text>
-<rect x="260" y="260" width="170" height="108" rx="6" fill="#ffffff" stroke="#c43b2e" stroke-width="2"/>
-<text x="276" y="288" fill="#1c1c1e" font-family="'Geist', Arial, sans-serif" font-size="16" font-weight="600">SceneView</text>
-<path d="M 276 300 H 414" stroke="#c43b2e" stroke-width=".8"/>
-<text x="276" y="320" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">desktop-level window</text>
-<text x="276" y="339" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">CRT text rendering</text>
-<rect x="480" y="260" width="180" height="108" rx="6" fill="#ffffff" stroke="#c9d2dc" stroke-width="1"/>
-<text x="496" y="288" fill="#1c1c1e" font-family="'Geist', Arial, sans-serif" font-size="16" font-weight="600">AsciiScene</text>
-<path d="M 496 300 H 644" stroke="#c9d2dc" stroke-width=".8"/>
-<text x="496" y="320" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">selected scene supplies</text>
-<text x="496" y="339" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">each frame</text>
-<rect x="730" y="145" width="190" height="108" rx="6" fill="#ffffff" stroke="#c9d2dc" stroke-width="1"/>
-<text x="746" y="173" fill="#1c1c1e" font-family="'Geist', Arial, sans-serif" font-size="16" font-weight="600">Donut / helix</text>
-<path d="M 746 185 H 904" stroke="#c9d2dc" stroke-width=".8"/>
-<text x="746" y="205" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">ShapeFrameGenerator</text>
-<text x="746" y="224" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">pure math</text>
-<rect x="730" y="380" width="190" height="128" rx="6" fill="#eef5f7" stroke="#c9d2dc" stroke-width="1"/>
-<text x="746" y="408" fill="#1c1c1e" font-family="'Geist', Arial, sans-serif" font-size="16" font-weight="600">DOOM scene</text>
-<path d="M 746 420 H 904" stroke="#c9d2dc" stroke-width=".8"/>
-<text x="746" y="440" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">PTYProcess → doom_ascii</text>
-<text x="746" y="459" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">ANSI → screen buffer</text>
-<text x="746" y="478" fill="#4d5a6b" font-family="'Geist Mono', monospace" font-size="11">snapshot → scene</text>
-
+<title>ASCII Arcade scene rendering</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+:root { color-scheme: light dark; --bg: #ffffff; --ink: #1f2328; --muted: #59636e; --edge: #59636e; --box: #8c959f; --group: #d1d9e0; --groupfill: #f6f8fa; --accent: #0969da; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0d1117; --ink: #f0f6fc; --muted: #9198a1; --edge: #9198a1; --box: #656c76; --group: #3d444d; --groupfill: #151b23; --accent: #4493f8; } }
+html, body { margin: 0; background: var(--bg); }
+main { max-width: 720px; margin: 0 auto; }
+svg { display: block; width: 100%; height: auto; }
+text { font-family: "IBM Plex Sans", system-ui, sans-serif; fill: var(--ink); }
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.muted { fill: var(--muted); }
+.accent-text { fill: var(--accent); }
+.bg, .halo { fill: var(--bg); }
+.node { fill: var(--bg); stroke-width: 1.25; }
+.node.box { stroke: var(--box); }
+.node.accent { stroke: var(--accent); stroke-width: 2; }
+.group { fill: var(--groupfill); stroke: var(--group); }
+.boundary { fill: none; stroke: var(--box); stroke-dasharray: 6 6; }
+.edge { fill: none; stroke: var(--edge); stroke-width: 1.5; }
+.edge.accent { stroke: var(--accent); stroke-width: 2; }
+.edge.dashed { stroke-dasharray: 6 5; }
+.lifeline { fill: none; stroke: var(--group); stroke-dasharray: 4 5; }
+.tip { fill: var(--edge); }
+.tip-accent { fill: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 286" role="img" aria-labelledby="diagram-title diagram-desc">
+<title id="diagram-title">ASCII Arcade scene rendering</title>
+<desc id="diagram-desc">In the Mac app, the menu bar picks a scene and a theme. SceneView asks the selected AsciiScene for a frame on every tick. Computed scenes such as the donut, helix, and pipes build each frame from math. DOOM runs doom_ascii in a pseudo-terminal and rebuilds frames from its ANSI output in a screen buffer. While DOOM is on screen, global key capture sends keystrokes to it.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="tip" d="M0,0 L10,5 L0,10 Z"/></marker>
+<marker id="arrow-accent" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="tip-accent" d="M0,0 L10,5 L0,10 Z"/></marker>
+</defs>
+<rect class="bg" width="720" height="286"/>
+<rect class="group" x="486" y="16" width="232" height="254" rx="8"/>
+<text x="500" y="40" font-size="14" class="muted" font-weight="600">Scenes (AsciiScene)</text>
+<rect class="node box" x="16" y="16" width="170" height="67" rx="6"/>
+<text x="30" y="43" font-size="16" font-weight="600">Menu bar</text>
+<text x="30" y="64" font-size="14" class="muted">scene and theme</text>
+<rect class="node box" x="246" y="16" width="200" height="67" rx="6"/>
+<text x="260" y="43" font-size="16" class="mono" font-weight="600">SceneView</text>
+<text x="260" y="64" font-size="14" class="muted">draws each frame</text>
+<rect class="node box" x="502" y="52" width="200" height="88" rx="6"/>
+<text x="516" y="79" font-size="16" font-weight="600">Computed scenes</text>
+<text x="516" y="100" font-size="14" class="muted">donut, helix, pipes</text>
+<text x="516" y="121" font-size="14" class="muted mono">frame(atTime:)</text>
+<rect class="node box" x="502" y="166" width="200" height="88" rx="6"/>
+<text x="516" y="193" font-size="16" font-weight="600">DOOM</text>
+<text x="516" y="214" font-size="14" class="muted">doom_ascii in a PTY</text>
+<text x="516" y="235" font-size="14" class="muted">ANSI to screen buffer</text>
+<rect class="node box" x="246" y="198.5" width="200" height="67" rx="6"/>
+<text x="260" y="225.5" font-size="16" font-weight="600">Keyboard</text>
+<text x="260" y="246.5" font-size="14" class="muted">while DOOM is up</text>
+<path class="edge" d="M186,49.5 L246,49.5" marker-end="url(#arrow)"/>
+<rect class="halo" x="192.4" y="28.5" width="47.2" height="19"/>
+<text x="216" y="41.5" font-size="14" class="label" text-anchor="middle">picks</text>
+<path class="edge" d="M446,49.5 L474,49.5 L474,96 L502,96" marker-end="url(#arrow)"/>
+<path class="edge" d="M446,49.5 L474,49.5 L474,210 L502,210" marker-end="url(#arrow)"/>
+<path class="edge" d="M446,232 L502,232" marker-end="url(#arrow)"/>
+<rect class="halo" x="454.32" y="211" width="39.36" height="19"/>
+<text x="474" y="224" font-size="14" class="label" text-anchor="middle">keys</text>
 </svg>
-</div>
+</main>
+<script type="application/json" id="diagram-spec">
+{
+  "title": "ASCII Arcade scene rendering",
+  "desc": "In the Mac app, the menu bar picks a scene and a theme. SceneView asks the selected AsciiScene for a frame on every tick. Computed scenes such as the donut, helix, and pipes build each frame from math. DOOM runs doom_ascii in a pseudo-terminal and rebuilds frames from its ANSI output in a screen buffer. While DOOM is on screen, global key capture sends keystrokes to it.",
+  "width": 720,
+  "groups": [
+    {
+      "x": 486,
+      "y": 16,
+      "w": 232,
+      "h": 254,
+      "label": "Scenes (AsciiScene)"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "menu",
+      "x": 16,
+      "y": 16,
+      "w": 170,
+      "title": "Menu bar",
+      "lines": [
+        "scene and theme"
+      ]
+    },
+    {
+      "id": "view",
+      "x": 246,
+      "y": 16,
+      "w": 200,
+      "title": "SceneView",
+      "mono_title": true,
+      "lines": [
+        "draws each frame"
+      ]
+    },
+    {
+      "id": "comp",
+      "x": 502,
+      "y": 52,
+      "w": 200,
+      "title": "Computed scenes",
+      "lines": [
+        "donut, helix, pipes",
+        {
+          "text": "frame(atTime:)",
+          "mono": true
+        }
+      ]
+    },
+    {
+      "id": "doom",
+      "x": 502,
+      "y": 166,
+      "w": 200,
+      "title": "DOOM",
+      "lines": [
+        "doom_ascii in a PTY",
+        "ANSI to screen buffer"
+      ]
+    },
+    {
+      "id": "keys",
+      "x": 246,
+      "y": 198.5,
+      "w": 200,
+      "title": "Keyboard",
+      "lines": [
+        "while DOOM is up"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "menu.r",
+      "to": "view.l",
+      "label": "picks"
+    },
+    {
+      "from": "view.r",
+      "to": "comp.l"
+    },
+    {
+      "from": "view.r",
+      "to": "doom.l"
+    },
+    {
+      "from": "keys.r",
+      "to": "doom.l@0.75",
+      "label": "keys"
+    }
+  ]
+}
+</script>
+</body>
 </html>

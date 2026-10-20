@@ -188,7 +188,10 @@ and global key capture, and so far only the Mac app has those.
 
 ## How it works
 
-![ASCII Arcade scene flow](assets/architecture.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/architecture-dark.png">
+  <img src="assets/architecture.png" alt="The menu bar picks a scene for SceneView, which asks the selected scene for each frame. Computed scenes such as the donut, helix, and pipes build frames from math. DOOM runs doom_ascii in a pseudo-terminal and also receives keystrokes from the keyboard." width="720">
+</picture>
 
 You pick a scene and theme in the menu bar, and SceneView draws each frame.
 Donut and Helix are just math. DOOM runs `doom_ascii` in a pseudo-terminal,
