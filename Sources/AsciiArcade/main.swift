@@ -97,17 +97,19 @@ final class SceneView: NSView {
     private let scale: CGFloat = 0.92
     private let scanlinesLayer = CAReplicatorLayer()
     private let scanlineStripeLayer = CALayer()
+    /// Fast direct lookup table for ASCII 0..<128 characters, avoiding dictionary hashing.
+    private var asciiGlyphTable = [CGGlyph](repeating: 0, count: 128)
     /// Character → glyph and RGB → CGColor caches so the hot draw path never
     /// re-measures the font or re-creates colours. (RGBColor qualified: AppKit
     /// transitively imports a legacy Quickdraw `RGBColor`.)
     private var glyphCache: [Character: CGGlyph] = [:]
     private var cgColorCache: [AsciiArcadeCore.RGBColor: CGColor] = [:]
-    /// Throttle redraws to ~30fps regardless of the display's refresh rate —
-    /// ASCII animation doesn't need 60/120Hz and the text fill is the hot path.
-    /// The threshold sits just under one 30fps period (not exactly on it) so a
-    /// 60Hz panel fires reliably on every 2nd refresh instead of slipping to the
-    /// 3rd; a 120Hz panel fires on every 4th. Result: a steady 30fps.
-    private let minFrameInterval: CFTimeInterval = 1.0 / 34.0
+    /// Throttle redraws: ~20fps for ambient wallpaper (every 3rd refresh on 60Hz, 6th on 120Hz),
+    /// which cuts CPU significantly while keeping text animations perfectly smooth.
+    /// Interactive scenes (DOOM) stay at ~30fps for crisp controller response.
+    private var minFrameInterval: CFTimeInterval {
+        currentScene.isInteractive ? (1.0 / 34.0) : (1.0 / 22.0)
+    }
     private var lastRedrawTime: CFTimeInterval = 0
     /// Set ASCII_FPS=1 to log average draw time + effective FPS once a second.
     private let instrument = ProcessInfo.processInfo.environment["ASCII_FPS"] != nil
@@ -124,13 +126,15 @@ final class SceneView: NSView {
     /// Last grid size passed to `currentScene.setGrid`, so unchanged layouts
     /// skip the redundant per-frame call.
     private var lastGridSize: (w: Int, h: Int)?
-    /// The last frame actually painted. It is the source snapshot for the next
-    /// scene handoff, including if a new selection interrupts an active one.
-    private var lastFrame: RenderedFrame?
+    /// Reusable cell buffer to avoid allocating 11k+ cells on every frame tick.
+    private var reusableCells: [RenderedCell] = []
     private var outgoingFrame: RenderedFrame?
     private var sceneTransition: SceneTransition?
     private var transitionStartTime: CFAbsoluteTime?
     private let transitionDuration: CFTimeInterval = 0.9
+
+    private var isSleeping = false
+    private var isOccluded = false
 
     init(frame: CGRect, scenes: [any AsciiScene]) {
         self.scenes = scenes
@@ -140,6 +144,13 @@ final class SceneView: NSView {
         self.cellCharWidth = max(1.0, ("@" as NSString).size(withAttributes: [.font: f]).width)
         self.cellLineHeight = f.ascender - f.descender + f.leading
         self.cellAscent = f.ascender
+        for i in 0..<128 {
+            var u = UniChar(i)
+            var g: CGGlyph = 0
+            if CTFontGetGlyphsForCharacters(ctFont, &u, &g, 1) {
+                asciiGlyphTable[i] = g
+            }
+        }
         super.init(frame: frame)
         // Seed every scene with the starting theme's base colour.
         let rgb = SceneView.rgbColor(from: availableThemes[0].textColor)
@@ -165,7 +176,7 @@ final class SceneView: NSView {
     /// to the new scene one character at a time instead of cutting immediately.
     func selectScene(_ index: Int) {
         guard index >= 0, index < scenes.count, index != currentIndex else { return }
-        outgoingFrame = lastFrame
+        outgoingFrame = snapshotCurrentFrame()
         transitionStartTime = outgoingFrame == nil ? nil : CFAbsoluteTimeGetCurrent()
         sceneTransition = nil
         scenes[currentIndex].stop()
@@ -176,6 +187,16 @@ final class SceneView: NSView {
         // the previous scene's — each scene tracks its own grid state.
         lastGridSize = nil
         needsDisplay = true
+    }
+
+    private func snapshotCurrentFrame() -> RenderedFrame? {
+        let insetX = bounds.width * (1.0 - scale) / 2.0
+        let insetY = bounds.height * (1.0 - scale) / 2.0
+        let paddedRect = bounds.insetBy(dx: insetX, dy: insetY).insetBy(dx: 6, dy: 6)
+        let t = CFAbsoluteTimeGetCurrent() - startTime
+        guard let current = makeFrame(for: currentScene, atTime: t, in: paddedRect) else { return nil }
+        return RenderedFrame(width: current.width, height: current.height,
+                             cells: Array(current.cells), isBitmap: current.isBitmap)
     }
 
     func cycleScene() {
@@ -192,20 +213,40 @@ final class SceneView: NSView {
         currentScene.stop()
     }
 
-    /// Pause rendering when the displays sleep — stops the display link so we
-    /// stop issuing draws (and stop spinning DOOM/Matrix/fire) while asleep.
+    /// Pause rendering when the displays sleep or screen locks — stops the display link
+    /// so we stop issuing draws (and stop spinning DOOM/Matrix/fire) while asleep.
     func pause() {
-        if let displayLink = displayLink { CVDisplayLinkStop(displayLink) }
+        isSleeping = true
+        updateDisplayLinkState()
     }
 
-    /// Resume after wake: reset the clock so the time delta doesn't jump, then
+    /// Resume after wake or unlock: reset the clock so the time delta doesn't jump, then
     /// restart the display link.
     func resume() {
-        startTime = CFAbsoluteTimeGetCurrent()
-        if let displayLink = displayLink, !CVDisplayLinkIsRunning(displayLink) {
-            CVDisplayLinkStart(displayLink)
+        isSleeping = false
+        updateDisplayLinkState()
+    }
+
+    /// Pause or resume rendering based on desktop window occlusion.
+    func setOccluded(_ occluded: Bool) {
+        isOccluded = occluded
+        updateDisplayLinkState()
+    }
+
+    private func updateDisplayLinkState() {
+        guard let displayLink = displayLink else { return }
+        let shouldRun = !isSleeping && !isOccluded
+        if shouldRun {
+            if !CVDisplayLinkIsRunning(displayLink) {
+                startTime = CFAbsoluteTimeGetCurrent()
+                CVDisplayLinkStart(displayLink)
+                needsDisplay = true
+            }
+        } else {
+            if CVDisplayLinkIsRunning(displayLink) {
+                CVDisplayLinkStop(displayLink)
+            }
         }
-        needsDisplay = true
     }
 
     func applyTheme(_ theme: Theme) {
@@ -294,7 +335,6 @@ final class SceneView: NSView {
             frame = incoming
         }
 
-        lastFrame = frame
         draw(frame, in: paddedRect, viewHeight: viewH, context: ctx)
 
         if instrument {
@@ -335,12 +375,23 @@ final class SceneView: NSView {
             lastGridSize = (w, h)
         }
 
-        var cells = Array(repeating: RenderedCell.blank, count: w * h)
+        let total = w * h
+        if reusableCells.count != total {
+            reusableCells = Array(repeating: RenderedCell.blank, count: total)
+        }
+
         if let colored = scene.coloredFrame(atTime: t) {
-            for index in 0..<min(cells.count, colored.chars.count) {
-                cells[index] = RenderedCell(character: colored.chars[index], color: colored.colors[index])
+            let count = min(total, colored.chars.count)
+            for index in 0..<count {
+                reusableCells[index] = RenderedCell(character: colored.chars[index], color: colored.colors[index])
+            }
+            for index in count..<total {
+                reusableCells[index] = .blank
             }
         } else {
+            for index in 0..<total {
+                reusableCells[index] = .blank
+            }
             var row = 0
             var col = 0
             for ch in scene.frame(atTime: t) {
@@ -348,13 +399,13 @@ final class SceneView: NSView {
                     row += 1
                     col = 0
                 } else if row < h, col < w {
-                    cells[row * w + col] = RenderedCell(character: ch, color: nil)
+                    reusableCells[row * w + col] = RenderedCell(character: ch, color: nil)
                     col += 1
                 }
                 if row >= h { break }
             }
         }
-        return RenderedFrame(width: w, height: h, cells: cells, isBitmap: false)
+        return RenderedFrame(width: w, height: h, cells: reusableCells, isBitmap: false)
     }
 
     private func blend(_ outgoing: RenderedFrame, into incoming: RenderedFrame,
@@ -402,26 +453,25 @@ final class SceneView: NSView {
             batch.glyphs.removeAll(keepingCapacity: true)
             batch.positions.removeAll(keepingCapacity: true)
         }
-        func emit(_ cell: RenderedCell, row: Int, col: Int) {
-            guard cell.character != " ", let g = glyph(for: cell.character) else { return }
-            let batch: GlyphBatch
-            if let existing = batchPool[cell.color] {
-                batch = existing
-            } else {
-                batch = GlyphBatch()
-                batchPool[cell.color] = batch
-            }
-            batch.glyphs.append(g)
-            batch.positions.append(CGPoint(
-                x: originX + CGFloat(col) * charW,
-                y: viewHeight - (originY + CGFloat(row) * lineH + ascent)
-            ))
-        }
 
         for row in 0..<frame.height {
+            let rowY = viewHeight - (originY + CGFloat(row) * lineH + ascent)
             let base = row * frame.width
             for col in 0..<frame.width {
-                emit(frame.cells[base + col], row: row, col: col)
+                let cell = frame.cells[base + col]
+                guard cell.character != " ", let g = glyph(for: cell.character) else { continue }
+                let batch: GlyphBatch
+                if let existing = batchPool[cell.color] {
+                    batch = existing
+                } else {
+                    batch = GlyphBatch()
+                    batchPool[cell.color] = batch
+                }
+                batch.glyphs.append(g)
+                batch.positions.append(CGPoint(
+                    x: originX + CGFloat(col) * charW,
+                    y: rowY
+                ))
             }
         }
 
@@ -500,7 +550,12 @@ final class SceneView: NSView {
 
     /// Look up (and cache) the glyph for a single-cell character. Returns nil for
     /// blanks, missing glyphs, or anything that isn't a single UTF-16 unit.
+    @inline(__always)
     private func glyph(for ch: Character) -> CGGlyph? {
+        if let ascii = ch.asciiValue, ascii < 128 {
+            let g = asciiGlyphTable[Int(ascii)]
+            return g == 0 ? nil : g
+        }
         if let cached = glyphCache[ch] { return cached == 0 ? nil : cached }
         let units = Array(ch.utf16)
         guard units.count == 1 else { glyphCache[ch] = 0; return nil }
@@ -881,12 +936,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         } as AnyObject?
 
-        // Pause/resume rendering when the displays sleep, to save power.
+        // Pause/resume rendering when the displays sleep or lock, or when windows occlude, to save power.
         let nc = NSWorkspace.shared.notificationCenter
         nc.addObserver(self, selector: #selector(screensDidSleep),
                        name: NSWorkspace.screensDidSleepNotification, object: nil)
         nc.addObserver(self, selector: #selector(screensDidWake),
                        name: NSWorkspace.screensDidWakeNotification, object: nil)
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowOcclusionDidChange(_:)),
+            name: NSWindow.didChangeOcclusionStateNotification, object: nil
+        )
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(screensDidSleep),
+            name: NSNotification.Name("com.apple.screenIsLocked"), object: nil
+        )
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(screensDidWake),
+            name: NSNotification.Name("com.apple.screenIsUnlocked"), object: nil
+        )
 
         // Poll system idle time for the auto-cycle slideshow.
         idleTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
@@ -899,12 +967,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         idleTimer?.invalidate()
         blinkTimer?.invalidate()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
+        DistributedNotificationCenter.default().removeObserver(self)
         if recordingActive { recorder.stop() }
         // Tear down any running DOOM PTY.
         for view in views { view.stopCurrentScene() }
     }
 
-    // MARK: - Sleep / wake
+    // MARK: - Sleep / wake / occlusion
 
     @objc func screensDidSleep() {
         isAsleep = true
@@ -914,6 +984,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func screensDidWake() {
         isAsleep = false
         for view in views { view.resume() }
+    }
+
+    @objc func windowOcclusionDidChange(_ notification: Notification) {
+        guard let win = notification.object as? NSWindow,
+              let idx = windows.firstIndex(of: win),
+              idx < views.count else { return }
+        let isVisible = win.occlusionState.contains(.visible)
+        views[idx].setOccluded(!isVisible)
     }
 
     // MARK: - Idle auto-cycle

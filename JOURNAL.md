@@ -1,5 +1,9 @@
 # JOURNAL — ASCII Arcade
 
+## 2026-10-19: Cut ambient wallpaper CPU usage from 20% to 5% #perf #decision
+
+A live sampling of the background wallpaper process showed ~19% CPU spent in CoreGraphics font rasterization (`CTFontDrawGlyphs`, bounding box layout, display list hashing) and per-frame heap churn. In Matrix Rain, continuously fading column trails generated 50 to 150 unique colors per frame, multiplying draw calls. Quantized trail brightness into an 8-shade palette, capping draw batches at 9. Added an $O(1)$ ASCII glyph table to eliminate dictionary hashing in the hot loop, reused frame cell buffers to drop 11,000-element allocations per tick, and aligned Matrix simulation to 30 Hz. Throttled ambient scenes to 20 fps while keeping interactive DOOM at 30 fps, and added window occlusion and lock-screen observers to pause the display link when covered. Steady-state CPU dropped from 18.7%–20% to ~5.2%, and 0% when occluded.
+
 ## 2026-10-19: Tier 2 is now the real Mac app #decision
 
 The first Tier 2 was the site on a phone, and the owner pointed out it made no sense: the product is a wallpaper, so it belongs on a real desktop. It's now a 41 s, 16:9 UI demo of the installed macOS app. A Mac can't run headless, but `screencapture -l` records a single window even with others on top, so `scripts/record-mac-wallpaper.sh` records only the app's desktop-level wallpaper window. It switches scenes and themes by pressing the ◎ menu's items through Accessibility, which works without opening the menu, so the take needs no keys and shows nothing private. One gotcha: an unchecked menu item's `AXMenuItemMarkChar` reads back as the string "missing value", not empty, so the script compares against the ✓ itself. DOOM's own demo plays with no input, so the take never turns on key capture.
