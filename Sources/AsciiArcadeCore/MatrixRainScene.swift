@@ -19,9 +19,14 @@ public final class MatrixRainScene: SteppedScene {
 
     private var columns: [Column] = []
     private var rng = SeededGenerator(seed: 0x5EED_1234)
+    private var cachedHeadColor: RGBColor = RGBColor.white
+    private var palette: [RGBColor] = []
+    private var cachedChars: [Character] = []
+    private var cachedColors: [RGBColor?] = []
 
     public init() {
         super.init(displayName: "Matrix")
+        updatePalette()
     }
 
     public override var settings: [SceneSetting] {
@@ -39,12 +44,31 @@ public final class MatrixRainScene: SteppedScene {
         ]
     }
 
-    public override var stepInterval: Double { 1.0 / 60.0 }
+    public override var stepInterval: Double { 1.0 / 30.0 }
 
     private var baseSpeed: Double { settingValue("speed", default: 16) }
     private var density: Double { settingValue("density", default: 0.72) }
 
+    public override func applyBaseColor(_ color: RGBColor) {
+        super.applyBaseColor(color)
+        updatePalette()
+    }
+
+    private func updatePalette() {
+        cachedHeadColor = RGBColor.white.mixed(with: baseColor, t: 0.30)
+        // Quantize trail fade into 8 discrete brightness steps.
+        // This collapses 100+ CoreText draw batches per frame down to <= 9,
+        // drastically reducing CoreGraphics display-list and state-change overhead.
+        palette = (0..<8).map { i in
+            let factor = 0.08 + 0.92 * (Double(i) / 7.0)
+            return baseColor.scaled(factor)
+        }
+    }
+
     public override func reset() {
+        let size = width * height
+        cachedChars = Array(repeating: Character(" "), count: size)
+        cachedColors = Array(repeating: RGBColor?.none, count: size)
         rng = SeededGenerator(seed: 0x5EED_1234 ^ UInt64(width &* 2654435761 &+ height))
         columns = (0..<width).map { _ in makeColumn(spawnAbove: true) }
         // Stagger initial activation so the screen fills in rather than all at once.
@@ -82,26 +106,37 @@ public final class MatrixRainScene: SteppedScene {
 
     public override func render() -> ColoredFrame {
         let size = width * height
-        var chars = Array(repeating: Character(" "), count: size)
-        var colors = Array(repeating: RGBColor?.none, count: size)
-        let headColor = RGBColor.white.mixed(with: baseColor, t: 0.30)
+        if cachedChars.count != size {
+            cachedChars = Array(repeating: Character(" "), count: size)
+            cachedColors = Array(repeating: RGBColor?.none, count: size)
+        } else {
+            for i in 0..<size {
+                cachedChars[i] = " "
+                cachedColors[i] = nil
+            }
+        }
+        if palette.isEmpty {
+            updatePalette()
+        }
 
         for (x, col) in columns.enumerated() where col.active {
             let headRow = Int(col.head.rounded(.down))
+            let trailMax = max(1, col.trail)
             for d in 0..<col.trail {
                 let row = headRow - d
                 guard row >= 0, row < height else { continue }
                 let idx = row * width + x
-                chars[idx] = col.glyphs[row % col.glyphs.count]
+                cachedChars[idx] = col.glyphs[row % col.glyphs.count]
                 if d == 0 {
-                    colors[idx] = headColor
+                    cachedColors[idx] = cachedHeadColor
                 } else {
-                    let brightness = max(0.06, 1.0 - Double(d) / Double(col.trail))
-                    colors[idx] = baseColor.scaled(brightness)
+                    let fraction = Double(d) / Double(trailMax)
+                    let paletteIdx = max(0, min(palette.count - 1, Int((1.0 - fraction) * Double(palette.count))))
+                    cachedColors[idx] = palette[paletteIdx]
                 }
             }
         }
-        return ColoredFrame(width: width, height: height, chars: chars, colors: colors)
+        return ColoredFrame(width: width, height: height, chars: cachedChars, colors: cachedColors)
     }
 
     private func makeColumn(spawnAbove: Bool) -> Column {
