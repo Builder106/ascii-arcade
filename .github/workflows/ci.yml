@@ -413,15 +413,15 @@ jobs:
       - name: Format check
         run: cargo fmt --all --check
       - name: Clippy (engine crates + web shell)
-        run: cargo clippy -p aa-core -p aa-render -p aa-doom -p aa-web --all-targets -- -D warnings
+        run: cargo clippy -p aa-core -p aa-render -p aa-doom -p aa-web --all-targets -- -D warnings -D clippy::disallowed_types
       - name: Clippy (web shell, doom feature)
-        run: cargo clippy -p aa-web --all-targets --features doom -- -D warnings
+        run: cargo clippy -p aa-web --all-targets --features doom -- -D warnings -D clippy::disallowed_types
       - name: Clippy (CLI — no native deps on macOS/Windows)
         if: matrix.os != 'ubuntu-24.04'
-        run: cargo clippy -p aa --all-targets -- -D warnings
+        run: cargo clippy -p aa --all-targets -- -D warnings -D clippy::disallowed_types
       - name: Clippy (CLI, doom feature)
         if: matrix.os != 'ubuntu-24.04'
-        run: cargo clippy -p aa --all-targets --features doom -- -D warnings
+        run: cargo clippy -p aa --all-targets --features doom -- -D warnings -D clippy::disallowed_types
       - name: Test (engine crates)
         run: cargo test -p aa-core -p aa-render -p aa-doom
       - name: Install cargo-llvm-cov
@@ -480,15 +480,15 @@ jobs:
       - name: Build shell
         run: cargo build -p ${{ matrix.crate }}
       - name: Clippy shell
-        run: cargo clippy -p ${{ matrix.crate }} -- -D warnings
+        run: cargo clippy -p ${{ matrix.crate }} -- -D warnings -D clippy::disallowed_types
       - name: Build CLI
         run: cargo build -p aa
       - name: Build CLI (doom feature)
         run: cargo build -p aa --features doom
       - name: Clippy CLI
-        run: cargo clippy -p aa -- -D warnings
+        run: cargo clippy -p aa -- -D warnings -D clippy::disallowed_types
       - name: Clippy CLI (doom feature)
-        run: cargo clippy -p aa --features doom -- -D warnings
+        run: cargo clippy -p aa --features doom -- -D warnings -D clippy::disallowed_types
       - name: Test CLI
         run: cargo test -p aa
       - name: Test CLI (doom feature)

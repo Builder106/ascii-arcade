@@ -120,7 +120,7 @@ mod tests {
     fn uncoloured_cells_use_zero_sentinel() {
         let mut e = Engine::new("donut", 20, 10).expect("donut exists");
         e.render(0.5);
-        assert!(e.colors().iter().any(|&c| c == 0), "donut is monochrome");
+        assert!(e.colors().contains(&0), "donut is monochrome");
     }
 
     #[test]

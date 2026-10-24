@@ -1,3 +1,6 @@
 # ascii-arcade Clippy configuration
 # Lint levels and groups are configured via Cargo.toml or CLI flags:
 # cargo clippy --all-targets -- -D warnings
+disallowed-types = [
+  { path = "std::any::Any" },
+]
