@@ -1,33 +1,15 @@
 import Clutter from 'gi://Clutter';
 import Cogl from 'gi://Cogl';
 import Gio from 'gi://Gio';
+import GioUnix from 'gi://GioUnix';
 import GLib from 'gi://GLib';
+import GLibUnix from 'gi://GLibUnix';
 import St from 'gi://St';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
-
-async function readExactly(stream, count, cancellable) {
-    const data = new Uint8Array(count);
-    let offset = 0;
-    while (offset < count) {
-        const bytes = await new Promise((resolve, reject) => {
-            stream.read_bytes_async(count - offset, GLib.PRIORITY_DEFAULT, cancellable,
-                (source, result) => {
-                    try { resolve(source.read_bytes_finish(result)); }
-                    catch (error) { reject(error); }
-                });
-        });
-        if (bytes.get_size() === 0)
-            throw new Error('Wallpaper renderer closed its frame stream');
-        const chunk = bytes.get_data();
-        data.set(chunk, offset);
-        offset += chunk.length;
-    }
-    return data;
-}
 
 export default class AsciiArcadeExtension extends Extension {
     enable() {
@@ -76,7 +58,16 @@ export default class AsciiArcadeExtension extends Extension {
                 renderer, '--gnome-stream', this._settings.get_string('scene'),
                 this._settings.get_string('theme'), String(width), String(height),
             ], Gio.SubprocessFlags.STDOUT_PIPE);
-            const run = {process, stream: process.get_stdout_pipe(), cancellable: new Gio.Cancellable()};
+            const run = {
+                process,
+                stream: process.get_stdout_pipe(),
+                channel: null,
+                watchId: 0,
+                header: new Uint8Array(12),
+                headerOffset: 0,
+                frame: null,
+                frameOffset: 0,
+            };
             this._run = run;
             this._image = new St.ImageContent({preferred_width: width, preferred_height: height});
             this._group = new Clutter.Actor({reactive: false});
@@ -87,22 +78,16 @@ export default class AsciiArcadeExtension extends Extension {
                 }));
             }
             Main.layoutManager._backgroundGroup.add_child(this._group);
-            process.wait_async(null, (source, result) => {
-                try { source.wait_finish(result); }
-                catch (error) { console.error(`ASCII Arcade: ${error.message}`); }
-            });
-            this._readFrames(run, width, height).catch(error => {
-                if (this._run !== run)
-                    return;
-                this._stop();
-                this._settings.set_boolean('running', false);
-                Main.notifyError('ASCII Arcade', error.message);
-            }).finally(() => {
-                run.stream.close_async(GLib.PRIORITY_DEFAULT, null, (source, result) => {
-                    try { source.close_finish(result); }
-                    catch (error) { console.error(`ASCII Arcade: ${error.message}`); }
-                });
-            });
+            const fd = GioUnix.FileDescriptorBased.get_fd(run.stream);
+            if (!GLibUnix.set_fd_nonblocking(fd, true))
+                throw new Error('Unable to set wallpaper renderer stream to non-blocking mode');
+            run.channel = GLib.IOChannel.unix_new(fd);
+            run.watchId = GLib.io_add_watch(
+                run.channel,
+                GLib.PRIORITY_DEFAULT,
+                GLib.IOCondition.IN | GLib.IOCondition.HUP | GLib.IOCondition.ERR,
+                () => this._readFrames(run, width, height),
+            );
         } catch (error) {
             this._stop();
             this._settings.set_boolean('running', false);
@@ -110,18 +95,56 @@ export default class AsciiArcadeExtension extends Extension {
         }
     }
 
-    async _readFrames(run, width, height) {
-        const header = await readExactly(run.stream, 12, run.cancellable);
-        const view = new DataView(header.buffer);
-        if (new TextDecoder().decode(header.subarray(0, 4)) !== 'AA01' ||
-            view.getUint32(4, true) !== width || view.getUint32(8, true) !== height)
-            throw new Error('Incompatible wallpaper renderer. Reinstall the desktop package.');
-        while (this._run === run) {
-            const pixels = await readExactly(run.stream, width * height * 4, run.cancellable);
+    _readFrames(run, width, height) {
+        if (this._run !== run)
+            return GLib.SOURCE_REMOVE;
+
+        try {
+            const bytes = run.stream.read_bytes(65536, null);
+            if (bytes.get_size() === 0)
+                throw new Error('Wallpaper renderer closed its frame stream');
+
+            const chunk = bytes.get_data();
+            let offset = 0;
+            while (offset < chunk.length) {
+                if (!run.frame) {
+                    const count = Math.min(run.header.length - run.headerOffset, chunk.length - offset);
+                    run.header.set(chunk.subarray(offset, offset + count), run.headerOffset);
+                    run.headerOffset += count;
+                    offset += count;
+                    if (run.headerOffset < run.header.length)
+                        continue;
+
+                    const view = new DataView(run.header.buffer);
+                    if (new TextDecoder().decode(run.header.subarray(0, 4)) !== 'AA01' ||
+                        view.getUint32(4, true) !== width || view.getUint32(8, true) !== height)
+                        throw new Error('Incompatible wallpaper renderer. Reinstall the desktop package.');
+                    run.frame = new Uint8Array(width * height * 4);
+                    continue;
+                }
+
+                const count = Math.min(run.frame.length - run.frameOffset, chunk.length - offset);
+                run.frame.set(chunk.subarray(offset, offset + count), run.frameOffset);
+                run.frameOffset += count;
+                offset += count;
+                if (run.frameOffset === run.frame.length) {
+                    this._image.set_bytes(new GLib.Bytes(run.frame), Cogl.PixelFormat.RGBA_8888,
+                        width, height, width * 4);
+                    run.frame = new Uint8Array(width * height * 4);
+                    run.frameOffset = 0;
+                }
+            }
+            return GLib.SOURCE_CONTINUE;
+        } catch (error) {
             if (this._run !== run)
-                return;
-            this._image.set_bytes(new GLib.Bytes(pixels), Cogl.PixelFormat.RGBA_8888,
-                width, height, width * 4);
+                return GLib.SOURCE_REMOVE;
+            if (error.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.WOULD_BLOCK))
+                return GLib.SOURCE_CONTINUE;
+            run.watchId = 0;
+            this._stop();
+            this._settings.set_boolean('running', false);
+            Main.notifyError('ASCII Arcade', error.message);
+            return GLib.SOURCE_REMOVE;
         }
     }
 
@@ -129,8 +152,14 @@ export default class AsciiArcadeExtension extends Extension {
         const run = this._run;
         this._run = null;
         if (run) {
-            run.cancellable.cancel();
+            if (run.watchId) {
+                GLib.source_remove(run.watchId);
+                run.watchId = 0;
+            }
             run.process.force_exit();
+            run.process.wait(null);
+            run.stream.close(null);
+            run.channel = null;
         }
         this._group?.destroy();
         this._group = null;

@@ -24,10 +24,12 @@ handling, and renderer process cleanup. Log inspection caught a stream-close
 race after cancellation; the stream now closes after the pending read settles.
 The final nested run passed after that fix. Its screenshot and result are in
 `docs/evidence/gnome-wayland-wallpaper.png` and `gnome-wayland-result.json`.
-GitHub CI exposed a teardown failure when invoking `gnome-extensions disable`:
-GNOME Shell emitted GJS garbage-collection criticals and kept the extension
-active. The isolated test now toggles `enabled-extensions` through GSettings
-and still checks renderer and actor cleanup across disable and re-enable.
+GitHub CI exposed GJS garbage-collection criticals while the extension was
+disabled with an asynchronous pipe read and subprocess wait still pending. The
+host now watches the renderer pipe with a non-blocking GLib I/O source, then
+removes that source and reaps the process synchronously during teardown. The
+lifecycle test continues to disable and re-enable the extension through GNOME's
+extension manager and checks renderer and actor cleanup.
 
 Physical monitor hotplug and GDM lock/unlock are unverified. The extension stops
 when leaving the user session and resumes from persisted settings on re-enable.
