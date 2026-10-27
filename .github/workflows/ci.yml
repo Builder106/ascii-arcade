@@ -172,9 +172,9 @@ jobs:
         run: |
           ./scripts/package-doom-source.sh doom-ascii-source 0.0.0 "$RUNNER_TEMP/doom-ascii-source.tar.gz"
           tar -tzf "$RUNNER_TEMP/doom-ascii-source.tar.gz" > "$RUNNER_TEMP/doom-ascii-source-files.txt"
-          rg -q '^\./doom-ascii/Makefile$' "$RUNNER_TEMP/doom-ascii-source-files.txt"
-          rg -q '^\./ascii-arcade/scripts/setup.sh$' "$RUNNER_TEMP/doom-ascii-source-files.txt"
-          rg -q '^\./ascii-arcade/LICENSES/doom-ascii.GPL-2.0$' "$RUNNER_TEMP/doom-ascii-source-files.txt"
+          grep -Fxq './doom-ascii/Makefile' "$RUNNER_TEMP/doom-ascii-source-files.txt"
+          grep -Fxq './ascii-arcade/scripts/setup.sh' "$RUNNER_TEMP/doom-ascii-source-files.txt"
+          grep -Fxq './ascii-arcade/LICENSES/doom-ascii.GPL-2.0' "$RUNNER_TEMP/doom-ascii-source-files.txt"
           mkdir "$RUNNER_TEMP/doom-ascii-source-check"
           tar -xzf "$RUNNER_TEMP/doom-ascii-source.tar.gz" -C "$RUNNER_TEMP/doom-ascii-source-check"
           DOOM_ASCII_SOURCE_DIR="$RUNNER_TEMP/doom-ascii-source-check/doom-ascii" \
