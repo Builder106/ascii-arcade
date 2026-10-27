@@ -165,7 +165,7 @@ jobs:
       - name: Verify binary
         run: |
           test -x bin/doom_ascii
-          lipo -verify_arch arm64 x86_64 bin/doom_ascii
+          lipo bin/doom_ascii -verify_arch arm64 x86_64
           file bin/doom_ascii
 
       - name: Verify matching GPL source archive
@@ -180,7 +180,7 @@ jobs:
           DOOM_ASCII_SOURCE_DIR="$RUNNER_TEMP/doom-ascii-source-check/doom-ascii" \
             DOOM_ASCII_CFLAGS="-O2 -w -arch arm64 -arch x86_64" \
             "$RUNNER_TEMP/doom-ascii-source-check/ascii-arcade/scripts/setup.sh"
-          lipo -verify_arch arm64 x86_64 "$RUNNER_TEMP/doom-ascii-source-check/ascii-arcade/bin/doom_ascii"
+          lipo "$RUNNER_TEMP/doom-ascii-source-check/ascii-arcade/bin/doom_ascii" -verify_arch arm64 x86_64
 
   wasm:
     name: Build Wasm target
