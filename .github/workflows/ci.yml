@@ -20,6 +20,28 @@ env:
   RUSTDOCFLAGS: "-D warnings"
 
 jobs:
+  desktop-controller:
+    name: Desktop controller (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check Linux controller and installer
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck desktop-file-utils libglib2.0-bin
+          shellcheck shells/linux/desktop.sh shells/linux/install-desktop.sh
+          python3 scripts/test-desktop-launcher.py
+          node --input-type=module --check < shells/linux/gnome/extension.js
+      - name: Construct Windows controller
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./shells/windows/desktop.ps1 -SmokeTest
+
   secrets:
     name: Secret scan
     runs-on: ubuntu-24.04
@@ -31,6 +53,36 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_NOTIFY_USER_LIST: ""
+
+  gnome-desktop:
+    name: GNOME Wayland integration
+    needs: [secrets, licenses, fmt, audit]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install nested desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gnome-shell gjs dbus-x11 xvfb imagemagick fuse3 \
+            libgl1-mesa-dri pkg-config libwayland-dev libxkbcommon-dev
+      - name: Build wallpaper renderer
+        run: cargo build --locked -p aa-linux
+      - name: Check extension in nested GNOME Wayland
+        run: |
+          python3 scripts/test-gnome-desktop.py \
+            --renderer target/debug/aa-linux --artifacts gnome-test-artifacts
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: gnome-wayland-check
+          path: gnome-test-artifacts/
+          retention-days: 7
 
   licenses:
     name: Open-source license compliance

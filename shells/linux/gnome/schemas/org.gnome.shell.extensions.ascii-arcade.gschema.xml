@@ -1,0 +1,14 @@
+<schemalist>
+  <schema id="org.gnome.shell.extensions.ascii-arcade" path="/org/gnome/shell/extensions/ascii-arcade/">
+    <key name="running" type="b"><default>false</default><summary>Run the wallpaper</summary></key>
+    <key name="scene" type="s">
+      <choices><choice value="donut"/><choice value="helix"/><choice value="matrix"/><choice value="pipes"/><choice value="life"/></choices>
+      <default>'donut'</default><summary>Ambient scene</summary>
+    </key>
+    <key name="theme" type="s">
+      <choices><choice value="hacker"/><choice value="amber"/><choice value="ice"/><choice value="ghost"/></choices>
+      <default>'hacker'</default><summary>Wallpaper theme</summary>
+    </key>
+    <key name="renderer" type="s"><default>''</default><summary>Optional absolute path to aa-linux</summary></key>
+  </schema>
+</schemalist>

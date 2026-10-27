@@ -155,6 +155,36 @@ that, you have to ship its source too. Building from iCloud or Google Drive? Set
 
 ## Linux, Windows and the terminal
 
+The desktop archives include a controller for choosing a scene and theme and
+starting or stopping the wallpaper. Keep the controller open while the wallpaper
+runs. Closing it stops the process it started.
+
+- **Windows:** extract the `windows-desktop.zip` archive and open
+  `ASCII-Arcade.cmd`. The controller uses Windows PowerShell and Windows Forms.
+  If Windows blocks the downloaded script, check `desktop.ps1` Properties for
+  **Unblock**. Organization execution policies may require administrator help.
+- **Linux:** install your distribution's `zenity` package, extract the
+  `linux-desktop.tar.gz` archive, and run `bash install-desktop.sh`. Open
+  **ASCII Arcade** from your application menu. Installation is per user and
+  needs no root access. You can also run `bash desktop.sh` from the extracted
+  folder without installing it.
+
+Linux wallpaper support covers X11 root-pixmap desktops, Wayland compositors
+with `wlr-layer-shell`, and GNOME Shell 46 through the bundled extension.
+On GNOME, run the installer, log out and back in, then enable **ASCII Arcade**
+in the Extensions app. Its top-bar menu offers scene, theme, and wallpaper
+controls. The desktop controller uses the same extension on GNOME Wayland.
+Other GNOME Shell versions are not enabled in the extension's metadata yet.
+Desktop managers that paint over the X11 root window can
+hide the wallpaper. Stopping the X11 renderer can leave its last frame until
+your desktop redraws the background. The controllers offer the five Rust ambient
+scenes; DOOM wallpaper remains a Mac feature.
+
+The GNOME extension renders one shared animation across the monitors. It pauses
+when locked and stops its renderer when disabled, restoring the regular GNOME
+background. It remembers the selected scene and theme. A 640x360 render limit
+keeps frame transfer bounded; GNOME scales that image to each monitor.
+
 Everywhere else runs on the Rust port, built around one engine, `aa-core`. The
 `aa` binary plays scenes in your terminal and runs the wallpaper on Linux (X11
 or wlr-layer-shell) and Windows:

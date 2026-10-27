@@ -93,6 +93,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             pkg-config libwayland-dev libxkbcommon-dev libxcb1-dev
+      - name: Check Linux desktop controller
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get install -y --no-install-recommends shellcheck desktop-file-utils libglib2.0-bin
+          shellcheck shells/linux/desktop.sh shells/linux/install-desktop.sh
+          python3 scripts/test-desktop-launcher.py
+          node --input-type=module --check < shells/linux/gnome/extension.js
+      - name: Construct Windows desktop controller
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: ./shells/windows/desktop.ps1 -SmokeTest
       - name: Swift build + test
         if: matrix.os == 'macos-15'
         run: |
@@ -177,6 +188,16 @@ jobs:
           mkdir -p dist-release
           cp target/release/aa-windows.exe "dist-release/ASCII-Arcade-v${VERSION}-windows.exe"
           cp target/release/aa.exe "dist-release/aa-v${VERSION}-windows.exe"
+      - name: Package Windows desktop controller
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          New-Item -ItemType Directory -Path desktop-package
+          Copy-Item target/release/aa-windows.exe desktop-package/
+          Copy-Item shells/windows/desktop.ps1, shells/windows/ASCII-Arcade.cmd desktop-package/
+          Copy-Item README.md, LICENSE desktop-package/
+          Compress-Archive -Path desktop-package/* -DestinationPath "dist-release/ASCII-Arcade-v$env:VERSION-windows-desktop.zip"
       - uses: actions/upload-artifact@v7
         with:
           name: release-windows
@@ -211,6 +232,14 @@ jobs:
           mkdir -p dist-release
           tar -C target/release -czf "dist-release/ASCII-Arcade-v${VERSION}-linux.tar.gz" aa-linux
           tar -C target/release -czf "dist-release/aa-v${VERSION}-linux.tar.gz" aa
+          mkdir -p desktop-package
+          cp target/release/aa-linux desktop-package/
+          cp shells/linux/desktop.sh shells/linux/install-desktop.sh desktop-package/
+          cp -R shells/linux/gnome desktop-package/gnome
+          cp assets/icon-512.png desktop-package/icon.png
+          cp README.md LICENSE desktop-package/
+          chmod +x desktop-package/aa-linux desktop-package/*.sh
+          tar -C desktop-package -czf "dist-release/ASCII-Arcade-v${VERSION}-linux-desktop.tar.gz" .
       - uses: actions/upload-artifact@v7
         with:
           name: release-linux

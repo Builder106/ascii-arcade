@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "shell": "GNOME Shell 46.0",
+  "checks": [
+    "frame upload",
+    "background placement",
+    "monitor actors",
+    "scene switch",
+    "stop",
+    "disable",
+    "re-enable",
+    "missing renderer",
+    "process cleanup"
+  ]
+}

@@ -8,13 +8,15 @@
 //!   re-blit + `clear_area` each frame to animate. Pure-Rust `x11rb`, so it
 //!   cross-compiles from any host. Also covers XWayland sessions.
 //! * **Wayland**: a `wlr-layer-shell` surface on the `background` layer. Works
-//!   on wlroots compositors (sway, Hyprland) and KDE. GNOME-Wayland is **out of
-//!   scope** (needs a Shell extension). Built on CI's ubuntu runner.
+//!   on wlroots compositors (sway, Hyprland) and KDE. GNOME uses the bundled
+//!   Shell extension and the [`gnome`] frame transport instead of layer-shell.
 //!
 //! The real backends are `#[cfg(target_os = "linux")]`; elsewhere this crate is
 //! a stub so the workspace checks on macOS/Windows.
 
 use aa_render::RenderOptions;
+
+pub mod gnome;
 
 /// Which wallpaper backend to drive.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

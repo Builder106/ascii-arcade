@@ -1,5 +1,62 @@
 # JOURNAL — ASCII Arcade
 
+## 2026-10-27: GNOME Wayland wallpaper integration #decision #milestone
+
+Added a GNOME Shell 46 extension rather than trying to use layer-shell on
+Mutter. Rust remains responsible for scene simulation and rasterization. The
+extension starts `aa-linux --gnome-stream`, reads its versioned RGBA stream
+asynchronously, and puts non-interactive actors in GNOME's background group.
+One animation is shared across the monitors. Render size is capped at 640x360
+and output at 20 fps to bound work inside the shell.
+
+The top-bar menu and Linux desktop controller share GSettings for scene, theme,
+and start/stop state. The installer now installs the extension and compiles its
+schema per user; a first installation needs a new login and manual enablement.
+Desktop release archives include the extension. Metadata enables only Shell 46,
+the version verified here. Corrected the controllers to list the five scenes
+actually implemented in the Rust engine; Fire and Clock remain Swift scenes.
+
+All 11 Linux shell/transport tests and six controller/installer checks passed.
+Clippy with warnings denied, Rust formatting, ShellCheck, and extension syntax
+checks passed. The nested GNOME 46 Wayland check verified real texture upload,
+background placement, scene switching, stop, disable/re-enable, missing-renderer
+handling, and renderer process cleanup. Log inspection caught a stream-close
+race after cancellation; the stream now closes after the pending read settles.
+The final nested run passed after that fix. Its screenshot and result are in
+`docs/evidence/gnome-wayland-wallpaper.png` and `gnome-wayland-result.json`.
+
+Physical monitor hotplug and GDM lock/unlock are unverified. The extension stops
+when leaving the user session and resumes from persisted settings on re-enable.
+The known GJS 1.80 stdout binding warning and optional-service warnings from a
+nested session are documented in CONTRIBUTING.md. No release was published.
+
+## 2026-10-27: Desktop controls for Windows and Linux #decision
+
+The native Rust wallpaper hosts already existed, but Windows launched without
+visible controls and Linux required terminal commands. Added controllers around
+those hosts: Windows Forms through Windows PowerShell, and GTK dialogs through
+Zenity on Linux. Both expose the seven ambient scenes, four themes, and start
+and stop controls. A controller owns its child process and stops it on close.
+Changing a selection takes effect on the next Start action. This keeps the
+existing rendering code and avoids introducing another rendering framework.
+
+Added a per-user Linux application-menu installer and separate desktop archives
+to the release workflow. Existing standalone binaries remain available. CI and
+release verification check the Linux scripts and construct the Windows form.
+
+Verification: all 13 native-shell tests passed on Linux ARM64, including the
+Windows off-platform stubs. Five launcher integration checks passed, covering
+selection, cancellation, startup failure, process isolation, and installation
+paths with reserved characters. ShellCheck and the native Linux build passed.
+A real GTK controller on a virtual X11 display started the native wallpaper and
+reaped it on close. Its screenshot is in
+`docs/evidence/linux-desktop-controller.png`. The virtual display needed software
+rendering and an isolated session bus for this check.
+
+Windows Forms runtime verification still needs Windows; its CI smoke check has
+been added but has not run. The desktop archives have not been published.
+GNOME Wayland remains unsupported, and DOOM wallpaper remains Mac-only.
+
 ## 2026-10-19: Cut ambient wallpaper CPU usage from 20% to 5% #perf #decision
 
 A live sampling of the background wallpaper process showed ~19% CPU spent in CoreGraphics font rasterization (`CTFontDrawGlyphs`, bounding box layout, display list hashing) and per-frame heap churn. In Matrix Rain, continuously fading column trails generated 50 to 150 unique colors per frame, multiplying draw calls. Quantized trail brightness into an 8-shade palette, capping draw batches at 9. Added an $O(1)$ ASCII glyph table to eliminate dictionary hashing in the hot loop, reused frame cell buffers to drop 11,000-element allocations per tick, and aligned Matrix simulation to 30 Hz. Throttled ambient scenes to 20 fps while keeping interactive DOOM at 30 fps, and added window occlusion and lock-screen observers to pause the display link when covered. Steady-state CPU dropped from 18.7%–20% to ~5.2%, and 0% when occluded.

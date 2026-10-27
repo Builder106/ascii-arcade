@@ -1,7 +1,7 @@
 # Contributing to ASCII Arcade
 
-Thanks for your interest! This is a small macOS project; the bar is "keeps the
-wallpaper smooth and the scenes faithful."
+ASCII Arcade has a Swift macOS host and Rust shells for Windows and Linux.
+Keep the wallpaper smooth and the scenes faithful.
 
 ## Dev setup
 
@@ -44,9 +44,9 @@ just a target rhythm. When `main` is in good shape:
 This bumps `Cargo.toml`'s workspace version, commits, tags, and pushes, which
 triggers `.github/workflows/release.yml`. That workflow re-verifies the
 tagged commit (`swift test`+`cargo test`, matrixed across macOS/Linux/
-Windows) before building anything, then publishes a GitHub Release with six
-assets: the macOS DMG, the Windows and Linux native-shell binaries, and the
-cross-platform `aa` CLI for all three OSes.
+Windows) before building anything, then publishes a GitHub Release with the
+macOS DMG, Windows and Linux desktop-controller archives, native-shell binaries,
+and the cross-platform `aa` CLI for all three OSes.
 
 Like the local `.app`build, release builds never set`INCLUDE_DOOM=1` — the
 DMG doesn't bundle the GPL `doom_ascii` binary, matching DOOM's opt-in
@@ -127,6 +127,35 @@ the host renders them under *Scene Settings* automatically.
   single-UTF-16 glyph per cell when it maps colour runs onto the string; ASCII and
   box-drawing/block glyphs are safe, full-width CJK and emoji are not.
 
+## GNOME integration checks
+
+The GNOME Shell 46 extension lives in `shells/linux/gnome`. It owns the renderer
+process, reads bounded RGBA frames asynchronously, and displays them in the
+desktop background group. Scene and theme settings use the bundled GSettings
+schema. The Linux installer installs that schema and extension per user.
+
+On Linux with GNOME Shell 46, GJS, Xvfb, ImageMagick, and D-Bus installed:
+
+```bash
+cargo build --locked -p aa-linux
+cargo test --locked -p aa-linux
+python3 scripts/test-desktop-launcher.py
+python3 scripts/test-gnome-desktop.py --renderer target/debug/aa-linux --artifacts gnome-test-artifacts
+```
+
+The GNOME check uses a private session bus and temporary settings and extension
+directories. Its observer extension is installed only in that temporary test
+session. It checks frame upload, background placement, scene switching, process
+cleanup, and disable/re-enable behavior. It saves a screenshot and shell log.
+It does not verify physical monitor hotplug or lock/unlock through GDM.
+
+GNOME 46/GJS 1.80 can log `Gio.UnixInputStream has been moved to a separate
+platform-specific library` when `Gio.Subprocess.get_stdout_pipe()` wraps stdout.
+That platform binding warning is allowed and remains visible; the extension
+does not call the deprecated `Gio.UnixInputStream` API. A nested session also
+logs missing optional desktop services, including GDM and the calendar server.
+The missing-renderer check intentionally raises an ASCII Arcade notification.
+
 ## Commit / PR
 
 + Conventional-ish commit subjects (`feat:`, `fix:`, `chore:`, `docs:`).
@@ -137,4 +166,3 @@ the host renders them under *Scene Settings* automatically.
 
 + Sound (the ASCII renderer is video-only).
 + Bundling `doom_ascii` binaries (license + portability); keep it fetched.
-+ Non-macOS platforms — the host is AppKit + CoreVideo.

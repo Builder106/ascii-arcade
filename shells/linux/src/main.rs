@@ -19,6 +19,30 @@ fn main() {
 
 fn run_cli(args: &[String]) -> Result<(), i32> {
     match args.first().map(String::as_str) {
+        Some("--gnome-stream") => {
+            let result = (|| {
+                if args.len() != 5 {
+                    return Err("usage: aa-linux --gnome-stream SCENE THEME WIDTH HEIGHT".into());
+                }
+                let theme = Theme::by_name(&args[2]).ok_or("unknown theme")?;
+                let width = args[3].parse::<u32>().map_err(|_| "invalid width")?;
+                let height = args[4].parse::<u32>().map_err(|_| "invalid height")?;
+                aa_linux::gnome::stream(
+                    &args[1],
+                    RenderOptions {
+                        theme,
+                        ..Default::default()
+                    },
+                    width,
+                    height,
+                    &mut std::io::stdout().lock(),
+                )
+            })();
+            return result.map_err(|e: String| {
+                eprintln!("aa-linux: {e}");
+                1
+            });
+        }
         Some("--autostart-enable") => {
             let scene = args.get(1).map(String::as_str).unwrap_or("donut");
             let theme = args.get(2).map(String::as_str).unwrap_or("hacker");
@@ -59,6 +83,19 @@ fn run_cli(args: &[String]) -> Result<(), i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gnome_stream_rejects_invalid_arguments_without_opening_a_display() {
+        for args in [
+            vec!["--gnome-stream"],
+            vec!["--gnome-stream", "donut", "missing", "16", "16"],
+            vec!["--gnome-stream", "donut", "hacker", "NaN", "16"],
+            vec!["--gnome-stream", "donut", "hacker", "2000", "16"],
+        ] {
+            let args = args.into_iter().map(str::to_owned).collect::<Vec<_>>();
+            assert_eq!(run_cli(&args), Err(1));
+        }
+    }
 
     #[test]
     fn run_cli_autostart_enable_and_disable() {

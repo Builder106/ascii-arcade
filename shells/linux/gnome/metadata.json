@@ -1,0 +1,9 @@
+{
+  "uuid": "ascii-arcade@builder106",
+  "name": "ASCII Arcade",
+  "description": "Live ASCII wallpaper rendered behind GNOME desktop windows.",
+  "shell-version": ["46"],
+  "settings-schema": "org.gnome.shell.extensions.ascii-arcade",
+  "url": "https://github.com/Builder106/ascii-arcade",
+  "version": 1
+}
