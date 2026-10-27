@@ -488,6 +488,8 @@ jobs:
         run: cargo clippy -p aa-core -p aa-render -p aa-doom -p aa-web --all-targets -- -D warnings -D clippy::disallowed_types
       - name: Clippy (web shell, doom feature)
         run: cargo clippy -p aa-web --all-targets --features doom -- -D warnings -D clippy::disallowed_types
+      - name: Clippy (FFI and Wasm crates)
+        run: cargo clippy -p aa-ffi -p aa-wasm --all-targets -- -D warnings -D clippy::disallowed_types
       - name: Clippy (CLI — no native deps on macOS/Windows)
         if: matrix.os != 'ubuntu-24.04'
         run: cargo clippy -p aa --all-targets -- -D warnings -D clippy::disallowed_types
@@ -496,6 +498,8 @@ jobs:
         run: cargo clippy -p aa --all-targets --features doom -- -D warnings -D clippy::disallowed_types
       - name: Test (engine crates)
         run: cargo test -p aa-core -p aa-render -p aa-doom
+      - name: Test (FFI and Wasm crates)
+        run: cargo test -p aa-ffi -p aa-wasm
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2
         with:
@@ -553,6 +557,8 @@ jobs:
         run: cargo build -p ${{ matrix.crate }}
       - name: Clippy shell
         run: cargo clippy -p ${{ matrix.crate }} -- -D warnings -D clippy::disallowed_types
+      - name: Test native shell
+        run: cargo test -p ${{ matrix.crate }}
       - name: Build CLI
         run: cargo build -p aa
       - name: Build CLI (doom feature)
