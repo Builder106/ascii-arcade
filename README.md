@@ -124,9 +124,9 @@ start at login.
 
 3. Find `◎` in your menu bar and pick a scene.
 
-Everything but DOOM works right away. `doom_ascii` is GPL-2.0, so it doesn't
-ship in the app; build it with `./scripts/setup.sh` (below). Until you do, the
-DOOM scene just shows a hint.
+DOOM works as soon as you enable it. The macOS release includes the
+`doom_ascii` engine, and its matching GPL-2.0 source archive is available with
+the release assets.
 
 ## Build from source (macOS)
 
@@ -149,8 +149,10 @@ To package the app yourself:
 ```
 
 `make-app.sh` ad-hoc signs the bundle and includes the Freedoom WADs (BSD). It
-skips the GPL `doom_ascii` unless you set `INCLUDE_DOOM=1`, and if you ship
-that, you have to ship its source too. Building from iCloud or Google Drive? Set
+skips the GPL `doom_ascii` unless you set `INCLUDE_DOOM=1`. Official macOS
+releases set this option and include the exact matching upstream source and
+license in a separate archive. If you distribute a custom build with DOOM,
+include its corresponding source too. Building from iCloud or Google Drive? Set
 `SCRATCH_PATH=/tmp/aa-build` or SwiftPM's `build.db` will choke.
 
 ## Linux, Windows and the terminal

@@ -1,5 +1,18 @@
 # JOURNAL — ASCII Arcade
 
+## 2026-10-27: Ship DOOM in macOS releases with its matching source #decision
+
+Official macOS releases now build a universal `doom_ascii` from one upstream
+checkout, bundle it in the app, and attach the exact matching source, GPL-2.0
+license, and setup script. CI checks both architectures and rebuilds the engine
+from the source archive. Local `make-app.sh` packaging stays opt-in so a custom
+distribution must choose how it provides the corresponding source.
+
+Verification on Linux ARM64 passed Rust formatting, the workspace tests, the
+DOOM-enabled CLI and web tests, ShellCheck, six desktop launcher checks, and
+GNOME extension syntax. The generated GPL source archive also rebuilt the
+engine successfully. The universal macOS package is checked by GitHub CI.
+
 ## 2026-10-27: GNOME Wayland wallpaper integration #decision #milestone
 
 Added a GNOME Shell 46 extension rather than trying to use layer-shell on

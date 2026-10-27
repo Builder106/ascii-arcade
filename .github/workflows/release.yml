@@ -131,12 +131,22 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # macos-15 runners are Apple Silicon; UNIVERSAL=1 makes the .app an
       # arm64+x86_64 binary so it still runs on Intel Macs (macOS 13+ floor).
-      - name: Build .app + DMG (universal)
+      - name: Fetch doom_ascii source
+        run: git clone --depth 1 https://github.com/wojciech-graj/doom-ascii.git doom-ascii-source
+      - name: Build universal doom_ascii
+        env:
+          DOOM_ASCII_SOURCE_DIR: ${{ github.workspace }}/doom-ascii-source
+          DOOM_ASCII_CFLAGS: -O2 -w -arch arm64 -arch x86_64
+        run: ./scripts/setup.sh
+      - name: Build .app + DMG (universal, with DOOM)
         env:
           VERSION: ${{ needs.resolve-version.outputs.version }}
           UNIVERSAL: "1"
+          INCLUDE_DOOM: "1"
         run: |
           ./scripts/make-app.sh
+          test -x "dist/ASCII Arcade.app/Contents/Resources/doom_ascii"
+          lipo -verify_arch arm64 x86_64 "dist/ASCII Arcade.app/Contents/Resources/doom_ascii"
           ./scripts/make-dmg.sh
       - name: Build aa CLI (universal)
         run: |
@@ -157,6 +167,8 @@ jobs:
           mkdir -p dist-release
           cp "dist/ASCII-Arcade.dmg" "dist-release/ASCII-Arcade-v${VERSION}.dmg"
           cp "dist/ASCII-Arcade.dmg" "dist-release/ASCII-Arcade.dmg"
+          ./scripts/package-doom-source.sh doom-ascii-source "$VERSION" \
+            "dist-release/doom-ascii-v${VERSION}-source.tar.gz"
           tar -czf "dist-release/aa-v${VERSION}-macos.tar.gz" aa
       - uses: actions/upload-artifact@v7
         with:

@@ -147,20 +147,40 @@ jobs:
         run: python3 scripts/check-swift-coverage.py
 
   doom-binary:
-    name: Build vendored doom_ascii
+    name: Build release DOOM engine and source
     needs: [secrets, licenses, fmt, audit]
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
 
-      # Ensures scripts/setup.sh still clones + compiles the (GPL) doom_ascii
-      # upstream. The wallpaper app needs this binary at runtime; CI just proves
-      # the fetch/build path hasn't rotted.
-      - name: Run setup.sh
+      - name: Fetch doom_ascii source
+        run: git clone --depth 1 https://github.com/wojciech-graj/doom-ascii.git doom-ascii-source
+
+      - name: Build universal doom_ascii
+        env:
+          DOOM_ASCII_SOURCE_DIR: ${{ github.workspace }}/doom-ascii-source
+          DOOM_ASCII_CFLAGS: -O2 -w -arch arm64 -arch x86_64
         run: ./scripts/setup.sh
 
       - name: Verify binary
-        run: test -x bin/doom_ascii && file bin/doom_ascii
+        run: |
+          test -x bin/doom_ascii
+          lipo -verify_arch arm64 x86_64 bin/doom_ascii
+          file bin/doom_ascii
+
+      - name: Verify matching GPL source archive
+        run: |
+          ./scripts/package-doom-source.sh doom-ascii-source 0.0.0 "$RUNNER_TEMP/doom-ascii-source.tar.gz"
+          tar -tzf "$RUNNER_TEMP/doom-ascii-source.tar.gz" > "$RUNNER_TEMP/doom-ascii-source-files.txt"
+          rg -q '^\./doom-ascii/Makefile$' "$RUNNER_TEMP/doom-ascii-source-files.txt"
+          rg -q '^\./ascii-arcade/scripts/setup.sh$' "$RUNNER_TEMP/doom-ascii-source-files.txt"
+          rg -q '^\./ascii-arcade/LICENSES/doom-ascii.GPL-2.0$' "$RUNNER_TEMP/doom-ascii-source-files.txt"
+          mkdir "$RUNNER_TEMP/doom-ascii-source-check"
+          tar -xzf "$RUNNER_TEMP/doom-ascii-source.tar.gz" -C "$RUNNER_TEMP/doom-ascii-source-check"
+          DOOM_ASCII_SOURCE_DIR="$RUNNER_TEMP/doom-ascii-source-check/doom-ascii" \
+            DOOM_ASCII_CFLAGS="-O2 -w -arch arm64 -arch x86_64" \
+            "$RUNNER_TEMP/doom-ascii-source-check/ascii-arcade/scripts/setup.sh"
+          lipo -verify_arch arm64 x86_64 "$RUNNER_TEMP/doom-ascii-source-check/ascii-arcade/bin/doom_ascii"
 
   wasm:
     name: Build Wasm target

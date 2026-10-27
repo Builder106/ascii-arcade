@@ -61,7 +61,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 	<key>LSMinimumSystemVersion</key><string>13.0</string>
 	<key>LSUIElement</key><true/>
 	<key>NSHighResolutionCapable</key><true/>
-	<key>NSHumanReadableCopyright</key><string>GPL-2.0. doom_ascii (GPL-2.0) is fetched separately.</string>
+	<key>NSHumanReadableCopyright</key><string>GPL-2.0. The matching doom_ascii source and license are in the release source archive.</string>
 </dict>
 </plist>
 PLIST
