@@ -24,6 +24,10 @@ handling, and renderer process cleanup. Log inspection caught a stream-close
 race after cancellation; the stream now closes after the pending read settles.
 The final nested run passed after that fix. Its screenshot and result are in
 `docs/evidence/gnome-wayland-wallpaper.png` and `gnome-wayland-result.json`.
+GitHub CI exposed a teardown failure when invoking `gnome-extensions disable`:
+GNOME Shell emitted GJS garbage-collection criticals and kept the extension
+active. The isolated test now toggles `enabled-extensions` through GSettings
+and still checks renderer and actor cleanup across disable and re-enable.
 
 Physical monitor hotplug and GDM lock/unlock are unverified. The extension stops
 when leaving the user session and resumes from persisted settings on re-enable.

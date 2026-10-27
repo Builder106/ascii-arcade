@@ -106,10 +106,15 @@ def inside_session(args) -> None:
         await_report(runtime, lambda r: r.get("pid") is None and r.get("actors") == 0)
         command("gsettings", "set", SCHEMA, "running", "true")
         restarted = await_report(runtime, lambda r: r.get("texture", 0) > 0)
-        command("gnome-extensions", "disable", UUID)
+        command(
+            "gsettings", "set", "org.gnome.shell", "enabled-extensions", f"['{PROBE}']"
+        )
         await_report(runtime, lambda r: r.get("pid") is None and r.get("actors") == 0)
         await_exit(int(restarted["pid"]))
-        command("gnome-extensions", "enable", UUID)
+        command(
+            "gsettings", "set", "org.gnome.shell", "enabled-extensions",
+            f"['{UUID}', '{PROBE}']",
+        )
         await_report(runtime, lambda r: r.get("texture", 0) > 0 and r.get("background"))
         command("gsettings", "set", SCHEMA, "renderer", "/nonexistent/ascii-arcade")
         await_report(runtime, lambda r: r.get("pid") is None and r.get("actors") == 0)
