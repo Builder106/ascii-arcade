@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "aa"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aa-core",
  "aa-doom",
@@ -19,11 +19,11 @@ dependencies = [
 
 [[package]]
 name = "aa-core"
-version = "0.2.0"
+version = "0.2.1"
 
 [[package]]
 name = "aa-doom"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aa-core",
  "portable-pty",
@@ -31,7 +31,7 @@ dependencies = [
 
 [[package]]
 name = "aa-ffi"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aa-core",
  "jni",
@@ -39,7 +39,7 @@ dependencies = [
 
 [[package]]
 name = "aa-linux"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aa-core",
  "aa-render",
@@ -50,14 +50,14 @@ dependencies = [
 
 [[package]]
 name = "aa-render"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aa-core",
 ]
 
 [[package]]
 name = "aa-wasm"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aa-core",
  "wasm-bindgen",
@@ -65,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "aa-web"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aa-core",
  "aa-doom",
@@ -75,7 +75,7 @@ dependencies = [
 
 [[package]]
 name = "aa-windows"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aa-core",
  "aa-render",

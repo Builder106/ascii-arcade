@@ -18,7 +18,7 @@ members = [
 # The native iOS (shells/ios) and Android (shells/android) shells also link
 # aa-ffi as a native library (.a on iOS, .so on Android) — see crates/aa-ffi.
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "GPL-2.0"
 repository = "https://github.com/Builder106/ascii-arcade"
