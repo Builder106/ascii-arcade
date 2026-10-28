@@ -1,7 +1,8 @@
 # Contributing to ASCII Arcade
 
-ASCII Arcade has a Swift macOS host and Rust shells for Windows and Linux.
-Keep the wallpaper smooth and the scenes faithful.
+ASCII Arcade has a Swift app for macOS and Rust wallpaper hosts for Windows and
+Linux. The Rust scene engine, renderer, DOOM launcher, and controllers should
+keep the same scenes and settings available on each desktop.
 
 ## Dev setup
 
@@ -25,10 +26,11 @@ works without a download.
 + `.icns`from`assets/icon-512.png` + bundled Freedoom WADs, ad-hoc signed), and
 
 `scripts/make-dmg.sh` wraps it in a DMG with first-launch instructions. The build
-is intentionally **unsigned/un-notarized** (no Apple Developer account) — users
-right-click → Open once. Don't bundle `doom_ascii` by default; it's behind the
-opt-in `INCLUDE_DOOM=1` flag because shipping a GPL binary carries source-offer
-obligations. App settings persist via `UserDefaults` under the bundle id
+is intentionally **unsigned/un-notarized** (no Apple Developer account); users
+right-click and choose Open once. Local `make-app.sh` builds leave `doom_ascii`
+out unless `INCLUDE_DOOM=1` is set. Official releases include the engine,
+Freedoom data, the matching GPL-2.0 source archive, and its license. App settings
+persist via `UserDefaults` under the bundle id
 `com.builder106.ascii-arcade`; resource lookup (`DoomLauncher`) checks
 `Bundle.main`first so it works both from the`.app`and from`swift run`.
 
@@ -48,12 +50,10 @@ Windows) before building anything, then publishes a GitHub Release with the
 macOS DMG, Windows and Linux desktop-controller archives, native-shell binaries,
 and the cross-platform `aa` CLI for all three OSes.
 
-Like the local `.app`build, release builds never set`INCLUDE_DOOM=1` — the
-DMG doesn't bundle the GPL `doom_ascii` binary, matching DOOM's opt-in
-treatment everywhere else in this app. The Rust binaries *do* build with
-`--features doom` (safe: that only adds the ability to spawn a separately
-supplied `doom_ascii`, never links or bundles its code), but DOOM still stays
-behind the runtime `--enable-doom` flag either way.
+The macOS release build sets `INCLUDE_DOOM=1`. Windows and Linux packages also
+include the engine and its matching source archive. Rust release binaries build
+with `--features doom`, and the scene remains hidden until the user enables it
+in the desktop controls or passes `--enable-doom`.
 
 ## Project layout
 
@@ -130,9 +130,10 @@ the host renders them under *Scene Settings* automatically.
 ## GNOME integration checks
 
 The GNOME Shell 46 extension lives in `shells/linux/gnome`. It owns the renderer
-process, reads bounded RGBA frames asynchronously, and displays them in the
-desktop background group. Scene and theme settings use the bundled GSettings
-schema. The Linux installer installs that schema and extension per user.
+process, reads RGBA frames asynchronously, and displays them in the desktop
+background group. Scene, theme, settings, idle rotation, DOOM opt-in, key
+capture, opacity, and launch-at-login use the bundled GSettings schema. The
+Linux installer installs that schema and extension per user.
 
 On Linux with GNOME Shell 46, GJS, Xvfb, ImageMagick, and D-Bus installed:
 
@@ -147,7 +148,9 @@ The GNOME check uses a private session bus and temporary settings and extension
 directories. Its observer extension is installed only in that temporary test
 session. It checks frame upload, background placement, scene switching, process
 cleanup, and disable/re-enable behavior. It saves a screenshot and shell log.
-It does not verify physical monitor hotplug or lock/unlock through GDM.
+It does not verify physical monitor hotplug or lock/unlock through GDM. Key
+capture and idle rotation use Mutter's session input APIs and still need a
+runtime check in the nested session.
 
 GNOME 46/GJS 1.80 can log `Gio.UnixInputStream has been moved to a separate
 platform-specific library` when `Gio.Subprocess.get_stdout_pipe()` wraps stdout.
@@ -158,11 +161,11 @@ The missing-renderer check intentionally raises an ASCII Arcade notification.
 
 ## Commit / PR
 
-+ Conventional-ish commit subjects (`feat:`, `fix:`, `chore:`, `docs:`).
-+ Run `swift build`and`swift test` before opening a PR.
++ Use Conventional Commit subjects such as `feat:`, `fix:`, `chore:`, and `docs:`.
++ Run the relevant Rust or Swift checks before opening a PR.
 + Add a `JOURNAL.md` entry for any non-obvious decision or pivot.
 
 ## Out of scope
 
 + Sound (the ASCII renderer is video-only).
-+ Bundling `doom_ascii` binaries (license + portability); keep it fetched.
++ Distributing `doom_ascii` without its matching source archive and license.

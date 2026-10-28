@@ -1,5 +1,27 @@
 # JOURNAL — ASCII Arcade
 
+## 2026-10-28: Match desktop controls across platforms #decision #milestone
+
+The Windows and Linux desktop controllers now offer scene and theme selection,
+per-scene settings, opt-in DOOM, key capture, idle cycling, background opacity,
+launch at login, screenshots, and short recordings. The GNOME top-bar menu
+exposes the same settings. Official archives for all three platforms include
+the DOOM engine, Freedoom data, matching GPL-2.0 source, and its license. DOOM
+remains opt-in when the app runs.
+
+Linux uses GNOME Shell APIs on GNOME Wayland, layer-shell on compatible Wayland
+compositors, and root pixmaps on X11. X11 root pixmaps cannot blend transparent
+pixels. Other Wayland compositors do not expose global idle or keyboard events,
+so those controls report the compositor limitation. GNOME shows one shared
+scene across monitors; Windows spans its virtual screen.
+
+Rust formatting, Clippy, workspace tests, DOOM-enabled CLI and web tests, and
+the 100% line-coverage gate for `aa-core`, `aa-render`, and `aa-doom` passed on
+Linux ARM64. Swift tests, ShellCheck, the Linux controller and installer
+harness, the GNOME integration check, Windows GNU cross-compilation, and PNG
+and GIF capture checks also passed. Native Windows and macOS desktop sessions
+remain for GitHub CI; the verifier did not provide those interactive desktops.
+
 ## 2026-10-27: Ship DOOM in macOS releases with its matching source #decision
 
 Official macOS releases now build a universal `doom_ascii` from one upstream

@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)"  srcset="assets/banner-dark.png">
     <source media="(prefers-color-scheme: light)" srcset="assets/banner-dark.png">
-    <img alt="ASCII Arcade: live ASCII wallpapers for macOS" src="assets/banner-dark.png" width="100%">
+    <img alt="ASCII Arcade: live ASCII wallpapers for macOS, Windows, and Linux" src="assets/banner-dark.png" width="100%">
   </picture>
 </p>
 
@@ -10,15 +10,16 @@
   <a href="https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Builder106/ascii-arcade/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://swift.org"><img alt="Swift 6" src="https://img.shields.io/badge/Swift-6-orange.svg"></a>
   <a href="https://www.rust-lang.org"><img alt="Rust" src="https://img.shields.io/badge/Rust-stable-b7410e.svg"></a>
-  <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-black.svg">
+  <img alt="macOS" src="https://img.shields.io/badge/macOS-supported-black.svg">
+  <img alt="Windows" src="https://img.shields.io/badge/Windows-supported-blue.svg">
+  <img alt="Linux" src="https://img.shields.io/badge/Linux-supported-yellow.svg">
   <a href="#license"><img alt="License: GPL-2.0" src="https://img.shields.io/badge/license-GPL--2.0-blue.svg"></a>
 </p>
 
-ASCII Arcade turns your Mac's wallpaper into live ASCII art that runs under
-all your windows. Matrix rain, a spinning donut, Conway's Life, the old pipes
-screensaver, all from the menu bar. You can even switch on DOOM and play it as
-your wallpaper. Clicks pass straight through, and when you quit, your old
-wallpaper comes back.
+ASCII Arcade runs live ASCII wallpapers on macOS, Windows, and Linux. Choose
+Matrix rain, a spinning donut, Conway's Life, or the pipes screensaver. DOOM is
+available as an opt-in scene. Each desktop has a controller for choosing scenes
+and themes, saving captures, and changing the wallpaper settings.
 
 Want to see it first? [ascii-arcade-doom.vercel.app](https://ascii-arcade-doom.vercel.app/)
 runs the same engine in your browser, on a 3D arcade cabinet you can steer with
@@ -68,23 +69,25 @@ Mac app running as the wallpaper, both made in HyperFrames.
 | **Pipes** | The 3D pipes screensaver | Multi-colour | No |
 | **DOOM** *(off by default)* | Playable DOOM, drawn in ASCII | Full colour | Yes, keyboard |
 
-Switch scenes and themes from the `◎` menu, or cycle scenes with **⌘⌥C**.
+Switch scenes and themes from the macOS `◎` menu or the Windows and Linux
+controllers. On macOS, **⌘⌥C** advances to the next scene.
 
 **Themes.** Hacker (green), Amber, Ice and Ghost. DOOM keeps its own colours;
 everything else follows the theme, so Matrix rain goes amber under Amber.
 
-**Scene settings.** A few knobs per scene under *Scene Settings*: Matrix speed
-and density, Life speed and cell size, Pipes speed and count.
+**Scene settings.** Matrix has speed and density controls. Life has speed and
+cell size controls. Pipes has speed and pipe count controls.
 
-**Auto-cycle when idle.** Leave the Mac alone for about 90 s and it starts
-flipping through scenes every 20 s. Touch the keyboard or mouse and it jumps
-back to the one you picked. DOOM isn't in the rotation unless you've turned it
-on, and nothing renders while the displays are asleep.
+**Auto-cycle when idle.** After 90 seconds without input, the wallpaper changes
+scenes every 20 seconds. The first input restores the scene you chose. DOOM
+joins the rotation only after you enable it. Windows and macOS support this
+feature; Linux supports it on X11 and GNOME Shell.
 
-**Capture.** ⌘⇧3 and ⌘⇧4 can't see the wallpaper, so use the app's own
-shortcuts. **⌘⌥S** saves a PNG to `~/Desktop` and copies it, and **⌘⌥E**
-records a 3-second MP4 and opens it in Finder. They're in the menu under
-*Capture* too.
+**Capture.** The desktop controllers can save a PNG screenshot or a three
+second animated clip. Windows and Linux save clips as GIF; macOS saves MP4.
+Screenshots copy to the clipboard on Windows and macOS, and on Linux when
+`wl-copy` or `xclip` is installed. The macOS menu also has **⌘⌥S** for a
+screenshot and **⌘⌥E** for a clip.
 
 ## DOOM
 
@@ -102,16 +105,20 @@ and *Capture keys for DOOM* on, these keys go to the game:
 | Weapons | `1` to `7` |
 | Confirm / menu | Return / Esc |
 
-> Key capture needs **Accessibility** permission (System Settings → Privacy &
-> Security → Accessibility). Heads up: while it's on, your keystrokes go to DOOM
-> whatever app you're in.
+> macOS asks for **Accessibility** permission in System Settings → Privacy &
+> Security → Accessibility. Windows, X11, and GNOME Shell use their native
+> session input APIs. While capture is enabled, supported keys also reach DOOM
+> as you use other apps.
 
 ## Install
 
-Download `ASCII-Arcade.dmg` from the
-[latest release](https://github.com/Builder106/ascii-arcade/releases/latest).
-It sits in your menu bar, remembers your scene, theme and settings, and can
-start at login.
+Download your platform's package from the
+[latest release](https://github.com/Builder106/ascii-arcade/releases/latest):
+`ASCII-Arcade.dmg` for macOS, `ASCII-Arcade-v<version>-windows-desktop.zip`
+for Windows, or `ASCII-Arcade-v<version>-linux-desktop.tar.gz` for Linux. The
+macOS app sits in the menu bar. The Windows and Linux archives include a
+controller. All three remember their scene, theme and settings and can start
+at login.
 
 1. Open the DMG and drag **ASCII Arcade** onto **Applications**.
 2. It isn't notarized, so Gatekeeper blocks the first launch. Control-click the
@@ -157,9 +164,11 @@ include its corresponding source too. Building from iCloud or Google Drive? Set
 
 ## Linux, Windows and the terminal
 
-The desktop archives include a controller for choosing a scene and theme and
-starting or stopping the wallpaper. Keep the controller open while the wallpaper
-runs. Closing it stops the process it started.
+The desktop archives include a controller for choosing a scene and theme,
+starting or stopping the wallpaper, and changing scene settings. They also
+offer DOOM opt-in, idle cycling, background opacity, launch at login, screenshots,
+and animated clips. Closing a Windows or Linux controller stops the wallpaper
+process it started.
 
 - **Windows:** extract the `windows-desktop.zip` archive and open
   `ASCII-Arcade.cmd`. The controller uses Windows PowerShell and Windows Forms.
@@ -174,13 +183,14 @@ runs. Closing it stops the process it started.
 Linux wallpaper support covers X11 root-pixmap desktops, Wayland compositors
 with `wlr-layer-shell`, and GNOME Shell 46 through the bundled extension.
 On GNOME, run the installer, log out and back in, then enable **ASCII Arcade**
-in the Extensions app. Its top-bar menu offers scene, theme, and wallpaper
-controls. The desktop controller uses the same extension on GNOME Wayland.
-Other GNOME Shell versions are not enabled in the extension's metadata yet.
-Desktop managers that paint over the X11 root window can
-hide the wallpaper. Stopping the X11 renderer can leave its last frame until
-your desktop redraws the background. The controllers offer the five Rust ambient
-scenes; DOOM wallpaper remains a Mac feature.
+in the Extensions app. Its top-bar menu has the same scene, theme, DOOM, idle,
+capture, and background controls. Scene settings are available in the
+controller and the extension menu. The extension currently targets GNOME Shell
+46. Desktop managers that cover the X11 root window can hide the wallpaper.
+The X11 root-pixmap backend cannot blend transparent pixels. Other Wayland
+compositors can render transparent backgrounds, but they do not expose global
+idle or keyboard events to wallpaper clients. If you request those controls,
+the renderer reports the compositor limitation.
 
 The GNOME extension renders one shared animation across the monitors. It pauses
 when locked and stops its renderer when disabled, restoring the regular GNOME
@@ -207,16 +217,19 @@ cargo run -p aa-web       # http://127.0.0.1:8788
 It sends truecolour ANSI frames at 30 fps over a WebSocket to xterm.js. Pick a
 scene from the dropdown.
 
-DOOM is locked down harder here. It's not even compiled in without
-`--features doom`, and even then `aa scenes`, `aa play` and `aa web` hide it
-unless you pass `--enable-doom` (or set `AA_WEB_ENABLE_DOOM=1` for `aa-web`):
+DOOM is off by default. Build with `--features doom`, then pass
+`--enable-doom` to make the scene available to `aa scenes`, `aa play`, `aa web`,
+or `aa run`:
 
 ```bash
 cargo run -p aa --features doom -- play doom --enable-doom
+cargo run -p aa --features doom -- --enable-doom run doom --capture-keys
 ```
 
-`aa run` doesn't do DOOM at all. DOOM as a wallpaper needs bitmap compositing
-and global key capture, and so far only the Mac app has those.
+`--capture-keys` forwards supported keys while DOOM is the active wallpaper.
+`--idle-cycle` enables scene rotation after 90 seconds without input. These
+options work on Windows and on Linux X11 or GNOME Shell. Other Wayland
+compositors do not provide the global input events they need.
 
 ## How it works
 
