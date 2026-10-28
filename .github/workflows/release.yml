@@ -186,8 +186,8 @@ jobs:
           ./scripts/make-dmg.sh
       - name: Build aa CLI (universal)
         run: |
-          cargo build -p aa --release --target x86_64-apple-darwin
-          cargo build -p aa --release --target aarch64-apple-darwin
+          cargo build -p aa --release --features doom --target x86_64-apple-darwin
+          cargo build -p aa --release --features doom --target aarch64-apple-darwin
           lipo -create -output aa \
             target/x86_64-apple-darwin/release/aa \
             target/aarch64-apple-darwin/release/aa
@@ -257,7 +257,7 @@ jobs:
             ./scripts/setup.sh
           test -s bin/doom_ascii.exe
       - run: cargo build -p aa-windows --release
-      - run: cargo build -p aa --release
+      - run: cargo build -p aa --release --features doom
       - name: Stage release assets
         shell: bash
         env:
@@ -283,6 +283,7 @@ jobs:
           Copy-Item shells/windows/desktop.ps1, shells/windows/ASCII-Arcade.cmd desktop-package/
           Copy-Item README.md, LICENSE desktop-package/
           New-Item -ItemType Directory -Path desktop-package/bin, desktop-package/wad, desktop-package/LICENSES
+          Copy-Item target/release/aa.exe desktop-package/aa.exe
           Copy-Item bin/doom_ascii.exe desktop-package/bin/
           Copy-Item wad/*.wad desktop-package/wad/
           Copy-Item "doom-source/doom-ascii-v$env:VERSION-source.tar.gz" desktop-package/doom-ascii-source.tar.gz
@@ -327,7 +328,7 @@ jobs:
           DOOM_ASCII_CFLAGS: -O2 -w
         run: ./scripts/setup.sh
       - run: cargo build -p aa-linux --release
-      - run: cargo build -p aa --release
+      - run: cargo build -p aa --release --features doom
       - name: Stage release assets
         env:
           VERSION: ${{ needs.resolve-version.outputs.version }}
@@ -347,6 +348,7 @@ jobs:
           cp LICENSES/doom-ascii.GPL-2.0 shell-package/LICENSES/
           tar -C shell-package -czf "dist-release/ASCII-Arcade-v${VERSION}-linux.tar.gz" .
           mkdir -p desktop-package/bin desktop-package/wad desktop-package/LICENSES
+          cp target/release/aa desktop-package/aa
           cp target/release/aa-linux desktop-package/
           cp bin/doom_ascii desktop-package/bin/doom_ascii
           cp wad/*.wad desktop-package/wad/
