@@ -22,6 +22,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  DOOM_ASCII_COMMIT: 940528f138e12431e5a1417351863709f1620078
 
 jobs:
   # Resolves and validates the version/tag for this run before anything else
@@ -116,9 +117,36 @@ jobs:
       - name: Rust test (aa-web, doom feature)
         run: cargo test -p aa-web --features doom
 
+  doom-source:
+    name: Package DOOM source
+    needs: resolve-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve-version.outputs.tag }}
+      - uses: actions/checkout@v7
+        with:
+          repository: wojciech-graj/doom-ascii
+          ref: ${{ env.DOOM_ASCII_COMMIT }}
+          path: doom-ascii-source
+          persist-credentials: false
+      - name: Package matching GPL source
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          mkdir -p dist-release
+          ./scripts/package-doom-source.sh doom-ascii-source "$VERSION" \
+            "dist-release/doom-ascii-v${VERSION}-source.tar.gz"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-doom-source
+          path: dist-release/doom-ascii-v*-source.tar.gz
+          retention-days: 1
+
   release-macos:
     name: Package macOS
-    needs: [resolve-version, verify]
+    needs: [resolve-version, verify, doom-source]
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
@@ -129,13 +157,20 @@ jobs:
           toolchain: stable
           targets: x86_64-apple-darwin,aarch64-apple-darwin
       - uses: Swatinem/rust-cache@v2
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-doom-source
+          path: doom-source
+      - name: Extract matching DOOM source
+        run: |
+          mkdir -p doom-ascii-source
+          tar -xzf "doom-source/doom-ascii-v${{ needs.resolve-version.outputs.version }}-source.tar.gz" \
+            -C doom-ascii-source ./doom-ascii
       # macos-15 runners are Apple Silicon; UNIVERSAL=1 makes the .app an
       # arm64+x86_64 binary so it still runs on Intel Macs (macOS 13+ floor).
-      - name: Fetch doom_ascii source
-        run: git clone --depth 1 https://github.com/wojciech-graj/doom-ascii.git doom-ascii-source
       - name: Build universal doom_ascii
         env:
-          DOOM_ASCII_SOURCE_DIR: ${{ github.workspace }}/doom-ascii-source
+          DOOM_ASCII_SOURCE_DIR: ${{ github.workspace }}/doom-ascii-source/doom-ascii
           DOOM_ASCII_CFLAGS: -O2 -w -arch arm64 -arch x86_64
         run: ./scripts/setup.sh
       - name: Build .app + DMG (universal, with DOOM)
@@ -143,6 +178,7 @@ jobs:
           VERSION: ${{ needs.resolve-version.outputs.version }}
           UNIVERSAL: "1"
           INCLUDE_DOOM: "1"
+          DOOM_SOURCE_ARCHIVE: ${{ github.workspace }}/doom-source/doom-ascii-v${{ needs.resolve-version.outputs.version }}-source.tar.gz
         run: |
           ./scripts/make-app.sh
           test -x "dist/ASCII Arcade.app/Contents/Resources/doom_ascii"
@@ -150,8 +186,8 @@ jobs:
           ./scripts/make-dmg.sh
       - name: Build aa CLI (universal)
         run: |
-          cargo build -p aa --release --features doom --target x86_64-apple-darwin
-          cargo build -p aa --release --features doom --target aarch64-apple-darwin
+          cargo build -p aa --release --target x86_64-apple-darwin
+          cargo build -p aa --release --target aarch64-apple-darwin
           lipo -create -output aa \
             target/x86_64-apple-darwin/release/aa \
             target/aarch64-apple-darwin/release/aa
@@ -167,9 +203,13 @@ jobs:
           mkdir -p dist-release
           cp "dist/ASCII-Arcade.dmg" "dist-release/ASCII-Arcade-v${VERSION}.dmg"
           cp "dist/ASCII-Arcade.dmg" "dist-release/ASCII-Arcade.dmg"
-          ./scripts/package-doom-source.sh doom-ascii-source "$VERSION" \
-            "dist-release/doom-ascii-v${VERSION}-source.tar.gz"
-          tar -czf "dist-release/aa-v${VERSION}-macos.tar.gz" aa
+          mkdir -p aa-package/bin aa-package/wad aa-package/LICENSES
+          cp aa aa-package/aa
+          cp bin/doom_ascii aa-package/bin/doom_ascii
+          cp wad/*.wad aa-package/wad/
+          cp "doom-source/doom-ascii-v${VERSION}-source.tar.gz" aa-package/
+          cp LICENSES/doom-ascii.GPL-2.0 aa-package/LICENSES/
+          tar -C aa-package -czf "dist-release/aa-v${VERSION}-macos.tar.gz" .
       - uses: actions/upload-artifact@v7
         with:
           name: release-macos
@@ -178,7 +218,7 @@ jobs:
 
   release-windows:
     name: Package Windows
-    needs: [resolve-version, verify]
+    needs: [resolve-version, verify, doom-source]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -188,10 +228,36 @@ jobs:
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@v2
-      # aa-windows has no `doom` feature (only the aa CLI does) — see
-      # shells/windows/Cargo.toml.
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-doom-source
+          path: doom-source
+      - name: Extract matching DOOM source
+        shell: bash
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          mkdir -p doom-ascii-source
+          tar -xzf "doom-source/doom-ascii-v${VERSION}-source.tar.gz" -C doom-ascii-source ./doom-ascii
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            make
+            mingw-w64-ucrt-x86_64-gcc
+      - name: Build Windows DOOM engine
+        shell: msys2 {0}
+        run: |
+          DOOM_ASCII_SOURCE_DIR="$PWD/doom-ascii-source" \
+          DOOM_ASCII_PLATFORM=win64 \
+          DOOM_ASCII_CC=x86_64-w64-mingw32-gcc \
+          DOOM_ASCII_OUTPUT_NAME=doom_ascii.exe \
+          DOOM_ASCII_LDFLAGS='-static -static-libgcc' \
+            ./scripts/setup.sh
+          test -s bin/doom_ascii.exe
       - run: cargo build -p aa-windows --release
-      - run: cargo build -p aa --release --features doom
+      - run: cargo build -p aa --release
       - name: Stage release assets
         shell: bash
         env:
@@ -206,9 +272,21 @@ jobs:
           VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
           New-Item -ItemType Directory -Path desktop-package
+          New-Item -ItemType Directory -Path aa-package, aa-package/bin, aa-package/wad, aa-package/LICENSES
           Copy-Item target/release/aa-windows.exe desktop-package/
+          Copy-Item target/release/aa.exe aa-package/aa.exe
+          Copy-Item bin/doom_ascii.exe aa-package/bin/
+          Copy-Item wad/*.wad aa-package/wad/
+          Copy-Item "doom-source/doom-ascii-v$env:VERSION-source.tar.gz" aa-package/doom-ascii-source.tar.gz
+          Copy-Item LICENSES/doom-ascii.GPL-2.0 aa-package/LICENSES/
+          Compress-Archive -Path aa-package/* -DestinationPath "dist-release/aa-v$env:VERSION-windows.zip"
           Copy-Item shells/windows/desktop.ps1, shells/windows/ASCII-Arcade.cmd desktop-package/
           Copy-Item README.md, LICENSE desktop-package/
+          New-Item -ItemType Directory -Path desktop-package/bin, desktop-package/wad, desktop-package/LICENSES
+          Copy-Item bin/doom_ascii.exe desktop-package/bin/
+          Copy-Item wad/*.wad desktop-package/wad/
+          Copy-Item "doom-source/doom-ascii-v$env:VERSION-source.tar.gz" desktop-package/doom-ascii-source.tar.gz
+          Copy-Item LICENSES/doom-ascii.GPL-2.0 desktop-package/LICENSES/
           Compress-Archive -Path desktop-package/* -DestinationPath "dist-release/ASCII-Arcade-v$env:VERSION-windows-desktop.zip"
       - uses: actions/upload-artifact@v7
         with:
@@ -218,7 +296,7 @@ jobs:
 
   release-linux:
     name: Package Linux
-    needs: [resolve-version, verify]
+    needs: [resolve-version, verify, doom-source]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -228,24 +306,52 @@ jobs:
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@v2
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-doom-source
+          path: doom-source
+      - name: Extract matching DOOM source
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          mkdir -p doom-ascii-source
+          tar -xzf "doom-source/doom-ascii-v${VERSION}-source.tar.gz" -C doom-ascii-source ./doom-ascii
       - name: Install Linux wallpaper deps
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             pkg-config libwayland-dev libxkbcommon-dev libxcb1-dev
-      # aa-linux has no `doom` feature (only the aa CLI does) — see
-      # shells/linux/Cargo.toml.
+      - name: Build Linux DOOM engine
+        env:
+          DOOM_ASCII_SOURCE_DIR: ${{ github.workspace }}/doom-ascii-source/doom-ascii
+          DOOM_ASCII_CFLAGS: -O2 -w
+        run: ./scripts/setup.sh
       - run: cargo build -p aa-linux --release
-      - run: cargo build -p aa --release --features doom
+      - run: cargo build -p aa --release
       - name: Stage release assets
         env:
           VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
-          mkdir -p dist-release
-          tar -C target/release -czf "dist-release/ASCII-Arcade-v${VERSION}-linux.tar.gz" aa-linux
-          tar -C target/release -czf "dist-release/aa-v${VERSION}-linux.tar.gz" aa
-          mkdir -p desktop-package
+          mkdir -p dist-release aa-package/bin aa-package/wad aa-package/LICENSES
+          mkdir -p shell-package/bin shell-package/wad shell-package/LICENSES
+          cp target/release/aa aa-package/aa
+          cp bin/doom_ascii aa-package/bin/doom_ascii
+          cp wad/*.wad aa-package/wad/
+          cp "doom-source/doom-ascii-v${VERSION}-source.tar.gz" aa-package/
+          cp LICENSES/doom-ascii.GPL-2.0 aa-package/LICENSES/
+          tar -C aa-package -czf "dist-release/aa-v${VERSION}-linux.tar.gz" .
+          cp target/release/aa-linux shell-package/aa-linux
+          cp bin/doom_ascii shell-package/bin/doom_ascii
+          cp wad/*.wad shell-package/wad/
+          cp "doom-source/doom-ascii-v${VERSION}-source.tar.gz" shell-package/
+          cp LICENSES/doom-ascii.GPL-2.0 shell-package/LICENSES/
+          tar -C shell-package -czf "dist-release/ASCII-Arcade-v${VERSION}-linux.tar.gz" .
+          mkdir -p desktop-package/bin desktop-package/wad desktop-package/LICENSES
           cp target/release/aa-linux desktop-package/
+          cp bin/doom_ascii desktop-package/bin/doom_ascii
+          cp wad/*.wad desktop-package/wad/
+          cp "doom-source/doom-ascii-v${VERSION}-source.tar.gz" desktop-package/
+          cp LICENSES/doom-ascii.GPL-2.0 desktop-package/LICENSES/
           cp shells/linux/desktop.sh shells/linux/install-desktop.sh desktop-package/
           cp -R shells/linux/gnome desktop-package/gnome
           cp assets/icon-512.png desktop-package/icon.png
