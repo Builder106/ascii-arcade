@@ -54,7 +54,13 @@ public final class DoomScene: AsciiScene {
         stateLock.unlock()
 
         guard let cfg = DoomLauncher.resolve(workingDirectory: workingDirectory, scaling: scaling) else {
-            buffer.showMessage("doom_ascii not found — run scripts/setup.sh")
+            NSLog("ASCII Arcade: DOOM engine was not found in the app bundle, package, or configured path")
+            buffer.showMessage("DOOM engine not found")
+            return
+        }
+        guard cfg.arguments.contains("-iwad") else {
+            NSLog("ASCII Arcade: no DOOM IWAD found in the app bundle, package, or configured path")
+            buffer.showMessage("DOOM WAD not found")
             return
         }
         let builder = PTYProcessBuilder(
@@ -67,7 +73,8 @@ public final class DoomScene: AsciiScene {
             p.onOutput { [weak self] data in self?.buffer.feed(Array(data)) }
             stateLock.lock(); proc = p; running = true; stateLock.unlock()
         } catch {
-            buffer.showMessage("Failed to launch DOOM")
+            NSLog("ASCII Arcade: DOOM PTY launch failed: %@", error.localizedDescription)
+            buffer.showMessage("DOOM PTY failed: \(error.localizedDescription)")
         }
     }
 

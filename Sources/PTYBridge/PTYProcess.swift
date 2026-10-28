@@ -72,7 +72,12 @@ public struct PTYProcessBuilder {
 		var master: Int32 = -1
 		var pid = pid_t(0)
 		pid = forkpty(&master, nil, nil, &win)
-		guard pid >= 0 else { throw NSError(domain: "pty", code: 10) }
+		guard pid >= 0 else {
+			let code = errno
+			throw NSError(domain: NSPOSIXErrorDomain, code: Int(code), userInfo: [
+				NSLocalizedDescriptionKey: String(cString: strerror(code))
+			])
+		}
 		if pid == 0 {
 			var cArgs: [UnsafeMutablePointer<CChar>?] = [strdup(launchPath)]
 			for a in arguments { cArgs.append(strdup(a)) }
@@ -81,7 +86,9 @@ public struct PTYProcessBuilder {
 			for (k, v) in environment { cEnv.append(strdup("\(k)=\(v)")) }
 			cEnv.append(nil)
 			execve(launchPath, &cArgs, &cEnv)
-			exit(127)
+			let code = errno
+			dprintf(STDERR_FILENO, "ASCII Arcade DOOM execve failed (%d): %s\r\n", code, strerror(code))
+			_exit(127)
 		}
 		return PTYProcess(masterFD: master, pid: pid)
 	}

@@ -81,13 +81,24 @@ fn is_executable_file(path: &Path) -> bool {
 }
 
 /// Resolve the `doom_ascii` binary. `env` is the process environment (passed in
-/// so the policy is testable); `working_directory` is searched for `bin/`.
+/// so the policy is testable). The executable's directory is searched before
+/// the process working directory because desktop launchers often set the latter
+/// to the user's home directory.
 pub fn resolve_binary(working_directory: &Path, env: &HashMap<String, String>) -> Option<PathBuf> {
-    resolve_binary_in(working_directory, env, SYSTEM_BIN_DIRS)
+    let executable_directory = std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(Path::to_path_buf));
+    resolve_binary_in(
+        working_directory,
+        executable_directory.as_deref(),
+        env,
+        SYSTEM_BIN_DIRS,
+    )
 }
 
 pub(crate) fn resolve_binary_in(
     working_directory: &Path,
+    executable_directory: Option<&Path>,
     env: &HashMap<String, String>,
     system_dirs: &[&str],
 ) -> Option<PathBuf> {
@@ -95,6 +106,16 @@ pub(crate) fn resolve_binary_in(
         let p = PathBuf::from(explicit);
         if is_executable_file(&p) {
             return Some(p);
+        }
+    }
+    if let Some(app_dir) = executable_directory {
+        for directory in [app_dir.join("bin"), app_dir.to_path_buf()] {
+            for name in BINARY_NAMES {
+                let candidate = directory.join(name);
+                if is_executable_file(&candidate) {
+                    return Some(candidate);
+                }
+            }
         }
     }
     for name in BINARY_NAMES {
@@ -120,14 +141,40 @@ pub fn resolve_iwad(
     working_directory: &Path,
     env: &HashMap<String, String>,
 ) -> Option<(PathBuf, PathBuf)> {
+    let executable_directory = std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(Path::to_path_buf));
+    resolve_iwad_in(
+        working_directory,
+        executable_directory.as_deref(),
+        env,
+        SYSTEM_WAD_DIRS,
+    )
+}
+
+fn resolve_iwad_in(
+    working_directory: &Path,
+    executable_directory: Option<&Path>,
+    env: &HashMap<String, String>,
+    system_dirs: &[&str],
+) -> Option<(PathBuf, PathBuf)> {
     let mut search_dirs: Vec<PathBuf> = Vec::new();
     if let Some(wad_dir) = env.get("DOOM_WAD_DIR") {
         if !wad_dir.is_empty() {
             search_dirs.push(PathBuf::from(wad_dir));
         }
     }
+    if let Some(app_dir) = executable_directory {
+        search_dirs.extend([
+            app_dir.join("wad"),
+            app_dir.join("Resources").join("wad"),
+            app_dir.join("Resources"),
+            app_dir.join("Contents").join("Resources").join("wad"),
+            app_dir.join("Contents").join("Resources"),
+        ]);
+    }
     search_dirs.push(working_directory.join("wad"));
-    for dir in SYSTEM_WAD_DIRS {
+    for dir in system_dirs {
         search_dirs.push(PathBuf::from(dir));
     }
 
@@ -235,6 +282,34 @@ mod tests {
         let got = resolve_binary(&dir, &empty_env());
         assert_eq!(got, Some(expected));
         fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn resolver_finds_assets_next_to_the_installed_app_not_only_cwd() {
+        let cwd = tmp();
+        let app = tmp();
+        let binary = app.join("bin").join(BINARY_NAMES[0]);
+        fs::create_dir_all(binary.parent().unwrap()).unwrap();
+        fs::write(&binary, b"#!/bin/sh\nexit 0\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&binary, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let wad_dir = app.join("wad");
+        fs::create_dir_all(&wad_dir).unwrap();
+        fs::write(wad_dir.join("freedoom1.wad"), b"wad").unwrap();
+
+        assert_eq!(
+            resolve_binary_in(&cwd, Some(&app), &empty_env(), &[]),
+            Some(binary)
+        );
+        assert_eq!(
+            resolve_iwad_in(&cwd, Some(&app), &empty_env(), &[]),
+            Some((wad_dir.join("freedoom1.wad"), wad_dir.clone()))
+        );
+        fs::remove_dir_all(cwd).ok();
+        fs::remove_dir_all(app).ok();
     }
 
     #[test]
@@ -354,7 +429,7 @@ mod tests {
         let bin_path = make_fake_binary(&sys_dir);
         let sys_dir_str = sys_dir.join("bin");
 
-        let got = resolve_binary_in(&dir, &empty_env(), &[sys_dir_str.to_str().unwrap()]);
+        let got = resolve_binary_in(&dir, None, &empty_env(), &[sys_dir_str.to_str().unwrap()]);
         assert_eq!(got, Some(bin_path));
 
         // Default resolve_binary call
