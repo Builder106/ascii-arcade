@@ -86,8 +86,10 @@ public struct PTYProcessBuilder {
 			for (k, v) in environment { cEnv.append(strdup("\(k)=\(v)")) }
 			cEnv.append(nil)
 			execve(launchPath, &cArgs, &cEnv)
-			let code = errno
-			dprintf(STDERR_FILENO, "ASCII Arcade DOOM execve failed (%d): %s\r\n", code, strerror(code))
+			let errorMessage = "ASCII Arcade DOOM execve failed\r\n"
+			_ = errorMessage.withCString { message in
+				write(STDERR_FILENO, UnsafeRawPointer(message), errorMessage.utf8.count)
+			}
 			_exit(127)
 		}
 		return PTYProcess(masterFD: master, pid: pid)
