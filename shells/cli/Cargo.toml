@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 aa-core = { workspace = true }
+aa-render = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 crossterm = "0.29"
 
@@ -30,9 +31,7 @@ doom = ["dep:aa-doom"]
 # Linux wallpaper shell + rasteriser — only needed when building for Linux.
 [target.'cfg(target_os = "linux")'.dependencies]
 aa-linux = { workspace = true }
-aa-render = { workspace = true }
 
 # Windows wallpaper shell + rasteriser — only needed when building for Windows.
 [target.'cfg(windows)'.dependencies]
 aa-windows = { workspace = true }
-aa-render = { workspace = true }

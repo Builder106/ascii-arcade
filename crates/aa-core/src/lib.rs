@@ -12,6 +12,7 @@
 pub mod ansi;
 pub mod color;
 pub mod frame;
+pub mod idle_cycle;
 pub mod rng;
 pub mod scene;
 pub mod scenes;

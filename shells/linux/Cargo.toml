@@ -22,6 +22,7 @@ wayland = ["dep:smithay-client-toolkit", "dep:wayland-client"]
 [dependencies]
 aa-core = { workspace = true }
 aa-render = { workspace = true }
+aa-doom = { workspace = true }
 
 # Linux only — absent elsewhere so `cargo check` passes on macOS/Windows. X11
 # root-window painting and the Wayland wlr-layer-shell backend live behind
@@ -31,6 +32,6 @@ aa-render = { workspace = true }
 # backend cross-compiles from any host. The Wayland crates link libwayland and
 # need libxkbcommon at build time.
 [target.'cfg(target_os = "linux")'.dependencies]
-x11rb = { version = "0.14", features = ["randr"], optional = true }
+x11rb = { version = "0.14", features = ["randr", "record", "screensaver"], optional = true }
 smithay-client-toolkit = { version = "=0.21.1", optional = true }
 wayland-client = { version = "0.31", optional = true }

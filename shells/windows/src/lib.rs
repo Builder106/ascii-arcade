@@ -39,13 +39,56 @@ impl std::error::Error for ShellError {}
 /// until the desktop session ends. `scene_id` is an `aa_core::scenes` id;
 /// `opts` controls the rasteriser (theme, cell size, CRT FX).
 pub fn run(scene_id: &str, opts: RenderOptions) -> Result<(), ShellError> {
+    run_with_doom(scene_id, opts, false)
+}
+
+/// Launch the Windows wallpaper host, exposing DOOM only when the user opted in.
+pub fn run_with_doom(
+    scene_id: &str,
+    opts: RenderOptions,
+    doom_enabled: bool,
+) -> Result<(), ShellError> {
+    run_with_doom_settings(scene_id, opts, doom_enabled, &[])
+}
+
+pub fn run_with_doom_settings(
+    scene_id: &str,
+    opts: RenderOptions,
+    doom_enabled: bool,
+    settings: &[(String, f64)],
+) -> Result<(), ShellError> {
+    run_with_controls(scene_id, opts, doom_enabled, settings, false, false)
+}
+
+pub fn run_with_controls(
+    scene_id: &str,
+    opts: RenderOptions,
+    doom_enabled: bool,
+    settings: &[(String, f64)],
+    idle_cycle: bool,
+    capture_keys: bool,
+) -> Result<(), ShellError> {
     #[cfg(windows)]
     {
-        imp::run(scene_id, opts)
+        imp::run(
+            scene_id,
+            opts,
+            doom_enabled,
+            settings,
+            idle_cycle,
+            capture_keys,
+        )
     }
     #[cfg(not(windows))]
     {
-        let _ = (scene_id, opts);
+        let _ = (
+            scene_id,
+            opts,
+            doom_enabled,
+            settings,
+            idle_cycle,
+            capture_keys,
+        );
         Err(ShellError::Unsupported)
     }
 }
@@ -97,32 +140,45 @@ mod tests {
 mod imp {
     use super::ShellError;
     use aa_render::{render, RenderOptions};
-    use std::time::Instant;
+    use std::sync::mpsc::{self, Sender};
+    use std::sync::{Mutex, OnceLock};
+    use std::time::{Duration, Instant};
     use windows::core::{w, PCWSTR};
-    use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::Foundation::{COLORREF, HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::Graphics::Gdi::{
         GetDC, ReleaseDC, StretchDIBits, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
         SRCCOPY,
     };
     use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-    use windows::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DefWindowProcW, DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW,
-        GetSystemMetrics, PeekMessageW, PostQuitMessage, RegisterClassW, SetWindowPos, ShowWindow,
-        TranslateMessage, MSG, PM_REMOVE, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
-        SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOW,
-        WM_DESTROY, WM_QUIT, WNDCLASSW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP, WS_VISIBLE,
+    use windows::Win32::System::SystemInformation::GetTickCount;
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        GetAsyncKeyState, GetLastInputInfo, LASTINPUTINFO,
     };
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CallNextHookEx, CreateWindowExW, DefWindowProcW, DispatchMessageW, EnumWindows,
+        FindWindowExW, FindWindowW, GetSystemMetrics, PeekMessageW, PostQuitMessage,
+        RegisterClassW, SetLayeredWindowAttributes, SetWindowPos, SetWindowsHookExW, ShowWindow,
+        TranslateMessage, UnhookWindowsHookEx, KBDLLHOOKSTRUCT, LWA_COLORKEY, MSG, PM_REMOVE,
+        SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOW, WH_KEYBOARD_LL, WM_DESTROY, WM_KEYDOWN,
+        WM_QUIT, WM_SYSKEYDOWN, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+        WS_POPUP, WS_VISIBLE,
+    };
+
+    static DOOM_KEY_SENDER: OnceLock<Mutex<Option<Sender<Vec<u8>>>>> = OnceLock::new();
 
     fn win32<T>(r: windows::core::Result<T>) -> Result<T, ShellError> {
         r.map_err(|e| ShellError::Win32(e.message()))
     }
 
-    pub fn run(scene_id: &str, opts: RenderOptions) -> Result<(), ShellError> {
-        let mut scene = aa_core::scenes::make(scene_id)
-            .ok_or_else(|| ShellError::Win32(format!("unknown scene '{scene_id}'")))?;
-        // Colour scenes (Matrix, …) key their palette off the theme colour.
-        scene.apply_base_color(opts.theme.text);
-
+    pub fn run(
+        scene_id: &str,
+        opts: RenderOptions,
+        doom_enabled: bool,
+        settings: &[(String, f64)],
+        idle_cycle: bool,
+        capture_keys: bool,
+    ) -> Result<(), ShellError> {
         // Virtual-screen geometry (spans all monitors).
         let (vx, vy, vw, vh) = unsafe {
             (
@@ -134,19 +190,54 @@ mod imp {
         };
         let (vw, vh) = (vw.max(1), vh.max(1));
 
+        let cols = (vw as u32 / opts.cell_w.max(1)).max(1) as usize;
+        let rows = (vh as u32 / opts.cell_h.max(1)).max(1) as usize;
+        let mut active_scene = scene_id.to_owned();
+        let mut scene = start_scene(&active_scene, &opts, doom_enabled, settings, cols, rows)?;
+        let scenes = if doom_enabled {
+            vec!["donut", "helix", "matrix", "pipes", "life", "doom"]
+        } else {
+            vec!["donut", "helix", "matrix", "pipes", "life"]
+        };
+        let mut cycler = aa_core::idle_cycle::IdleCycle::default();
+        let (key_events, keyboard_hook) = if capture_keys && doom_enabled {
+            let (sender, receiver) = mpsc::channel();
+            *DOOM_KEY_SENDER
+                .get_or_init(|| Mutex::new(None))
+                .lock()
+                .unwrap() = Some(sender);
+            let hook = unsafe { SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_hook), None, 0) }
+                .map_err(|error| {
+                ShellError::Win32(format!(
+                    "could not enable DOOM key capture: {}",
+                    error.message()
+                ))
+            })?;
+            (Some(receiver), Some(hook))
+        } else {
+            (None, None)
+        };
+
         let host = find_icon_host()?;
-        let hwnd = create_render_window(host, vx, vy, vw, vh)?;
+        let hwnd = create_render_window(host, vx, vy, vw, vh, !opts.opaque_background)?;
+        if !opts.opaque_background {
+            unsafe {
+                let background = opts.theme.background;
+                let key = COLORREF(
+                    u32::from(background.r)
+                        | (u32::from(background.g) << 8)
+                        | (u32::from(background.b) << 16),
+                );
+                let _ = SetLayeredWindowAttributes(hwnd, key, 0, LWA_COLORKEY);
+            }
+        }
         unsafe {
             let _ = ShowWindow(hwnd, SW_SHOW);
         }
 
-        // Size the scene's character grid to the virtual screen / cell metrics.
-        let cols = (vw as u32 / opts.cell_w.max(1)).max(1) as usize;
-        let rows = (vh as u32 / opts.cell_h.max(1)).max(1) as usize;
-        scene.set_grid(cols, rows);
-        scene.start();
-
         let start = Instant::now();
+        let mut next_idle_check = Instant::now();
+        let mut idle_seconds = 0.0;
         let mut bgra: Vec<u8> = Vec::new();
         loop {
             // Drain the message queue without blocking the render loop.
@@ -155,6 +246,12 @@ mod imp {
                 while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
                     if msg.message == WM_QUIT {
                         scene.stop();
+                        if let Some(hook) = keyboard_hook {
+                            let _ = UnhookWindowsHookEx(hook);
+                        }
+                        if let Some(sender) = DOOM_KEY_SENDER.get() {
+                            *sender.lock().unwrap() = None;
+                        }
                         return Ok(());
                     }
                     let _ = TranslateMessage(&msg);
@@ -162,12 +259,122 @@ mod imp {
                 }
             }
 
-            let frame = scene.frame(start.elapsed().as_secs_f64());
+            let now = start.elapsed().as_secs_f64();
+            if idle_cycle && Instant::now() >= next_idle_check {
+                idle_seconds = system_idle_seconds();
+                next_idle_check = Instant::now() + Duration::from_secs(5);
+            }
+            if idle_cycle {
+                if let Some(next) = cycler.update(&active_scene, idle_seconds, now, &scenes) {
+                    scene.stop();
+                    scene = start_scene(&next, &opts, doom_enabled, settings, cols, rows)?;
+                    active_scene = next;
+                }
+            }
+            if let Some(events) = &key_events {
+                while let Ok(bytes) = events.try_recv() {
+                    if scene.is_interactive() {
+                        scene.send_key(&bytes);
+                    }
+                }
+            }
+            let frame = scene.frame(now);
             let buf = render(&frame, &opts);
             blit(hwnd, &buf, &mut bgra, vw, vh)?;
 
             std::thread::sleep(std::time::Duration::from_millis(16));
         }
+    }
+
+    fn start_scene(
+        id: &str,
+        opts: &RenderOptions,
+        doom_enabled: bool,
+        settings: &[(String, f64)],
+        cols: usize,
+        rows: usize,
+    ) -> Result<Box<dyn aa_core::Scene + Send>, ShellError> {
+        let mut scene = if id == "doom" {
+            if !doom_enabled {
+                return Err(ShellError::Win32(
+                    "DOOM is opt-in. Enable it before selecting the scene.".into(),
+                ));
+            }
+            Box::new(aa_doom::DoomScene::new(aa_doom::scaling_for_grid(
+                cols, rows,
+            ))) as Box<dyn aa_core::Scene + Send>
+        } else {
+            let mut scene = aa_core::scenes::make(id)
+                .ok_or_else(|| ShellError::Win32(format!("unknown scene '{id}'")))?;
+            for (setting, value) in settings {
+                scene.apply_setting(setting, *value);
+            }
+            scene
+        };
+        scene.apply_base_color(opts.theme.text);
+        scene.set_grid(cols, rows);
+        scene.start();
+        Ok(scene)
+    }
+
+    fn system_idle_seconds() -> f64 {
+        let mut info = LASTINPUTINFO {
+            cbSize: std::mem::size_of::<LASTINPUTINFO>() as u32,
+            dwTime: 0,
+        };
+        unsafe {
+            if GetLastInputInfo(&mut info).as_bool() {
+                f64::from(GetTickCount().wrapping_sub(info.dwTime)) / 1000.0
+            } else {
+                0.0
+            }
+        }
+    }
+
+    unsafe extern "system" fn keyboard_hook(code: i32, message: WPARAM, data: LPARAM) -> LRESULT {
+        if code >= 0 && (message.0 == WM_KEYDOWN as usize || message.0 == WM_SYSKEYDOWN as usize) {
+            let modifiers = [0x11, 0x12, 0x5b, 0x5c]
+                .iter()
+                .any(|key| GetAsyncKeyState(*key) < 0);
+            if !modifiers {
+                let key = (*(data.0 as *const KBDLLHOOKSTRUCT)).vkCode;
+                if let Some(bytes) = doom_key_bytes(key) {
+                    if let Some(sender) = DOOM_KEY_SENDER.get() {
+                        if let Ok(sender) = sender.lock() {
+                            if let Some(sender) = sender.as_ref() {
+                                let _ = sender.send(bytes);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        CallNextHookEx(None, code, message, data)
+    }
+
+    fn doom_key_bytes(key: u32) -> Option<Vec<u8>> {
+        let sequence: &[u8] = match key {
+            0x25 => b"\x1b[D",
+            0x26 => b"\x1b[A",
+            0x27 => b"\x1b[C",
+            0x28 => b"\x1b[B",
+            0x0d => b"\n",
+            0x1b => b"\x1b",
+            0x20 => b" ",
+            0xbc => b",",
+            0xbe => b".",
+            0xdd => b"]",
+            0x30..=0x39 | 0x41..=0x5a => {
+                return Some(
+                    vec![key as u8]
+                        .into_iter()
+                        .map(|byte| byte.to_ascii_lowercase())
+                        .collect(),
+                )
+            }
+            _ => return None,
+        };
+        Some(sequence.to_vec())
     }
 
     /// Find the top-level window that directly hosts `SHELLDLL_DefView` (the
@@ -217,6 +424,7 @@ mod imp {
         y: i32,
         w: i32,
         h: i32,
+        transparent: bool,
     ) -> Result<HWND, ShellError> {
         unsafe {
             let hinstance: HINSTANCE = win32(GetModuleHandleW(PCWSTR::null()))?.into();
@@ -233,8 +441,15 @@ mod imp {
             // WS_POPUP (top-level, no parent) so we can place ourselves in the
             // global Z-order directly behind the icon host window. WS_CHILD would
             // lock our Z-order inside a parent that is itself above the icon layer.
+            let ex_style = WS_EX_NOACTIVATE
+                | WS_EX_TOOLWINDOW
+                | if transparent {
+                    WS_EX_LAYERED
+                } else {
+                    Default::default()
+                };
             let hwnd = win32(CreateWindowExW(
-                WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
+                ex_style,
                 class_name,
                 w!("ASCII Arcade"),
                 WS_POPUP | WS_VISIBLE,
@@ -345,13 +560,26 @@ pub mod autostart {
     /// Register `aa-windows` as a Windows login item.
     /// `scene` and `theme` are passed through as CLI args to the launched process.
     pub fn install(scene: &str, theme: &str) -> Result<(), String> {
+        install_with_doom(scene, theme, false)
+    }
+
+    pub fn install_with_doom(scene: &str, theme: &str, doom_enabled: bool) -> Result<(), String> {
+        let args = if doom_enabled {
+            vec!["--enable-doom".to_owned()]
+        } else {
+            Vec::new()
+        };
+        install_with_args(scene, theme, &args)
+    }
+
+    pub fn install_with_args(scene: &str, theme: &str, args: &[String]) -> Result<(), String> {
         #[cfg(windows)]
         {
-            imp::install(scene, theme)
+            imp::install(scene, theme, args)
         }
         #[cfg(not(windows))]
         {
-            let _ = (scene, theme);
+            let _ = (scene, theme, args);
             Err("autostart is only supported on Windows".into())
         }
     }
@@ -398,9 +626,15 @@ pub mod autostart {
             s.encode_utf16().chain(std::iter::once(0u16)).collect()
         }
 
-        pub fn install(scene: &str, theme: &str) -> Result<(), String> {
+        pub fn install(scene: &str, theme: &str, args: &[String]) -> Result<(), String> {
             let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-            let cmd = format!("\"{}\" {} {}", exe.display(), scene, theme);
+            let extra = args.join(" ");
+            let suffix = if extra.is_empty() {
+                String::new()
+            } else {
+                format!(" {extra}")
+            };
+            let cmd = format!("\"{}\" {} {}{}", exe.display(), scene, theme, suffix);
 
             let key_wide = to_wide(RUN_KEY);
             let value_wide = to_wide(APP_VALUE);

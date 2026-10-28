@@ -38,6 +38,16 @@ pub fn grid_size(scaling: usize) -> (usize, usize) {
     ((SCREEN_WIDTH / n) * 2, SCREEN_HEIGHT / n)
 }
 
+/// Choose the sharpest DOOM grid that fits a host character grid.
+pub fn scaling_for_grid(columns: usize, rows: usize) -> usize {
+    (1..=16)
+        .find(|scale| {
+            let (width, height) = grid_size(*scale);
+            width <= columns && height <= rows
+        })
+        .unwrap_or(8)
+}
+
 /// A DOOM scene driven by a PTY-backed `doom_ascii` process.
 ///
 /// The screen buffer is shared with the reader thread behind a mutex; `frame`
@@ -225,6 +235,13 @@ mod tests {
     fn fixed_grid_reports_scaled_dims() {
         let s = DoomScene::new(2);
         assert_eq!(s.fixed_grid(), Some((320, 100)));
+    }
+
+    #[test]
+    fn scaling_for_grid_chooses_the_sharpest_fitting_resolution() {
+        assert_eq!(scaling_for_grid(640, 200), 1);
+        assert_eq!(scaling_for_grid(320, 100), 2);
+        assert_eq!(scaling_for_grid(80, 24), 9);
     }
 
     #[test]

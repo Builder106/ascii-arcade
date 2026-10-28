@@ -21,20 +21,30 @@ fn run_cli(args: &[String]) -> Result<(), i32> {
     match args.first().map(String::as_str) {
         Some("--gnome-stream") => {
             let result = (|| {
-                if args.len() != 5 {
-                    return Err("usage: aa-linux --gnome-stream SCENE THEME WIDTH HEIGHT".into());
+                if args.len() < 5 {
+                    return Err(
+                        "usage: aa-linux --gnome-stream SCENE THEME WIDTH HEIGHT [OPTIONS]".into(),
+                    );
                 }
                 let theme = Theme::by_name(&args[2]).ok_or("unknown theme")?;
                 let width = args[3].parse::<u32>().map_err(|_| "invalid width")?;
                 let height = args[4].parse::<u32>().map_err(|_| "invalid height")?;
-                aa_linux::gnome::stream(
-                    &args[1],
-                    RenderOptions {
-                        theme,
-                        ..Default::default()
+                let mut opts = RenderOptions {
+                    theme,
+                    ..Default::default()
+                };
+                opts.opaque_background = !args.iter().any(|arg| arg == "--transparent");
+                let settings = parse_settings(args);
+                aa_linux::gnome::stream_with_controls(
+                    aa_linux::gnome::GnomeStreamOptions {
+                        scene_id: &args[1],
+                        render: opts,
+                        width,
+                        height,
+                        doom_enabled: args.iter().any(|arg| arg == "--enable-doom"),
+                        settings: &settings,
+                        capture_keys: args.iter().any(|arg| arg == "--capture-keys"),
                     },
-                    width,
-                    height,
                     &mut std::io::stdout().lock(),
                 )
             })();
@@ -46,7 +56,17 @@ fn run_cli(args: &[String]) -> Result<(), i32> {
         Some("--autostart-enable") => {
             let scene = args.get(1).map(String::as_str).unwrap_or("donut");
             let theme = args.get(2).map(String::as_str).unwrap_or("hacker");
-            if let Err(e) = aa_linux::autostart::install(scene, theme) {
+            let runtime_args = args
+                .iter()
+                .filter(|arg| {
+                    matches!(
+                        arg.as_str(),
+                        "--enable-doom" | "--transparent" | "--idle-cycle" | "--capture-keys"
+                    ) || arg.starts_with("--setting=")
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            if let Err(e) = aa_linux::autostart::install_with_args(scene, theme, &runtime_args) {
                 eprintln!("aa-linux: {e}");
                 return Err(1);
             }
@@ -59,6 +79,10 @@ fn run_cli(args: &[String]) -> Result<(), i32> {
             }
             return Ok(());
         }
+        Some("--autostart-status") => {
+            println!("{}", aa_linux::autostart::is_installed());
+            return Ok(());
+        }
         _ => {}
     }
 
@@ -68,16 +92,35 @@ fn run_cli(args: &[String]) -> Result<(), i32> {
         .and_then(|n| Theme::by_name(n))
         .unwrap_or_default();
 
-    let opts = RenderOptions {
+    let mut opts = RenderOptions {
         theme,
         ..Default::default()
     };
+    opts.opaque_background = !args.iter().any(|arg| arg == "--transparent");
 
-    if let Err(e) = aa_linux::run(scene, opts) {
+    if let Err(e) = aa_linux::run_with_controls(
+        scene,
+        opts,
+        args.iter().any(|arg| arg == "--enable-doom"),
+        &parse_settings(args),
+        args.iter().any(|arg| arg == "--idle-cycle"),
+        args.iter().any(|arg| arg == "--capture-keys"),
+    ) {
         eprintln!("aa-linux: {e}");
         return Err(1);
     }
     Ok(())
+}
+
+fn parse_settings(args: &[String]) -> Vec<(String, f64)> {
+    args.iter()
+        .filter_map(|arg| arg.strip_prefix("--setting="))
+        .filter_map(|setting| {
+            let (id, value) = setting.split_once('=')?;
+            let value = value.parse::<f64>().ok()?;
+            value.is_finite().then(|| (id.to_owned(), value))
+        })
+        .collect()
 }
 
 #[cfg(test)]

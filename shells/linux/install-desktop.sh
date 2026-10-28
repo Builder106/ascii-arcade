@@ -9,12 +9,24 @@ if ! command -v zenity >/dev/null; then
     exit 1
 fi
 mkdir -p -- "$destination" "$data_dir/applications"
-for file in aa-linux desktop.sh icon.png; do
+for file in aa aa-linux desktop.sh icon.png; do
     if [[ "$app_dir/$file" != "$destination/$file" ]]; then
         install -m 644 -- "$app_dir/$file" "$destination/$file"
     fi
 done
-chmod +x -- "$destination/aa-linux" "$destination/desktop.sh"
+chmod +x -- "$destination/aa" "$destination/aa-linux" "$destination/desktop.sh"
+if [[ -x "$app_dir/bin/doom_ascii" ]]; then
+    install -D -m 755 -- "$app_dir/bin/doom_ascii" "$destination/bin/doom_ascii"
+fi
+if [[ -d "$app_dir/wad" ]]; then
+    mkdir -p -- "$destination/wad"
+    install -m 644 -- "$app_dir"/wad/*.wad "$destination/wad/"
+fi
+for file in doom-ascii-source.tar.gz LICENSES/doom-ascii.GPL-2.0; do
+    if [[ -f "$app_dir/$file" ]]; then
+        install -D -m 644 -- "$app_dir/$file" "$destination/$file"
+    fi
+done
 
 if [[ -d "$app_dir/gnome" ]]; then
     extension_dir="$data_dir/gnome-shell/extensions/ascii-arcade@builder106"

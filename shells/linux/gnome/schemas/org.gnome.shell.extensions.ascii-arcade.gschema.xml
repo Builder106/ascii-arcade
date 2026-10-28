@@ -1,8 +1,19 @@
 <schemalist>
   <schema id="org.gnome.shell.extensions.ascii-arcade" path="/org/gnome/shell/extensions/ascii-arcade/">
     <key name="running" type="b"><default>false</default><summary>Run the wallpaper</summary></key>
+    <key name="doom-enabled" type="b"><default>false</default><summary>Allow the DOOM scene</summary></key>
+    <key name="opaque-background" type="b"><default>true</default><summary>Draw an opaque background</summary></key>
+    <key name="launch-at-login" type="b"><default>false</default><summary>Start the wallpaper at login</summary></key>
+    <key name="idle-cycle" type="b"><default>false</default><summary>Rotate scenes while the session is idle</summary></key>
+    <key name="capture-keys-for-doom" type="b"><default>true</default><summary>Send global key input to DOOM while it is active</summary></key>
+    <key name="matrix-speed" type="d"><default>16.0</default><summary>Matrix update speed</summary></key>
+    <key name="matrix-density" type="d"><default>0.72</default><summary>Matrix rain density</summary></key>
+    <key name="life-speed" type="d"><default>9.0</default><summary>Life update speed</summary></key>
+    <key name="life-size" type="d"><default>3.0</default><summary>Life cell size</summary></key>
+    <key name="pipes-speed" type="d"><default>22.0</default><summary>Pipes update speed</summary></key>
+    <key name="pipes-count" type="d"><default>4.0</default><summary>Number of pipes</summary></key>
     <key name="scene" type="s">
-      <choices><choice value="donut"/><choice value="helix"/><choice value="matrix"/><choice value="pipes"/><choice value="life"/></choices>
+      <choices><choice value="donut"/><choice value="helix"/><choice value="matrix"/><choice value="pipes"/><choice value="life"/><choice value="doom"/></choices>
       <default>'donut'</default><summary>Ambient scene</summary>
     </key>
     <key name="theme" type="s">

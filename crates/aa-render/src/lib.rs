@@ -20,6 +20,7 @@
 //!
 //! The output is tightly-packed RGBA8888, row-major, fully opaque.
 
+pub mod capture;
 pub mod font;
 
 use aa_core::{Frame, RgbColor, Theme};
@@ -41,13 +42,13 @@ impl PixelBuffer {
         }
     }
 
-    /// Fill every pixel with an opaque `color`.
-    fn fill(&mut self, color: RgbColor) {
+    /// Fill every pixel with `color` and the selected alpha value.
+    fn fill(&mut self, color: RgbColor, alpha: u8) {
         for px in self.pixels.as_chunks_mut::<4>().0 {
             px[0] = color.r;
             px[1] = color.g;
             px[2] = color.b;
-            px[3] = 255;
+            px[3] = alpha;
         }
     }
 }
@@ -60,6 +61,7 @@ pub struct RenderOptions {
     pub theme: Theme,
     pub scanlines: bool,
     pub glow: bool,
+    pub opaque_background: bool,
 }
 
 impl Default for RenderOptions {
@@ -70,6 +72,7 @@ impl Default for RenderOptions {
             theme: Theme::HACKER,
             scanlines: true,
             glow: true,
+            opaque_background: true,
         }
     }
 }
@@ -87,7 +90,10 @@ pub fn render(frame: &Frame, opts: &RenderOptions) -> PixelBuffer {
     let h = (frame.height as u32 * cell_h).max(1);
 
     let mut buf = PixelBuffer::new(w, h);
-    buf.fill(opts.theme.background);
+    buf.fill(
+        opts.theme.background,
+        if opts.opaque_background { 255 } else { 0 },
+    );
 
     // Draw every non-blank glyph. The background is captured first so the bloom
     // pass can tell "lit" pixels (anything brighter than the background) apart.
@@ -118,6 +124,24 @@ pub fn render(frame: &Frame, opts: &RenderOptions) -> PixelBuffer {
     }
 
     buf
+}
+
+/// Rasterise and nearest-neighbour scale a frame to an exact pixel size.
+/// Fixed-resolution scenes such as DOOM use this to fit the current output.
+pub fn render_to_size(frame: &Frame, opts: &RenderOptions, width: u32, height: u32) -> PixelBuffer {
+    let source = render(frame, opts);
+    let mut target = PixelBuffer::new(width.max(1), height.max(1));
+    for y in 0..target.height {
+        let source_y = y as u64 * source.height as u64 / target.height as u64;
+        for x in 0..target.width {
+            let source_x = x as u64 * source.width as u64 / target.width as u64;
+            let source_offset = ((source_y * source.width as u64 + source_x) * 4) as usize;
+            let target_offset = ((y * target.width + x) * 4) as usize;
+            target.pixels[target_offset..target_offset + 4]
+                .copy_from_slice(&source.pixels[source_offset..source_offset + 4]);
+        }
+    }
+    target
 }
 
 /// Blit one glyph into `buf` at top-left pixel `(x0, y0)`, scaled to fit a
@@ -224,6 +248,9 @@ fn apply_glow(buf: &mut PixelBuffer, bg: RgbColor) {
         px[0] = (px[0] as u32 + hr).min(255) as u8;
         px[1] = (px[1] as u32 + hg).min(255) as u8;
         px[2] = (px[2] as u32 + hb).min(255) as u8;
+        if hr > 0 || hg > 0 || hb > 0 {
+            px[3] = 255;
+        }
     }
 }
 
@@ -281,6 +308,9 @@ fn apply_scanlines(buf: &mut PixelBuffer) {
     for y in (1..h).step_by(2) {
         let row = y * w * 4;
         for px in buf.pixels[row..row + w * 4].as_chunks_mut::<4>().0 {
+            if px[3] == 0 {
+                continue;
+            }
             px[0] = (px[0] as u32 * DARKEN_NUM / DARKEN_DEN) as u8;
             px[1] = (px[1] as u32 * DARKEN_NUM / DARKEN_DEN) as u8;
             px[2] = (px[2] as u32 * DARKEN_NUM / DARKEN_DEN) as u8;
@@ -374,6 +404,7 @@ mod tests {
             theme: Theme::HACKER,
             scanlines: false,
             glow: false,
+            opaque_background: true,
         };
         let red = RgbColor::new(255, 0, 0);
         let f = one_cell_frame(3, 3, 1, 1, Cell::new('A', Some(red)));
@@ -404,6 +435,7 @@ mod tests {
             theme: Theme::HACKER,
             scanlines: false,
             glow: false,
+            opaque_background: true,
         };
         let f = one_cell_frame(1, 1, 0, 0, Cell::new('#', None));
         let buf = render(&f, &opts);
@@ -495,6 +527,7 @@ mod tests {
             theme: Theme::HACKER,
             scanlines: true,
             glow: true,
+            opaque_background: true,
         };
         let buf = render(&f, &opts);
         assert_eq!(buf.width, 1);
@@ -540,5 +573,29 @@ mod tests {
             16,
             RgbColor::new(255, 255, 255),
         );
+    }
+
+    #[test]
+    fn transparent_background_keeps_blank_cells_clear() {
+        let opts = RenderOptions {
+            opaque_background: false,
+            glow: false,
+            scanlines: true,
+            ..Default::default()
+        };
+        let buf = render(&Frame::blank(1, 1), &opts);
+        assert!(buf
+            .pixels
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .all(|pixel| pixel[3] == 0));
+    }
+
+    #[test]
+    fn render_to_size_scales_fixed_scenes_to_output_dimensions() {
+        let buf = render_to_size(&Frame::blank(4, 2), &RenderOptions::default(), 13, 9);
+        assert_eq!((buf.width, buf.height), (13, 9));
+        assert_eq!(buf.pixels.len(), 13 * 9 * 4);
     }
 }

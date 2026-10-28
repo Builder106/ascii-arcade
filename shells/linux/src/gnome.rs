@@ -1,8 +1,9 @@
 //! Frame transport for the GNOME Shell extension: AA01, little-endian width
 //! and height, followed by tightly packed RGBA frames at 20 fps.
 
-use aa_render::RenderOptions;
-use std::io::{self, Write};
+use aa_render::{render_to_size, RenderOptions};
+use std::io::{self, Read, Write};
+use std::sync::mpsc::{self, Receiver};
 use std::time::{Duration, Instant};
 
 pub fn stream(
@@ -12,29 +13,121 @@ pub fn stream(
     height: u32,
     output: &mut impl Write,
 ) -> Result<(), String> {
-    if width == 0 || height == 0 || width > 1920 || height > 1080 {
+    stream_with_controls(
+        GnomeStreamOptions {
+            scene_id,
+            render: opts,
+            width,
+            height,
+            doom_enabled: false,
+            settings: &[],
+            capture_keys: false,
+        },
+        output,
+    )
+}
+
+pub fn stream_with_doom(
+    scene_id: &str,
+    opts: RenderOptions,
+    width: u32,
+    height: u32,
+    doom_enabled: bool,
+    output: &mut impl Write,
+) -> Result<(), String> {
+    stream_with_controls(
+        GnomeStreamOptions {
+            scene_id,
+            render: opts,
+            width,
+            height,
+            doom_enabled,
+            settings: &[],
+            capture_keys: false,
+        },
+        output,
+    )
+}
+
+pub fn stream_with_doom_settings(
+    scene_id: &str,
+    opts: RenderOptions,
+    width: u32,
+    height: u32,
+    doom_enabled: bool,
+    settings: &[(String, f64)],
+    output: &mut impl Write,
+) -> Result<(), String> {
+    stream_with_controls(
+        GnomeStreamOptions {
+            scene_id,
+            render: opts,
+            width,
+            height,
+            doom_enabled,
+            settings,
+            capture_keys: false,
+        },
+        output,
+    )
+}
+
+pub struct GnomeStreamOptions<'a> {
+    pub scene_id: &'a str,
+    pub render: RenderOptions,
+    pub width: u32,
+    pub height: u32,
+    pub doom_enabled: bool,
+    pub settings: &'a [(String, f64)],
+    pub capture_keys: bool,
+}
+
+pub fn stream_with_controls(
+    options: GnomeStreamOptions<'_>,
+    output: &mut impl Write,
+) -> Result<(), String> {
+    if options.width == 0 || options.height == 0 || options.width > 1920 || options.height > 1080 {
         return Err("GNOME frame dimensions must be within 1x1 and 1920x1080".into());
     }
-    if !width.is_multiple_of(opts.cell_w.max(1)) || !height.is_multiple_of(opts.cell_h.max(1)) {
+    if !options.width.is_multiple_of(options.render.cell_w.max(1))
+        || !options.height.is_multiple_of(options.render.cell_h.max(1))
+    {
         return Err("GNOME frame dimensions must be multiples of the cell dimensions".into());
     }
-    let mut scene =
-        aa_core::scenes::make(scene_id).ok_or_else(|| format!("unknown scene '{scene_id}'"))?;
-    scene.apply_base_color(opts.theme.text);
+    let mut scene = super::make_scene(
+        options.scene_id,
+        options.doom_enabled,
+        (options.width / options.render.cell_w.max(1)) as usize,
+        (options.height / options.render.cell_h.max(1)) as usize,
+        options.settings,
+    )?;
+    scene.apply_base_color(options.render.theme.text);
     scene.set_grid(
-        (width / opts.cell_w.max(1)) as usize,
-        (height / opts.cell_h.max(1)) as usize,
+        (options.width / options.render.cell_w.max(1)) as usize,
+        (options.height / options.render.cell_h.max(1)) as usize,
     );
     scene.start();
+    let key_events = if options.capture_keys && scene.is_interactive() {
+        Some(read_stdin_events()?)
+    } else {
+        None
+    };
     let result = (|| -> io::Result<()> {
         output.write_all(b"AA01")?;
-        output.write_all(&width.to_le_bytes())?;
-        output.write_all(&height.to_le_bytes())?;
+        output.write_all(&options.width.to_le_bytes())?;
+        output.write_all(&options.height.to_le_bytes())?;
         let start = Instant::now();
         loop {
             let tick = Instant::now();
+            if let Some(events) = &key_events {
+                for bytes in events.try_iter() {
+                    scene.send_key(&bytes);
+                }
+            }
             let frame = scene.frame(start.elapsed().as_secs_f64());
-            output.write_all(&aa_render::render(&frame, &opts).pixels)?;
+            output.write_all(
+                &render_to_size(&frame, &options.render, options.width, options.height).pixels,
+            )?;
             output.flush()?;
             std::thread::sleep(Duration::from_millis(50).saturating_sub(tick.elapsed()));
         }
@@ -45,6 +138,25 @@ pub fn stream(
         Err(e) => Err(e.to_string()),
         Ok(()) => Ok(()),
     }
+}
+
+fn read_stdin_events() -> Result<Receiver<Vec<u8>>, String> {
+    let (sender, receiver) = mpsc::channel();
+    std::thread::Builder::new()
+        .name("ascii-arcade-doom-input".into())
+        .spawn(move || {
+            let mut input = io::stdin().lock();
+            let mut bytes = [0_u8; 64];
+            loop {
+                match input.read(&mut bytes) {
+                    Ok(0) | Err(_) => break,
+                    Ok(count) if sender.send(bytes[..count].to_vec()).is_err() => break,
+                    Ok(_) => {}
+                }
+            }
+        })
+        .map_err(|error| format!("could not start DOOM input reader: {error}"))?;
+    Ok(receiver)
 }
 
 #[cfg(test)]

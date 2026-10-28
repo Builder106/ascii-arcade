@@ -48,6 +48,9 @@ print(response)
         self.write_executable(self.directory / "aa-linux", '''#!/usr/bin/env python3
 import json, os, pathlib, signal, sys, time
 root = pathlib.Path(os.environ["DESKTOP_TEST_DIR"])
+if sys.argv[1:] == ["--autostart-status"]:
+    print("false")
+    sys.exit(0)
 (root / "arguments.json").write_text(json.dumps(sys.argv[1:]))
 def stop(*_):
     (root / "stopped").touch()
@@ -85,6 +88,7 @@ signal.signal(signal.SIGTERM, stop)
 
     def test_install_with_reserved_characters_in_path(self):
         self.write_executable(self.directory / "aa-linux", "#!/bin/sh\nexit 0\n")
+        self.write_executable(self.directory / "aa", "#!/bin/sh\nexit 0\n")
         subprocess.run(["bash", str(self.directory / "install-desktop.sh")],
                        env=self.env, check=True, timeout=10)
         data = Path(self.env["XDG_DATA_HOME"])
@@ -105,6 +109,18 @@ signal.signal(signal.SIGTERM, stop)
         self.write_executable(self.bin / "gnome-extensions", "#!/bin/sh\nprintf '%s\\n' ascii-arcade@builder106\n")
         self.write_executable(self.bin / "gsettings", '''#!/usr/bin/env python3
 import os, pathlib, sys
+defaults = {
+    "scene": "'donut'",
+    "theme": "'hacker'",
+    "doom-enabled": "false",
+    "opaque-background": "true",
+    "idle-cycle": "false",
+    "capture-keys-for-doom": "true",
+    "launch-at-login": "false",
+}
+if sys.argv[-3] == "get":
+    print(defaults[sys.argv[-1]])
+    sys.exit(0)
 with (pathlib.Path(os.environ["DESKTOP_TEST_DIR"]) / "settings.log").open("a") as log:
     log.write(" ".join(sys.argv[2:]) + "\\n")
 ''')

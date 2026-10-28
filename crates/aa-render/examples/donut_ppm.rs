@@ -29,6 +29,7 @@ fn main() -> std::io::Result<()> {
         theme: aa_core::Theme::HACKER,
         scanlines: true,
         glow: true,
+        opaque_background: true,
     };
     let buf = render(&frame, &opts);
 

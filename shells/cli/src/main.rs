@@ -20,16 +20,13 @@
 //!     List built-in scenes and themes.
 //!
 //! --enable-doom
-//!     Unlocks the DOOM scene for `play`/`web`/`scenes` on this invocation.
-//!     DOOM is a playable shooter, so it's opt-in rather than just another
-//!     scene: it also needs the binary built with `--features doom` in the
-//!     first place (`aa-doom` is an optional dependency, off by default).
-//!     Not available via `aa run` — DOOM as an actual desktop wallpaper
-//!     (fixed-grid bitmap compositing + global keyboard capture while another
-//!     app has focus) isn't implemented on Linux/Windows yet.
+//!     Enables the optional DOOM scene for this invocation. The binary must
+//!     include `--features doom`. Desktop controls also accept `--capture-keys`
+//!     and `--idle-cycle` where the current desktop session supports them.
 //! ```
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
+use std::path::PathBuf;
 
 // ── CLI definition ────────────────────────────────────────────────────────────
 
@@ -72,6 +69,18 @@ enum Command {
         /// Colour theme  [hacker|amber|ice|ghost]
         #[arg(short, long, default_value = "hacker")]
         theme: String,
+        /// Leave the wallpaper background transparent
+        #[arg(long)]
+        transparent: bool,
+        /// Rotate scenes after 90 seconds without input
+        #[arg(long)]
+        idle_cycle: bool,
+        /// Send supported global key presses to DOOM while it is active
+        #[arg(long)]
+        capture_keys: bool,
+        /// Scene setting in ID=VALUE form; may be supplied more than once
+        #[arg(long = "setting", value_name = "ID=VALUE")]
+        settings: Vec<String>,
     },
     /// Stream a scene to a browser via xterm.js WebSocket
     Web {
@@ -85,6 +94,20 @@ enum Command {
         #[arg(short, long, default_value_t = 8788u16)]
         port: u16,
     },
+    /// Save a wallpaper screenshot or a three-second animated clip
+    Capture {
+        #[arg(value_enum)]
+        kind: CaptureKind,
+        #[arg(default_value = "donut")]
+        scene: String,
+        #[arg(short, long, default_value = "hacker")]
+        theme: String,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        /// Scene setting in ID=VALUE form; may be supplied more than once
+        #[arg(long = "setting", value_name = "ID=VALUE")]
+        settings: Vec<String>,
+    },
     /// Manage start-at-login registration
     Autostart {
         #[command(subcommand)]
@@ -94,6 +117,12 @@ enum Command {
     Scenes,
     /// List available theme names
     Themes,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum CaptureKind {
+    Screenshot,
+    Clip,
 }
 
 #[derive(Subcommand)]
@@ -106,6 +135,10 @@ enum AutostartAction {
         /// Colour theme
         #[arg(short, long, default_value = "hacker")]
         theme: String,
+        #[arg(long)]
+        idle_cycle: bool,
+        #[arg(long)]
+        capture_keys: bool,
     },
     /// Remove aa from login items
     Disable,
@@ -128,8 +161,30 @@ fn dispatch(cli: Cli) -> i32 {
                 return 1;
             }
         }
-        Command::Run { scene, theme } => {
-            if let Err(e) = cmd_run(&scene, resolve_theme(&theme)) {
+        Command::Run {
+            scene,
+            theme,
+            transparent,
+            idle_cycle,
+            capture_keys,
+            settings,
+        } => {
+            let settings = match parse_settings(&settings) {
+                Ok(settings) => settings,
+                Err(error) => {
+                    eprintln!("aa run: {error}");
+                    return 2;
+                }
+            };
+            if let Err(e) = cmd_run(
+                &scene,
+                resolve_theme(&theme),
+                enable_doom,
+                transparent,
+                &settings,
+                idle_cycle,
+                capture_keys,
+            ) {
                 eprintln!("aa run: {e}");
                 return 1;
             }
@@ -144,8 +199,34 @@ fn dispatch(cli: Cli) -> i32 {
                 return 1;
             }
         }
+        Command::Capture {
+            kind,
+            scene,
+            theme,
+            output,
+            settings,
+        } => {
+            let settings = match parse_settings(&settings) {
+                Ok(settings) => settings,
+                Err(error) => {
+                    eprintln!("aa capture: {error}");
+                    return 2;
+                }
+            };
+            if let Err(e) = cmd_capture(
+                kind,
+                &scene,
+                resolve_theme(&theme),
+                enable_doom,
+                output,
+                &settings,
+            ) {
+                eprintln!("aa capture: {e}");
+                return 1;
+            }
+        }
         Command::Autostart { action } => {
-            if let Err(e) = cmd_autostart(action) {
+            if let Err(e) = cmd_autostart(action, enable_doom) {
                 eprintln!("aa autostart: {e}");
                 return 1;
             }
@@ -382,16 +463,30 @@ fn run_play_loop<W: std::io::Write, E: EventSource>(
 
 // ── run ───────────────────────────────────────────────────────────────────────
 
-fn cmd_run(scene_id: &str, theme: aa_core::Theme) -> Result<(), String> {
+fn cmd_run(
+    scene_id: &str,
+    theme: aa_core::Theme,
+    enable_doom: bool,
+    transparent: bool,
+    settings: &[(String, f64)],
+    idle_cycle: bool,
+    capture_keys: bool,
+) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
         use aa_render::RenderOptions;
-        return aa_linux::run(
+        let mut options = RenderOptions {
+            theme,
+            ..Default::default()
+        };
+        options.opaque_background = !transparent;
+        return aa_linux::run_with_controls(
             scene_id,
-            RenderOptions {
-                theme,
-                ..Default::default()
-            },
+            options,
+            enable_doom,
+            settings,
+            idle_cycle,
+            capture_keys,
         )
         .map_err(|e| e.to_string());
     }
@@ -399,19 +494,33 @@ fn cmd_run(scene_id: &str, theme: aa_core::Theme) -> Result<(), String> {
     #[cfg(windows)]
     {
         use aa_render::RenderOptions;
-        return aa_windows::run(
+        let mut options = RenderOptions {
+            theme,
+            ..Default::default()
+        };
+        options.opaque_background = !transparent;
+        return aa_windows::run_with_controls(
             scene_id,
-            RenderOptions {
-                theme,
-                ..Default::default()
-            },
+            options,
+            enable_doom,
+            settings,
+            idle_cycle,
+            capture_keys,
         )
         .map_err(|e| e.to_string());
     }
 
     #[cfg(target_os = "macos")]
     {
-        let _ = (scene_id, theme);
+        let _ = (
+            scene_id,
+            theme,
+            enable_doom,
+            transparent,
+            settings,
+            idle_cycle,
+            capture_keys,
+        );
         let ok = std::process::Command::new("open")
             .args(["-a", "ASCII Arcade"])
             .status()
@@ -430,6 +539,84 @@ fn cmd_run(scene_id: &str, theme: aa_core::Theme) -> Result<(), String> {
 
     #[allow(unreachable_code)]
     Err("wallpaper mode is not supported on this platform; try 'aa play'".into())
+}
+
+fn cmd_capture(
+    kind: CaptureKind,
+    scene_id: &str,
+    theme: aa_core::Theme,
+    enable_doom: bool,
+    output: Option<PathBuf>,
+    settings: &[(String, f64)],
+) -> Result<(), String> {
+    let mut scene = make_scene(scene_id, enable_doom, 16)?;
+    for (id, value) in settings {
+        scene.apply_setting(id, *value);
+    }
+    scene.set_grid(40, 11);
+    scene.apply_base_color(theme.text);
+    scene.start();
+    let options = aa_render::RenderOptions {
+        theme,
+        ..Default::default()
+    };
+    let extension = match kind {
+        CaptureKind::Screenshot => "png",
+        CaptureKind::Clip => "gif",
+    };
+    let path = output.unwrap_or_else(|| {
+        let home = std::env::var_os("USERPROFILE")
+            .or_else(|| std::env::var_os("HOME"))
+            .map(PathBuf::from)
+            .unwrap_or_else(std::env::temp_dir);
+        let desktop = home.join("Desktop");
+        let parent = if desktop.is_dir() { desktop } else { home };
+        let seconds = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        parent.join(format!("ASCII-Arcade-{seconds}.{extension}"))
+    });
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    match kind {
+        CaptureKind::Screenshot => {
+            let frame = scene.frame(0.0);
+            let image = aa_render::render_to_size(&frame, &options, 320, 180);
+            aa_render::capture::write_png(&image, &path).map_err(|e| e.to_string())?;
+        }
+        CaptureKind::Clip => {
+            let mut frames = Vec::with_capacity(45);
+            for index in 0..45 {
+                let frame = scene.frame(index as f64 / 15.0);
+                frames.push(aa_render::render_to_size(&frame, &options, 320, 180));
+                std::thread::sleep(std::time::Duration::from_millis(67));
+            }
+            aa_render::capture::write_gif(&frames, &path, 15).map_err(|e| e.to_string())?;
+        }
+    }
+    scene.stop();
+    println!("{}", path.display());
+    Ok(())
+}
+
+fn parse_settings(values: &[String]) -> Result<Vec<(String, f64)>, String> {
+    values
+        .iter()
+        .map(|entry| {
+            let (id, raw_value) = entry
+                .split_once('=')
+                .ok_or_else(|| format!("invalid scene setting '{entry}', expected ID=VALUE"))?;
+            let value = raw_value
+                .parse::<f64>()
+                .map_err(|_| format!("invalid value for scene setting '{id}'"))?;
+            if id.is_empty() || !value.is_finite() {
+                return Err(format!("invalid scene setting '{entry}'"));
+            }
+            Ok((id.to_owned(), value))
+        })
+        .collect()
 }
 
 // ── web ───────────────────────────────────────────────────────────────────────
@@ -553,18 +740,33 @@ async fn cmd_web(
 
 // ── autostart ─────────────────────────────────────────────────────────────────
 
-fn cmd_autostart(action: AutostartAction) -> Result<(), String> {
+fn cmd_autostart(action: AutostartAction, enable_doom: bool) -> Result<(), String> {
     match action {
-        AutostartAction::Enable { scene, theme } => {
+        AutostartAction::Enable {
+            scene,
+            theme,
+            idle_cycle,
+            capture_keys,
+        } => {
+            let mut args = Vec::new();
+            if enable_doom {
+                args.push("--enable-doom".to_owned());
+            }
+            if idle_cycle {
+                args.push("--idle-cycle".to_owned());
+            }
+            if capture_keys {
+                args.push("--capture-keys".to_owned());
+            }
             #[cfg(target_os = "linux")]
-            return aa_linux::autostart::install(&scene, &theme);
+            return aa_linux::autostart::install_with_args(&scene, &theme, &args);
 
             #[cfg(windows)]
-            return aa_windows::autostart::install(&scene, &theme);
+            return aa_windows::autostart::install_with_args(&scene, &theme, &args);
 
             #[cfg(target_os = "macos")]
             {
-                let _ = (scene, theme);
+                let _ = (scene, theme, args);
                 println!("On macOS, toggle 'Launch at Login' in the ASCII Arcade status-bar menu.");
                 return Ok(());
             }
@@ -712,9 +914,20 @@ mod scene_resolution_tests {
         let cli = Cli::try_parse_from(["aa", "run"]).unwrap();
         assert!(!cli.enable_doom);
         match cli.command {
-            Command::Run { scene, theme } => {
+            Command::Run {
+                scene,
+                theme,
+                transparent,
+                idle_cycle,
+                capture_keys,
+                settings,
+            } => {
                 assert_eq!(scene, "donut");
                 assert_eq!(theme, "hacker");
+                assert!(!transparent);
+                assert!(!idle_cycle);
+                assert!(!capture_keys);
+                assert!(settings.is_empty());
             }
             _ => panic!("expected Run subcommand"),
         }
@@ -739,10 +952,18 @@ mod scene_resolution_tests {
             Cli::try_parse_from(["aa", "autostart", "enable", "life", "--theme", "ice"]).unwrap();
         match cli_enable.command {
             Command::Autostart {
-                action: AutostartAction::Enable { scene, theme },
+                action:
+                    AutostartAction::Enable {
+                        scene,
+                        theme,
+                        idle_cycle,
+                        capture_keys,
+                    },
             } => {
                 assert_eq!(scene, "life");
                 assert_eq!(theme, "ice");
+                assert!(!idle_cycle);
+                assert!(!capture_keys);
             }
             _ => panic!("expected Autostart Enable"),
         }
@@ -791,18 +1012,21 @@ mod scene_resolution_tests {
 
     #[test]
     fn cmd_autostart_execution_succeeds_or_returns_platform_status() {
-        // Test all autostart action variants through cmd_autostart
-        let _ = cmd_autostart(AutostartAction::Status);
-        let _ = cmd_autostart(AutostartAction::Disable);
-        let _ = cmd_autostart(AutostartAction::Enable {
-            scene: "donut".into(),
-            theme: "hacker".into(),
-        });
+        // Status is read-only; install and remove are covered by platform tests.
+        let _ = cmd_autostart(AutostartAction::Status, false);
     }
 
     #[test]
     fn cmd_run_execution() {
-        let res = cmd_run("invalid_scene_id_xyz", aa_core::Theme::HACKER);
+        let res = cmd_run(
+            "invalid_scene_id_xyz",
+            aa_core::Theme::HACKER,
+            false,
+            false,
+            &[],
+            false,
+            false,
+        );
         // On Linux / Windows / macOS it verifies dispatch and returns expected result/error without entering live render loop
         let _ = res;
     }
@@ -1054,17 +1278,6 @@ mod scene_resolution_tests {
         assert_eq!(dispatch(Cli::try_parse_from(["aa", "themes"]).unwrap()), 0);
         assert_eq!(
             dispatch(Cli::try_parse_from(["aa", "autostart", "status"]).unwrap()),
-            0
-        );
-        assert_eq!(
-            dispatch(Cli::try_parse_from(["aa", "autostart", "disable"]).unwrap()),
-            0
-        );
-        assert_eq!(
-            dispatch(
-                Cli::try_parse_from(["aa", "autostart", "enable", "donut", "--theme", "ice"])
-                    .unwrap()
-            ),
             0
         );
     }

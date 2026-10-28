@@ -42,6 +42,7 @@ name = "aa-linux"
 version = "0.2.1"
 dependencies = [
  "aa-core",
+ "aa-doom",
  "aa-render",
  "smithay-client-toolkit",
  "wayland-client",
@@ -78,6 +79,7 @@ name = "aa-windows"
 version = "0.2.1"
 dependencies = [
  "aa-core",
+ "aa-doom",
  "aa-render",
  "windows",
  "winres",
