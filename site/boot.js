@@ -10,7 +10,7 @@
 const GRID_END = 0.3; // seconds from the start of the test
 const BARS_END = 0.55;
 const RAM_END = 0.95;
-const WIPE = 0.3; // the logo reveals top to bottom over this long
+const WIPE = 0.3; // seconds for the logo to reveal from top to bottom
 const TYPE = 90; // characters per second in the status box
 const BLOCK = "█";
 
