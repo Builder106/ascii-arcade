@@ -6,6 +6,8 @@ Terminal & browser ASCII gaming engine roadmap.
 
 - **Doom WASM Integration**: Clean WASM-compiled execution per [`docs/specs/doom-wasm-plan-a.md`](docs/specs/doom-wasm-plan-a.md).
 - **Background Shader Modes**: Configurable background opacity and retro CRT shader filters.
+- **Wallpaper Engine web wallpaper**: Package the existing Rust/WASM scenes as a self-contained web wallpaper for Windows. Start with one ambient scene and verify that the generated WASM loader and local assets work in Wallpaper Engine's embedded browser. Add scene and theme selection through Wallpaper Engine properties, then test resizing, frame rate, pause and resume, and multi-monitor behavior on Windows. Consider a Workshop release after those checks pass. Evaluate DOOM separately, including its assets and license requirements.
+- **Wallpaper import investigation**: Explore support for user-supplied video wallpapers as a separate future feature. Assess format compatibility and distribution rights before considering other Wallpaper Engine wallpaper types or Workshop integration.
 
 ## v1.2 — Game Library Expansion
 
