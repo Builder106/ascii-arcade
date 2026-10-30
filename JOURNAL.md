@@ -1,5 +1,24 @@
 # JOURNAL — ASCII Arcade
 
+## 2026-10-29: Load the wallpaper from local files #fix
+
+Chromium blocked the package's module imports when opened as a `file://` URL.
+The package now uses wasm-bindgen's non-module output and embeds the WASM bytes
+in a local script, so initialization does not fetch a file. ShellCheck and the
+Chromium rendering, pause, resume, and resize smoke test passed on Linux ARM64
+for both local-file and HTTP loading. Wallpaper Engine itself still needs a
+Windows test; the local-file check does not exercise its embedded browser.
+
+## 2026-10-29: Start a Wallpaper Engine package #feature
+
+Added a single-scene web wallpaper package using the existing Rust/WASM engine
+and canvas renderer. Its listener handles the host's frame-rate and pause
+settings, and the animation clock resets after a pause or visibility change.
+The Linux ARM64 package build, ShellCheck, and Chromium smoke test passed; the
+test checks visible pixels, pause and resume, and resizing. Wallpaper Engine's
+embedded browser and multi-monitor behavior still need a Windows test before
+adding scene and theme properties. No Workshop release was published.
+
 ## 2026-10-28: Match desktop controls across platforms #decision #milestone
 
 The Windows and Linux desktop controllers now offer scene and theme selection,
