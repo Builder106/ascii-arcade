@@ -4,8 +4,10 @@ wad/freedoom2.wad
 # Test suite and video recordings
 e2e/
 
-# README-only demo assets (site has its own at site/assets/)
-assets/
+# README-only demo assets. The leading slash matters: without it the
+# pattern also matches site/assets/, which holds the logo, favicon, social
+# card and DOOM attract recording.
+/assets/
 
 # HyperFrames video projects (trailer and social cut)
 trailer/
