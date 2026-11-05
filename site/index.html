@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ASCII Arcade: live ASCII wallpaper for your Mac</title>
-  <meta name="description" content="Live ASCII animation and playable DOOM for your Mac desktop. It runs under every window and never takes a click. Free and open source.">
+  <title>ASCII Arcade: live ASCII wallpapers for macOS, Windows and Linux</title>
+  <meta name="description" content="Live ASCII animation and playable DOOM as your desktop wallpaper on macOS, Windows and Linux. It runs under every window and never takes a click. Free and open source.">
   <link rel="canonical" href="https://ascii-arcade-doom.vercel.app/">
   <meta name="theme-color" content="#030805">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://ascii-arcade-doom.vercel.app/">
   <meta property="og:title" content="ASCII Arcade">
-  <meta property="og:description" content="Live ASCII animation and playable DOOM for your Mac desktop, running under every window.">
+  <meta property="og:description" content="Live ASCII animation and playable DOOM as your desktop wallpaper on macOS, Windows and Linux.">
   <meta property="og:image" content="https://ascii-arcade-doom.vercel.app/assets/social-card.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
@@ -24,9 +24,9 @@
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "ASCII Arcade",
-    "operatingSystem": "macOS 13 or later",
+    "operatingSystem": "macOS 13 or later, Windows, Linux",
     "applicationCategory": "DesktopEnhancementApplication",
-    "description": "Live ASCII animation and playable DOOM for your Mac desktop, running under every window.",
+    "description": "Live ASCII animation and playable DOOM as your desktop wallpaper on macOS, Windows and Linux.",
     "url": "https://ascii-arcade-doom.vercel.app/",
     "downloadUrl": "https://github.com/Builder106/ascii-arcade/releases/latest/download/ASCII-Arcade.dmg",
     "license": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.html",
@@ -60,9 +60,9 @@
   <main id="stations" tabindex="-1">
     <section class="station" id="title" aria-labelledby="title-h">
       <h1 id="title-h">ASCII Arcade</h1>
-      <p class="lede">Live ASCII animation on your Mac desktop, under every window.</p>
+      <p class="lede">Live ASCII animation on your desktop, under every window.</p>
       <p><a class="cta" href="https://github.com/Builder106/ascii-arcade/releases/latest/download/ASCII-Arcade.dmg">Download for macOS</a></p>
-      <p class="note">Free and open source. macOS 13 or later.</p>
+      <p class="note">Free and open source. macOS 13 or later. <a href="https://github.com/Builder106/ascii-arcade/releases/latest">Windows and Linux builds</a> are on the releases page.</p>
     </section>
 
     <section class="station" id="demo" aria-labelledby="demo-h">
@@ -117,7 +117,8 @@
         </li>
         <li>Find ◎ in your menu bar.</li>
       </ol>
-      <h3>Not on a Mac</h3>
+      <h3>Windows, Linux, or from source</h3>
+      <p>Desktop builds are on the <a href="https://github.com/Builder106/ascii-arcade/releases/latest">releases page</a>. To try the engine in a terminal:</p>
       <div class="cmd"><code id="cmd-play" tabindex="0">cargo run -p aa -- play donut</code><button type="button" data-copy="cmd-play">Copy</button></div>
     </section>
   </main>
