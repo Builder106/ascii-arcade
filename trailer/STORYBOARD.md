@@ -1,9 +1,8 @@
 # Tier 3 trailer storyboard
 
 Built in HyperFrames. `AsciiArcadeTrailer` is 39.5 seconds at 1920×1080,
-30 fps. The music starts at 2.51 s so Pixelland's first beat hits at 3.0 s,
-right where the boot log dissolves into the cabinet. Every cut after that is
-on a beat.
+30 fps. The original music cue starts at 2.84 s, right where the boot log dissolves
+into the cabinet. Every cut after that is on a beat.
 
 | Time | Beat | Source |
 | --- | --- | --- |

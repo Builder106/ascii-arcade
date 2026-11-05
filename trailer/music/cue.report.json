@@ -1,0 +1,10 @@
+{
+  "project": "cue.mmp",
+  "master": "cue.wav",
+  "mp3": "cue.mp3",
+  "bpm": 115,
+  "duration": 36.66,
+  "integrated_lufs": -17.0,
+  "true_peak_dbtp": -5.0,
+  "silences": []
+}

@@ -82,7 +82,7 @@
     >
       <div class="ground"></div>
 
-      <!-- Footage of the real site. Cuts after 3.0 s sit on Pixelland's beats. -->
+      <!-- Footage of the real site. Cuts after 3.0 s sit on the cue's beats. -->
       <video id="power" src="public/clips/power.mp4" data-start="0" data-duration="7.01" data-track-index="0" muted playsinline></video>
       <video id="desk-wall" src="public/clips/desk.mp4" data-start="7.01" data-duration="6.78" data-track-index="0" muted playsinline></video>
       <video id="m1" src="public/clips/m1.mp4" data-start="13.79" data-duration="1.05" data-track-index="0" muted playsinline></video>
@@ -102,7 +102,7 @@
       <div id="captions" data-track-kind="captions" data-composition-id="captions" data-composition-src="compositions/captions.html" data-start="7.01" data-duration="26.61" data-track-index="3" data-width="1920" data-height="1080"></div>
       <div id="end" data-composition-id="end" data-composition-src="compositions/end.html" data-start="33.62" data-duration="5.88" data-track-index="4" data-width="1920" data-height="1080"></div>
 
-      <audio id="music" src="public/audio.mp3" data-start="2.51" data-duration="36.99" data-track-index="20"></audio>
+      <audio id="music" src="public/audio.mp3" data-start="2.84" data-duration="36.66" data-track-index="20"></audio>
       <audio id="sfx-power" src="public/sfx_power.wav" data-start="0.05" data-duration="0.9" data-track-index="21" data-volume="0.6"></audio>
       <audio id="sfx-pull" src="public/sfx_whoosh.wav" data-start="3" data-duration="0.6" data-track-index="22" data-volume="0.35"></audio>
       <audio id="sfx-open" src="public/sfx_blip.wav" data-start="8.9" data-duration="0.12" data-track-index="21" data-volume="0.5"></audio>
@@ -112,8 +112,8 @@
       <audio id="sfx-coin" src="public/sfx_coin.wav" data-start="35.2" data-duration="0.55" data-track-index="21" data-volume="0.6"></audio>
     </div>
     <script>
-      // Pixelland starts at 2.51 s, so its first beat lands at 3.0 s, where
-      // the boot log dissolves into the cabinet. It fades over the last beats.
+      // The original cue starts at 2.84 s, where the boot log dissolves into
+      // the cabinet. It fades over the last beats.
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
       tl.fromTo("#music", { volume: 1 }, { volume: 0, duration: 1.4, ease: "none" }, 38.0);

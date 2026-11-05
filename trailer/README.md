@@ -38,6 +38,6 @@ above is a 720p copy for GitHub.
 
 ## Music
 
-"Pixelland" by Kevin MacLeod (CC BY 4.0), in `public/audio.mp3`. Keep the
-credit from `public/CREDITS.md` with anything you publish. The sound effects
-come from `scripts/video-sfx.py`.
+An original cue composed in LMMS, in `public/audio.mp3`. The source is
+`music/cue.py` and the brief is `ORIGINAL-CUE.md`. The sound effects come from
+`scripts/video-sfx.py`.

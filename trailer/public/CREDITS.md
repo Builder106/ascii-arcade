@@ -2,9 +2,7 @@
 
 ## Music
 
-"Pixelland" by Kevin MacLeod (incompetech.com)
-Licensed under Creative Commons: By Attribution 4.0
-https://creativecommons.org/licenses/by/4.0/
+Original cue composed for this trailer in LMMS. No attribution required.
 
 ## Fonts
 
