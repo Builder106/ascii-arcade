@@ -8,6 +8,7 @@
     "bddgen": "bddgen --config playwright.demo.config.ts",
     "demo": "bddgen --config playwright.demo.config.ts && DEMO=1 playwright test --config playwright.demo.config.ts",
     "footage": "node capture/footage.mjs",
+    "social-card": "node capture/social-card.mjs",
     "test:qa": "playwright test --config playwright.config.ts",
     "postinstall": "playwright install chromium"
   },
