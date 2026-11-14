@@ -1,11 +1,11 @@
 # ASCII-Arcade Roadmap
 
-Terminal & browser ASCII gaming engine roadmap.
+Plans for the terminal and browser ASCII gaming engine.
 
 ## v1.1 — WebAssembly & Game Porting
 
-- **Doom WASM Integration**: Clean WASM-compiled execution per [`docs/specs/doom-wasm-plan-a.md`](docs/specs/doom-wasm-plan-a.md).
-- **Background Shader Modes**: Configurable background opacity and retro CRT shader filters.
+- **Doom WASM Integration**: Run the WASM-compiled game as described in [`docs/specs/doom-wasm-plan-a.md`](docs/specs/doom-wasm-plan-a.md).
+- **Background Shader Modes**: Add configurable background opacity and retro CRT shader filters.
 - **Lively Wallpaper integration**: Evaluate Lively as the recommended free Windows alternative. Adapt the existing Rust/WASM wallpaper package and its host controls to Lively, then test local asset loading, scene and theme selection, resizing, frame rate, pause and resume, and multi-monitor behavior in Lively on Windows. The existing native Windows shell remains available.
 - **Wallpaper Engine web wallpaper**: A single-scene package is available in `shells/wallpaper-engine/`. Its local assets render in Chromium, but Wallpaper Engine itself has not been tested because an owned copy is unavailable. When access is available, verify the WASM loader in its embedded browser on Windows, add scene and theme selection through Wallpaper Engine properties, and test resizing, frame rate, pause and resume, and multi-monitor behavior. Consider a Workshop release after those checks pass. Evaluate DOOM separately, including its assets and license requirements.
 - **Linux web wallpaper investigation**: Consider Hidamari as an optional host for the web package. Test its web renderer and desktop compatibility before committing to an integration; ASCII Arcade already has native Linux wallpaper paths.
@@ -13,8 +13,8 @@ Terminal & browser ASCII gaming engine roadmap.
 
 ## v1.2 — Game Library Expansion
 
-- **Classic Arcade Ports**: Snake, Tetris, Space Invaders, and Rogue terminal renders.
-- **Multiplayer / Leaderboard Protocol**: Lightweight local and network high-score ledger.
+- **Classic Arcade Ports**: Render Snake, Tetris, Space Invaders, and Rogue in the terminal.
+- **Multiplayer / Leaderboard Protocol**: Add a local and network high-score ledger.
 
 ## v2.0 — Community & AI Platform
 
