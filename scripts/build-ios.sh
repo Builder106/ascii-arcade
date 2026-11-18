@@ -88,6 +88,18 @@ DEVICE_TARGET_DIR="$BUILD_ROOT/device"
 SIM_ARM_TARGET_DIR="$BUILD_ROOT/sim-arm64"
 SIM_X86_TARGET_DIR="$BUILD_ROOT/sim-x86_64"
 
+find_staticlib() {
+  local dir="$1"
+  if [ -f "$dir/$LIB_NAME" ]; then
+    echo "$dir/$LIB_NAME"
+  elif [ -f "$dir/deps/$LIB_NAME" ]; then
+    echo "$dir/deps/$LIB_NAME"
+  else
+    echo "Error: $LIB_NAME not found in $dir or $dir/deps" >&2
+    return 1
+  fi
+}
+
 rm -rf "$DEVICE_TARGET_DIR" "$SIM_ARM_TARGET_DIR" "$SIM_X86_TARGET_DIR"
 
 echo "── Building for aarch64-apple-ios (device) ──────────────────────"
@@ -97,7 +109,7 @@ if [ "$(uname -s)" = "Linux" ]; then
   echo "── Assembling Linux-built device XCFramework ───────────────────"
   rm -rf "$XCFRAMEWORK"
   mkdir -p "$XCFRAMEWORK/ios-arm64/Headers"
-  cp "$DEVICE_TARGET_DIR/aarch64-apple-ios/release/deps/$LIB_NAME" \
+  cp "$(find_staticlib "$DEVICE_TARGET_DIR/aarch64-apple-ios/release")" \
     "$XCFRAMEWORK/ios-arm64/$LIB_NAME"
   cp "$HEADER_STAGE/aa_engine.h" "$XCFRAMEWORK/ios-arm64/Headers/aa_engine.h"
   cp "$HEADER_STAGE/module.modulemap" "$XCFRAMEWORK/ios-arm64/Headers/module.modulemap"
@@ -117,15 +129,15 @@ echo "── Lipo-ing simulator slices ─────────────�
 LIPO_SIM_DIR="$BUILD_ROOT/lipo-ios-sim/release"
 mkdir -p "$LIPO_SIM_DIR"
 lipo -create \
-  "$SIM_ARM_TARGET_DIR/aarch64-apple-ios-sim/release/deps/$LIB_NAME" \
-  "$SIM_X86_TARGET_DIR/x86_64-apple-ios/release/deps/$LIB_NAME" \
+  "$(find_staticlib "$SIM_ARM_TARGET_DIR/aarch64-apple-ios-sim/release")" \
+  "$(find_staticlib "$SIM_X86_TARGET_DIR/x86_64-apple-ios/release")" \
   -output "$LIPO_SIM_DIR/$LIB_NAME"
 
 echo "── Assembling XCFramework ───────────────────────────────────────"
 mkdir -p "$OUT_DIR"
 rm -rf "$XCFRAMEWORK"
 xcodebuild -create-xcframework \
-  -library "$DEVICE_TARGET_DIR/aarch64-apple-ios/release/deps/$LIB_NAME" \
+  -library "$(find_staticlib "$DEVICE_TARGET_DIR/aarch64-apple-ios/release")" \
   -headers "$HEADER_STAGE" \
   -library "$LIPO_SIM_DIR/$LIB_NAME" \
   -headers "$HEADER_STAGE" \
